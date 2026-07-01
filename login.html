@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Acceso — Suministros Industriales SI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0f0d0b; --muted:#6b6358;
+    --c-yellow:#f7c131; --c-orange:#f59d1e; --c-red:#e23c2b; --c-magenta:#c02a7a; --c-purple:#5c2a82;
+    --grad: linear-gradient(92deg, var(--c-yellow) 0%, var(--c-orange) 22%, var(--c-red) 48%, var(--c-magenta) 74%, var(--c-purple) 100%);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  body{
+    font-family:'Inter', system-ui, sans-serif;
+    background:var(--ink);
+    display:flex; align-items:center; justify-content:center;
+    min-height:100vh;
+    position:relative;
+    overflow:hidden;
+  }
+  body::before{
+    content:""; position:absolute; inset:0;
+    background:var(--grad); opacity:0.18;
+  }
+  .login-card{
+    position:relative; z-index:2;
+    background:#fff;
+    border-radius:14px;
+    padding:40px 36px;
+    width:100%; max-width:380px;
+    margin:20px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  }
+  .login-logo{ display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+  .login-logo img{ width:46px; height:46px; border-radius:8px; object-fit:contain; background:#fff; box-shadow:inset 0 0 0 1px rgba(0,0,0,0.08); }
+  .login-logo .t{ font-family:'Saira Condensed', sans-serif; font-weight:800; font-size:17px; letter-spacing:0.02em; text-transform:uppercase; color:var(--ink); line-height:1.1; }
+  .login-logo .s{ font-family:'Inter'; font-size:11px; color:var(--muted); letter-spacing:0.04em; }
+  h1{
+    font-family:'Saira Condensed', sans-serif; font-weight:800; text-transform:uppercase;
+    font-size:22px; color:var(--ink); margin:0 0 6px;
+  }
+  .sub{ font-size:13px; color:var(--muted); margin-bottom:26px; }
+  label{ font-size:12px; font-weight:600; color:var(--ink); display:block; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.03em; }
+  .field{ margin-bottom:16px; }
+  input{
+    width:100%; padding:12px 14px; border-radius:8px;
+    border:1.5px solid #e5e1d8; font-size:15px; font-family:inherit;
+    transition: border-color 0.15s;
+  }
+  input:focus{ outline:none; border-color:var(--c-orange); }
+  .btn-login{
+    width:100%; padding:13px; border-radius:8px; border:none;
+    background:var(--c-orange); color:var(--ink);
+    font-family:'Saira Condensed', sans-serif; font-weight:700; text-transform:uppercase;
+    letter-spacing:0.06em; font-size:15px; cursor:pointer; margin-top:6px;
+    transition: background 0.15s, transform 0.15s;
+  }
+  .btn-login:hover{ background:#ffae33; transform:translateY(-1px); }
+  .btn-login:disabled{ opacity:0.6; cursor:default; transform:none; }
+  .error-msg{
+    background:#fdecec; color:#b91c1c; font-size:13px; padding:10px 12px;
+    border-radius:8px; margin-bottom:16px; display:none;
+  }
+  .back-link{
+    display:block; text-align:center; margin-top:20px; font-size:13px;
+    color:var(--muted); text-decoration:none;
+  }
+  .back-link:hover{ color:var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-logo">
+    <img src="logo_SI.jpg" alt="SI">
+    <div>
+      <div class="t">Suministros Industriales</div>
+      <div class="s">Centro de Servicio</div>
+    </div>
+  </div>
+
+  <h1>Acceso al sistema</h1>
+  <div class="sub">Ingresa tus credenciales para continuar.</div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <form id="loginForm">
+    <div class="field">
+      <label>Usuario</label>
+      <input type="text" id="usuario" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label>Contraseña</label>
+      <input type="password" id="contrasena" autocomplete="current-password" required>
+    </div>
+    <button type="submit" class="btn-login" id="btnSubmit">Entrar</button>
+  </form>
+
+  <a href="index.html" class="back-link">← Volver al sitio</a>
+</div>
+
+<script>
+const TABLA_USUARIOS = "tblBLOdgolBZWZjyb";
+const F = {
+  nombre: "fldmBBHrmw8YfCztf",
+  usuario: "fldLAG6E7mevdk2Ni",
+  contrasena: "fldRGNK2bHWGdHpLz",
+  rol: "fldrYhMpiJDQnfyTQ",
+  ordenAsociada: "fldhgjiMjy55eyTnk",
+  activo: "fldhRUxF61z3p5voa"
+};
+
+document.getElementById("loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const usuario = document.getElementById("usuario").value.trim();
+  const contrasena = document.getElementById("contrasena").value;
+  const errorEl = document.getElementById("errorMsg");
+  const btn = document.getElementById("btnSubmit");
+  errorEl.style.display = "none";
+
+  if(!usuario || !contrasena) return;
+
+  btn.disabled = true;
+  btn.textContent = "Verificando...";
+
+  try{
+    const formula = encodeURIComponent(`{${F.usuario}}="${usuario}"`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const rec = (data.records || [])[0];
+
+    if(!rec || !rec.fields[F.activo] || rec.fields[F.contrasena] !== contrasena){
+      errorEl.textContent = "Usuario o contraseña incorrectos.";
+      errorEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Entrar";
+      return;
+    }
+
+    const rol = rec.fields[F.rol];
+    const nombre = rec.fields[F.nombre] || usuario;
+    const ordenAsociada = rec.fields[F.ordenAsociada] || "";
+
+    const sesion = { usuario, nombre, rol, ordenAsociada, ts: Date.now() };
+    localStorage.setItem("si_session", JSON.stringify(sesion));
+
+    if(rol === "Admin" || rol === "Tecnico"){
+      window.location.href = "dashboard.html";
+    } else if(rol === "Cliente"){
+      window.location.href = "cliente.html";
+    } else {
+      errorEl.textContent = "Rol no reconocido. Contacta al administrador.";
+      errorEl.style.display = "block";
+      btn.disabled = false;
+      btn.textContent = "Entrar";
+    }
+  } catch(err){
+    errorEl.textContent = "Error de conexión. Intenta de nuevo.";
+    errorEl.style.display = "block";
+    btn.disabled = false;
+    btn.textContent = "Entrar";
+  }
+});
+</script>
+
+</body>
+</html>
