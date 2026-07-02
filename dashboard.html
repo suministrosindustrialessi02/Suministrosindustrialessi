@@ -1365,7 +1365,7 @@ async function fetchAll(){
   let all = [], offset = null;
   const base = `/.netlify/functions/airtable?table=${TABLE_ID}`;
   do{
-    let url = `${base}?returnFieldsByFieldId=true&pageSize=100`;
+    let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
     const res = await fetch(url, { headers:{ } });
     if(!res.ok){
