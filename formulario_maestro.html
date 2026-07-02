@@ -1766,10 +1766,11 @@ async function guardarBorrador(){
     comentariosGenerales: document.getElementById("comentariosGenerales").value,
     checklistRespuestas: Object.fromEntries(
       Object.entries(respuestasChecklist).map(([k,v]) => [k, {
-        resultado:   v.resultado   || "",
-        descripcion: v.descripcion || "",
-        color81:     v.color81     || "",
-        extra:       v.extra       || {},
+        resultado:        v.resultado        || "",
+        descripcion:       v.descripcion       || "",
+        accionCorrectiva: v.accionCorrectiva || "",
+        color81:          v.color81          || "",
+        extra:            v.extra            || {},
         fotos: (v.fotos || []).map(f => ({
           base64: f.base64, contentType: f.contentType,
           dataUrl: f.dataUrl, filename: f.filename
@@ -1869,9 +1870,10 @@ function restaurarBorradorCompleto(datos){
   if(datos.checklistRespuestas){
     Object.entries(datos.checklistRespuestas).forEach(([k, v]) => {
       respuestasChecklist[k] = {
-        resultado:"", descripcion:"", color81:"", extra:{}, fotos:[], ...v
+        resultado:"", descripcion:"", accionCorrectiva:"", color81:"", extra:{}, fotos:[], ...v
       };
     });
+    repintarChecklistDesdeDatos();
   }
 
   // Recepción
@@ -1893,7 +1895,7 @@ function restaurarBorradorCompleto(datos){
   setVal("metodo", datos.metodo);
   setVal("comentariosPintura", datos.comentariosPintura);
   if(datos.escalaSeleccionada) seleccionarEscala(datos.escalaSeleccionada);
-  actualizarResumenMediciones();
+  actualizarResumenMed();
 
   // Fotos adherencia
   if(datos.fotosAdherencia && datos.fotosAdherencia.length){
@@ -2069,6 +2071,35 @@ function construirChecklist(){
     `;
   });
   container.innerHTML = html;
+}
+
+function repintarChecklistDesdeDatos(){
+  Object.keys(respuestasChecklist).forEach(k => {
+    const index = parseInt(k, 10);
+    const v = respuestasChecklist[index];
+    if(!v || !v.resultado) return;
+    const guardado = { ...v, fotos: (v.fotos || []).slice(), extra: { ...(v.extra || {}) } };
+
+    seleccionarEstadoCK(index, guardado.resultado);
+    respuestasChecklist[index] = { ...respuestasChecklist[index], ...guardado, resultado: guardado.resultado };
+
+    const itemId = "ck_" + index;
+    const descTa = document.getElementById(itemId + "_desc");
+    if(descTa) descTa.value = guardado.descripcion || "";
+    const accionTa = document.getElementById(itemId + "_accion");
+    if(accionTa) accionTa.value = guardado.accionCorrectiva || "";
+    const colorInput = document.getElementById("color_8_1");
+    if(colorInput && guardado.color81) colorInput.value = guardado.color81;
+    if(guardado.extra){
+      Object.entries(guardado.extra).forEach(([label, val]) => {
+        const key = label.normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase();
+        const el = document.getElementById(itemId + "_extra_" + key);
+        if(el) el.value = val;
+      });
+    }
+    if(guardado.fotos && guardado.fotos.length) renderizarGridCK(index);
+  });
+  actualizarProgresoCK();
 }
 
 function seleccionarEstadoCK(index, estado){
@@ -2363,20 +2394,6 @@ function seleccionarEscala(valor){
     box.className = "resultado-box no-cumple";
   }
   guardarBorrador();
-}
-
-function actualizarResumenMediciones(){
-  const valores = ["m1","m2","m3","m4","m5","m6"]
-    .map(id => parseFloat(document.getElementById(id).value))
-    .filter(v => !isNaN(v));
-  if(valores.length === 0){
-    ["resumenPromedio","resumenMinimo","resumenMaximo"].forEach(id => document.getElementById(id).textContent = "0.0");
-    return;
-  }
-  const promedio = valores.reduce((a,b) => a+b, 0) / valores.length;
-  document.getElementById("resumenPromedio").textContent = promedio.toFixed(1);
-  document.getElementById("resumenMinimo").textContent = Math.min(...valores).toFixed(1);
-  document.getElementById("resumenMaximo").textContent = Math.max(...valores).toFixed(1);
 }
 
 function manejarFotosAdherencia(inputEl){
@@ -3558,8 +3575,24 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Iniciar IndexedDB
   try{ await initDB(); } catch(e){ console.warn("IndexedDB no disponible:", e); }
 
-  // Mostrar todos los borradores activos (puede haber varios motores en progreso)
-  await mostrarSelectorBorradores();
+  // Si se abrió desde el dashboard con ?serie=XXX, continuar ese borrador directo
+  const serieDesdeUrl = new URLSearchParams(window.location.search).get("serie");
+  if(serieDesdeUrl){
+    document.getElementById("numSerie").value = serieDesdeUrl;
+    _borradorYaRestaurado = true;
+    const datos = await buscarEnDB(serieDesdeUrl);
+    if(datos){
+      _borradorPendiente = { datos };
+      restaurarBorradorCompleto(datos);
+    } else {
+      // No hay borrador local en este dispositivo — dejar la serie escrita y verificar en Airtable
+      _borradorYaRestaurado = false;
+      verificarOrdenLive();
+    }
+  } else {
+    // Mostrar todos los borradores activos (puede haber varios motores en progreso)
+    await mostrarSelectorBorradores();
+  }
 
   // Autosave cada 15 segundos
   _autoSaveInterval = setInterval(guardarBorrador, 15000);

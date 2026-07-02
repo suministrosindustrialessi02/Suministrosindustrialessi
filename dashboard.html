@@ -1629,6 +1629,9 @@ function renderTabla(tbodyId, ordenes){
           <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
         ` : `
           <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
+          ${!["terminado","entregado"].includes(normEstado(o.estado))
+            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_maestro.html?serie=${encodeURIComponent(o.serie)}">&#9997; Continuar checklist</a>`
+            : ''}
           <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(o.serie)}')">Reportes</button>
           ${o.checklist && !o.correccionesCompletadas
             ? `<button class="btn-corr" onclick="abrirCorrecciones('${o.id}','${esc(o.serie)}')">&#9998; Correcciones</button>`
