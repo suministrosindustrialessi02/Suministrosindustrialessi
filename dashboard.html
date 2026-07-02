@@ -202,7 +202,7 @@ main{ max-width: 1380px; margin: 0 auto; padding: 22px 24px 56px; }
 /* ===== KPI GRID ===== */
 .kpi-grid{
   display: grid;
-  grid-template-columns: repeat(5,1fr);
+  grid-template-columns: repeat(6,1fr);
   gap: 14px;
   margin-bottom: 20px;
 }
@@ -1032,6 +1032,7 @@ footer strong{ color: var(--azul); }
       <span class="sync-dot" id="syncDot"></span>
       Última actualización: <strong id="syncTime">—</strong>
     </div>
+    <a class="btn-header" href="formulario_maestro.html" style="background:#1d5496;color:#fff;border-color:#1d5496;text-decoration:none;display:inline-flex;align-items:center;">+ Nueva orden Sulzer</a>
     <button class="btn-header btn-refresh" id="btnRefresh" onclick="cargarDatos()">↻ Actualizar datos</button>
     <span id="badgeNoOk" style="display:none; background:#dc2626; color:#fff; border-radius:10px; padding:2px 7px; font-size:0.72rem; font-weight:700; margin-left:-6px; margin-right:4px;">0</span>
     <button class="btn-header btn-refresh" id="btnVerNoOk" onclick="abrirPanelNoOk()">⚠ Ver NO OK activos</button>
@@ -1092,6 +1093,11 @@ footer strong{ color: var(--azul); }
         <div class="kpi-head"><div class="kpi-ico"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div><div class="kpi-tag">Rendimiento</div></div><div class="kpi-number" id="kpiFin">—%</div>
         <div class="kpi-label">Tasa de finalización</div>
         <div class="kpi-sub" id="kpiFinSub"></div>
+      </div>
+      <div class="kpi-card" style="--kpi-color:#e65100" data-tooltip="Total de ordenes registradas (activas + terminadas), sumando Sulzer y General.">
+        <div class="kpi-head"><div class="kpi-ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></div><div class="kpi-tag">Por servicio</div></div><div class="kpi-number" id="kpiPorServicio">—</div>
+        <div class="kpi-label">Total de servicios</div>
+        <div class="kpi-sub" id="kpiPorServicioSub"></div>
       </div>
     </div>
 
@@ -1209,6 +1215,11 @@ footer strong{ color: var(--azul); }
         <option value="terminado">Terminado</option>
         <option value="entregado">Entregado</option>
       </select>
+      <select id="filtroServicio" onchange="aplicarFiltros()">
+        <option value="">Todos los servicios</option>
+        <option value="Sulzer">Sulzer</option>
+        <option value="General">General</option>
+      </select>
       <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
       <span class="filtro-resultado" id="filtroResultado"></span>
     </div>
@@ -1224,12 +1235,11 @@ footer strong{ color: var(--azul); }
         <table>
           <thead>
             <tr>
-              <th>N° Serie</th>
+              <th>Folio / Serie</th>
+              <th>Servicio</th>
+              <th>Equipo</th>
               <th>Cliente</th>
               <th>Estado</th>
-              <th style="text-align:center">Checklist</th>
-              <th style="text-align:center">Pintura</th>
-              <th style="text-align:center">Evidencia</th>
               <th>Progreso docs.</th>
               <th style="text-align:center">Días en C.S</th>
               <th style="text-align:center">Detalle</th>
@@ -1250,12 +1260,11 @@ footer strong{ color: var(--azul); }
         <table>
           <thead>
             <tr>
-              <th>N° Serie</th>
+              <th>Folio / Serie</th>
+              <th>Servicio</th>
+              <th>Equipo</th>
               <th>Cliente</th>
               <th>Estado</th>
-              <th style="text-align:center">Checklist</th>
-              <th style="text-align:center">Pintura</th>
-              <th style="text-align:center">Evidencia</th>
               <th>Progreso docs.</th>
               <th style="text-align:center">Días en C.S</th>
               <th style="text-align:center">Detalle</th>
@@ -1334,6 +1343,10 @@ const F = {
   evidencia:               "fldvJAyOkHXUKfiov",
   dias:                    "fld8R3LlsCzPF6J6Y",
   correccionesCompletadas: "fldnQ6DxpfYANoE8p",
+  tipoServicio:            "fld0rhBYkk5nAnXcT",
+  tipoEquipo:              "fldBhqLRYDHl2L2tJ",
+  folio:                   "fldpMUMLpNCGGQcIo",
+  reporteGeneralCompletado:"fldJgJ2UZ7ufze8C5",
 };
 
 /* ============================================================
@@ -1352,9 +1365,9 @@ async function fetchAll(){
   let all = [], offset = null;
   const base = `/.netlify/functions/airtable?table=${TABLE_ID}`;
   do{
-    let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+    let url = `${base}?returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers:{ } });
     if(!res.ok){
       const d = await res.json().catch(() => ({}));
       throw new Error((d.error && d.error.message) || `Error HTTP ${res.status}`);
@@ -1369,7 +1382,7 @@ async function fetchAll(){
 async function fetchBorradores(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers:{ }});
     if(!res.ok) return {};
     const d = await res.json();
     const lookup = {};
@@ -1389,15 +1402,23 @@ function parsear(rec){
   const f = rec.fields;
   const estadoRaw = f[F.estado];
   const estado = estadoRaw && typeof estadoRaw === "object" ? estadoRaw.name : (estadoRaw || "");
+  const tipoServicioRaw = f[F.tipoServicio];
+  const tipoServicio = (tipoServicioRaw && typeof tipoServicioRaw === "object" ? tipoServicioRaw.name : tipoServicioRaw) || "Sulzer";
+  const tipoEquipoRaw = f[F.tipoEquipo];
+  const tipoEquipo = (tipoEquipoRaw && typeof tipoEquipoRaw === "object" ? tipoEquipoRaw.name : tipoEquipoRaw) || "";
   return {
     id:        rec.id,
     serie:     f[F.serie]     || "",
+    folio:     f[F.folio]     || "",
     cliente:   f[F.cliente]   || "",
     estado,
+    tipoServicio,
+    tipoEquipo,
     checklist:               !!f[F.checklist],
     pintura:                 !!f[F.pintura],
     evidencia:               !!f[F.evidencia],
     correccionesCompletadas: !!f[F.correccionesCompletadas],
+    reporteGeneralCompletado: !!f[F.reporteGeneralCompletado],
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -1452,21 +1473,24 @@ async function cargarDatos(){
    FILTROS
    ============================================================ */
 function aplicarFiltros(){
-  const fSerie   = (document.getElementById("filtroSerie")?.value   || "").toLowerCase().trim();
-  const fCliente = (document.getElementById("filtroCliente")?.value || "").toLowerCase().trim();
-  const fEstado  = (document.getElementById("filtroEstado")?.value  || "");
+  const fSerie    = (document.getElementById("filtroSerie")?.value    || "").toLowerCase().trim();
+  const fCliente  = (document.getElementById("filtroCliente")?.value  || "").toLowerCase().trim();
+  const fEstado   = (document.getElementById("filtroEstado")?.value   || "");
+  const fServicio = (document.getElementById("filtroServicio")?.value || "");
 
   filtradas = allOrdenes.filter(o => {
-    if(fSerie   && !o.serie.toLowerCase().includes(fSerie))     return false;
-    if(fCliente && !o.cliente.toLowerCase().includes(fCliente)) return false;
-    if(fEstado  && normEstado(o.estado) !== fEstado)            return false;
+    const idTxt = (o.serie || o.folio || "").toLowerCase();
+    if(fSerie    && !idTxt.includes(fSerie))                    return false;
+    if(fCliente  && !o.cliente.toLowerCase().includes(fCliente)) return false;
+    if(fEstado   && normEstado(o.estado) !== fEstado)            return false;
+    if(fServicio && o.tipoServicio !== fServicio)                return false;
     return true;
   });
 
   const totalFiltradas = filtradas.length;
   const totales        = allOrdenes.length;
   document.getElementById("filtroResultado").textContent =
-    (fSerie || fCliente || fEstado)
+    (fSerie || fCliente || fEstado || fServicio)
       ? `${totalFiltradas} de ${totales} resultados`
       : "";
 
@@ -1474,9 +1498,10 @@ function aplicarFiltros(){
 }
 
 function limpiarFiltros(){
-  document.getElementById("filtroSerie").value   = "";
-  document.getElementById("filtroCliente").value = "";
-  document.getElementById("filtroEstado").value  = "";
+  document.getElementById("filtroSerie").value    = "";
+  document.getElementById("filtroCliente").value  = "";
+  document.getElementById("filtroEstado").value   = "";
+  document.getElementById("filtroServicio").value = "";
   aplicarFiltros();
 }
 
@@ -1510,6 +1535,11 @@ function renderDashboard(ordenes){
 
   document.getElementById("kpiFin").textContent = pct + "%";
   document.getElementById("kpiFinSub").textContent = `${finalizadas} de ${total} finalizadas`;
+
+  const nSulzer  = ordenes.filter(o => o.tipoServicio !== "General").length;
+  const nGeneral = ordenes.filter(o => o.tipoServicio === "General").length;
+  document.getElementById("kpiPorServicio").textContent = nSulzer + nGeneral;
+  document.getElementById("kpiPorServicioSub").textContent = "Sulzer + General";
 
   // Progreso global
   document.getElementById("gpFill").style.width  = pct + "%";
@@ -1561,11 +1591,14 @@ function renderTabla(tbodyId, ordenes){
     return;
   }
   tbody.innerHTML = ordenes.map(o => {
-    const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
-    // Si hay checkboxes marcados, usa eso; si no, usa el % del borrador en progreso
-    const p = prog > 0
-      ? Math.round((prog/3)*100)
-      : (borradorLookup[o.serie?.toUpperCase()] ?? 0);
+    const esGeneral = o.tipoServicio === "General";
+    let p;
+    if(esGeneral){
+      p = o.reporteGeneralCompletado ? 100 : (normEstado(o.estado) === "proceso" ? 40 : 0);
+    } else {
+      const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
+      p = prog > 0 ? Math.round((prog/3)*100) : (borradorLookup[o.serie?.toUpperCase()] ?? 0);
+    }
     const fillCls = p>=100 ? "full" : p>=60 ? "p67" : p>=20 ? "p33" : "";
     const lblCls  = p>=100 ? "pct-full" : p>=20 ? "pct-mid" : "pct-low";
     let diasTxt = "—", diasCls = "";
@@ -1573,16 +1606,17 @@ function renderTabla(tbodyId, ordenes){
       diasTxt = o.dias;
       diasCls = o.dias > 30 ? "dias-alto" : o.dias > 4 ? "dias-medio" : "dias-bajo";
     }
-    const chk = (v, label) => v
-      ? `<span class="check-si" title="${label} completado">&#10003;</span>`
-      : `<span class="check-no" title="${label} pendiente">&#8212;</span>`;
+    const identificador = o.serie || o.folio || "—";
+    const servicioBadge = esGeneral
+      ? `<span class="chip" style="background:#fff3e0;color:#e65100">General</span>`
+      : `<span class="chip" style="background:#e3f2fd;color:#1565c0">Sulzer</span>`;
+    const equipoTxt = esGeneral ? (o.tipoEquipo || "—") : "Motor";
     return `<tr>
-      <td class="td-serie">${esc(o.serie)||"—"}</td>
+      <td class="td-serie">${esc(identificador)}</td>
+      <td>${servicioBadge}</td>
+      <td>${esc(equipoTxt)}</td>
       <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
       <td>${chipEstado(o.estado)}</td>
-      <td class="td-num">${chk(o.checklist,"Checklist")}</td>
-      <td class="td-num">${chk(o.pintura,"Pintura")}</td>
-      <td class="td-num">${chk(o.evidencia,"Evidencia")}</td>
       <td>
         <div class="mini-prog">
           <div class="mini-track"><div class="mini-fill ${fillCls}" style="width:${p}%"></div></div>
@@ -1591,20 +1625,28 @@ function renderTabla(tbodyId, ordenes){
       </td>
       <td class="td-num td-dias ${diasCls}">${diasTxt}</td>
       <td class="td-num">
-        <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
-        <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(o.serie)}')">Reportes</button>
-        ${o.checklist && !o.correccionesCompletadas
-          ? `<button class="btn-corr" onclick="abrirCorrecciones('${o.id}','${esc(o.serie)}')">&#9998; Correcciones</button>`
-          : ''}
-        ${o.checklist && o.correccionesCompletadas && !o.pintura
-          ? `<button class="btn-corr" style="background:#1d5496" onclick="abrirPintura('${o.id}','${esc(o.serie)}')">&#128396; Pintura</button>`
-          : ''}
-        ${o.pintura
-          ? `<button class="btn-corr btn-corr-done" disabled title="Proceso completado">&#10003; Completo</button>`
-          : ''}
+        ${esGeneral ? `
+          <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
+        ` : `
+          <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
+          <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(o.serie)}')">Reportes</button>
+          ${o.checklist && !o.correccionesCompletadas
+            ? `<button class="btn-corr" onclick="abrirCorrecciones('${o.id}','${esc(o.serie)}')">&#9998; Correcciones</button>`
+            : ''}
+          ${o.checklist && o.correccionesCompletadas && !o.pintura
+            ? `<button class="btn-corr" style="background:#1d5496" onclick="abrirPintura('${o.id}','${esc(o.serie)}')">&#128396; Pintura</button>`
+            : ''}
+          ${o.pintura
+            ? `<button class="btn-corr btn-corr-done" disabled title="Proceso completado">&#10003; Completo</button>`
+            : ''}
+        `}
       </td>
     </tr>`;
   }).join("");
+}
+
+function verDetalleGeneral(id, identificador){
+  alert(`Orden ${identificador}\n\nEl detalle completo del reporte general (bitácora, fotos, materiales) se abrirá aquí en una próxima actualización. Por ahora puedes revisarlo directo en Airtable, tabla REPORTES_GENERAL.`);
 }
 
 function chipEstado(estado){
@@ -1826,7 +1868,7 @@ async function verChecklist(ordenId, serie){
       `OR(FIND("${ordenId}", ARRAYJOIN({${F_CK_ORDEN_LINK}})), FIND("${serie} |", {fldHCz04kdMaGhjNR}))`
     );
     const url = `/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers:{ } });
     if(!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
 
@@ -2314,7 +2356,8 @@ async function ejecutarMonitorNoOk(){
     const BF_ULTIMA_ACT = "fldXxLdLrsLruVFnq";
     const rBorr = await fetch(
       `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true` +
-      `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`
+      `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`,
+      { }
     );
     if(rBorr.ok){
       const dBorr = await rBorr.json();

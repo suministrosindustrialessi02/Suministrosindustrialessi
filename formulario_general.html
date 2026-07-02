@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Formulario General — Suministros Industriales SI</title>
+<style>
+  :root{
+    --azul: #1a3a5c;
+    --azul-claro: #2d5a8c;
+    --blanco: #ffffff;
+    --gris: #e0e0e0;
+    --gris-oscuro: #9e9e9e;
+    --verde: #2e7d32;
+    --rojo: #c62828;
+    --fondo: #f4f6f8;
+  }
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  body{
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--fondo);
+    color: #222;
+    padding-bottom: 60px;
+  }
+
+  header{
+    background: var(--azul);
+    color: var(--blanco);
+    padding: 14px 16px 10px;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  }
+  header h1{ font-size: 1.1rem; letter-spacing: 1px; font-weight: 700; }
+  header .step-label{ font-size: 0.8rem; margin-top: 4px; opacity: 0.9; }
+  .step-dots{ display: flex; justify-content: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .step-dot{ width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.35); transition: background 0.2s; }
+  .step-dot.active{ background: var(--blanco); }
+  .step-dot.done{ background: rgba(255,255,255,0.7); }
+
+  main{ max-width: 640px; margin: 0 auto; padding: 16px; }
+  .screen{ }
+  .screen.hidden{ display: none; }
+
+  .card{
+    background: var(--blanco);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  }
+  .card h2{
+    color: var(--azul);
+    font-size: 1rem;
+    margin-bottom: 12px;
+    border-bottom: 2px solid var(--azul);
+    padding-bottom: 6px;
+  }
+  .card-desc{ font-size: 0.85rem; color: #666; margin-bottom: 14px; }
+
+  .field{ margin-bottom: 14px; }
+  .field label{ display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.9rem; color: var(--azul); }
+  .field input[type="text"],
+  .field input[type="number"],
+  .field select,
+  .field textarea{
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 1rem;
+    background: var(--blanco);
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .field textarea{ min-height: 70px; resize: vertical; }
+  .field-row{ display: flex; gap: 12px; }
+  .field-row .field{ flex: 1; }
+  .required-mark{ color: var(--rojo); }
+  .orden-status-msg{ font-size: 0.85rem; font-weight: 600; padding: 6px 0; color: var(--azul); }
+  .orden-status-msg.error{ color: var(--rojo); }
+  .orden-status-msg.success{ color: var(--verde); }
+
+  .toggle-row{
+    display: flex; align-items: center; gap: 10px;
+    background: var(--fondo); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
+  }
+  .toggle-row .toggle-text{ font-weight: 600; font-size: 0.9rem; color: var(--azul); flex: 1; }
+  .switch{ position: relative; width: 46px; height: 26px; flex: 0 0 46px; }
+  .switch input{ opacity: 0; width: 0; height: 0; }
+  .slider{ position: absolute; cursor: pointer; inset: 0; background: var(--gris-oscuro); border-radius: 26px; transition: 0.2s; }
+  .slider::before{ content:""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px; background: var(--blanco); border-radius: 50%; transition: 0.2s; }
+  .switch input:checked + .slider{ background: var(--verde); }
+  .switch input:checked + .slider::before{ transform: translateX(20px); }
+
+  .nav-buttons{ display: flex; gap: 10px; margin-top: 6px; margin-bottom: 4px; }
+  .btn-nav{ flex: 1; padding: 14px; border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+  .btn-prev{ background: var(--gris); color: #444; }
+  .btn-next{ background: var(--azul); color: var(--blanco); }
+  .btn-submit-final{ width: 100%; background: var(--verde); color: var(--blanco); border: none; padding: 16px; border-radius: 8px; font-size: 1.05rem; font-weight: 700; cursor: pointer; margin-top: 6px; }
+
+  .btn-line{ display:block; width:100%; text-align:center; padding:12px; border:2px dashed var(--azul-claro); border-radius:8px; background:var(--fondo); color:var(--azul); font-weight:700; font-size:0.9rem; cursor:pointer; margin-top:8px; }
+  input[type="file"].hidden-input{ display:none; }
+
+  .photo-counter{ margin-top: 8px; font-size: 0.85rem; font-weight: 600; color: var(--azul); }
+  .photo-grid{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
+  .photo-thumb{ position: relative; border: 1px solid var(--gris); border-radius: 8px; overflow: hidden; aspect-ratio: 1/1; background: var(--gris); }
+  .photo-thumb img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo-thumb .remove-btn{
+    position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; border: none;
+    background: rgba(198,40,40,0.9); color: var(--blanco); font-weight: 700; font-size: 1rem; line-height: 1;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+  }
+
+  .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .chip{ border:1px solid var(--gris); border-radius:20px; padding:8px 14px; font-size:0.85rem; cursor:pointer; background:var(--blanco); user-select:none; }
+  .chip.on{ background:var(--azul); color:var(--blanco); border-color:var(--azul); }
+
+  .bullet-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .bullet-row input{ flex:1; padding:9px 11px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem; }
+  .btn-x{ width:32px; height:32px; border:none; border-radius:6px; background:#fdecea; color:var(--rojo); font-weight:700; cursor:pointer; flex-shrink:0; }
+  .btn-add-mini{ background:none; border:1.5px dashed var(--azul-claro); color:var(--azul); border-radius:6px; padding:8px 12px; font-size:0.85rem; font-weight:700; cursor:pointer; width:100%; margin-top:4px; }
+
+  .paso-card{ border:1px solid var(--gris); border-radius:8px; padding:12px; margin-bottom:12px; }
+  .paso-card .paso-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .paso-card .paso-head .num{ font-weight:700; color:var(--azul); font-size:0.9rem; }
+
+  .antes-despues{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .antes-despues .col h4{ text-align:center; font-size:0.8rem; text-transform:uppercase; color:var(--azul); margin-bottom:6px; }
+
+  .preview-doc{ background:var(--blanco); border:1px solid #ccc; }
+  .preview-doc .ph{ background:#d9d9d9; color:#666; font-weight:700; text-align:center; padding:6px 10px; font-size:0.82rem; }
+  .preview-doc table.info{ width:100%; border-collapse:collapse; font-size:0.78rem; }
+  .preview-doc table.info td{ border:1px solid #999; padding:5px 8px; }
+  .preview-doc table.info td.k{ background:#f0f0f0; font-weight:700; width:110px; }
+  .preview-doc .sec{ padding:10px 12px; font-size:0.85rem; line-height:1.5; }
+  .preview-doc .sec ul{ margin-left:18px; }
+  .preview-doc .foto-row{ display:flex; gap:8px; flex-wrap:wrap; padding:0 12px 10px; }
+  .preview-doc .foto-row img{ width:110px; height:110px; object-fit:cover; border:1px solid #ccc; border-radius:4px; }
+  .preview-doc .paso-preview{ padding:8px 12px; border-top:1px dashed #ccc; }
+  .preview-doc .paso-preview b{ color:var(--azul); }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SUMINISTROS INDUSTRIALES SI</h1>
+  <div class="step-label" id="stepLabel">Paso 1 de 7 — Datos generales</div>
+  <div class="step-dots">
+    <div class="step-dot active" id="dot0"></div>
+    <div class="step-dot" id="dot1"></div>
+    <div class="step-dot" id="dot2"></div>
+    <div class="step-dot" id="dot3"></div>
+    <div class="step-dot" id="dot4"></div>
+    <div class="step-dot" id="dot5"></div>
+    <div class="step-dot" id="dot6"></div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============ PANTALLA 0: DATOS GENERALES ============ -->
+  <div class="screen" id="screen0">
+    <div class="card">
+      <h2>Datos generales del equipo</h2>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Tipo de equipo <span class="required-mark">*</span></label>
+          <select id="tipoEquipo" onchange="onTipoEquipoChange()">
+            <option value="">-- Seleccione --</option>
+            <option value="Motor">Motor</option>
+            <option value="Reductor">Reductor</option>
+            <option value="Motobomba">Motobomba</option>
+            <option value="Motoreductor">Motoreductor</option>
+            <option value="Cilindro">Cilindro</option>
+            <option value="Valvula">Válvula</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="field" id="otroEquipoWrap" style="max-width:130px;">
+          <label>Folio</label>
+          <input type="text" id="folio" placeholder="MOT-001">
+          <div id="folioStatus" class="orden-status-msg hidden"></div>
+        </div>
+      </div>
+
+      <div class="field hidden" id="descripcionOtroWrap">
+        <label>Descripción del equipo (Otro)</label>
+        <input type="text" id="descripcionOtro" placeholder="Ej. mesa hidráulica elevadora">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Cliente <span class="required-mark">*</span></label>
+          <input type="text" id="cliente" placeholder="Ej. ABB">
+        </div>
+        <div class="field">
+          <label>Usuario / contacto</label>
+          <input type="text" id="usuario" placeholder="Ing. Luis Bastida">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Nombre corto / apodo del equipo</label>
+        <input type="text" id="nombreCorto" placeholder="Ej. Motor de la línea 3, Reductor chico">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Marca del equipo</label>
+          <input type="text" id="marca" placeholder="Ej. ABB, Sew, Nord">
+        </div>
+        <div class="field">
+          <label>Color</label>
+          <input type="text" id="color" placeholder="Ej. azul RAL 5010">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Modelo / SPEC del equipo</label>
+        <input type="text" id="spec" placeholder="Ej. REDUCTOR TXT725AT / M3BP 200 MLA 4">
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>N° de serie / S/N</label>
+          <input type="text" id="numSerie" placeholder="F2404185885">
+        </div>
+        <div class="field">
+          <label>N° de parte</label>
+          <input type="text" id="numParte" placeholder="Ej. 247161">
+        </div>
+      </div>
+
+      <div id="electricoDatosWrap">
+        <div class="field-row">
+          <div class="field">
+            <label>Potencia (HP / kW)</label>
+            <input type="text" id="potencia" placeholder="Ej. 30 kW">
+          </div>
+          <div class="field">
+            <label>Frame</label>
+            <input type="text" id="frame" placeholder="Ej. 213T">
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Volts</label>
+            <input type="text" id="volts" placeholder="460">
+          </div>
+          <div class="field">
+            <label>Amperaje</label>
+            <input type="text" id="amperaje" placeholder="7.5">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-next" style="flex:1" onclick="avanzar(0)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ============ PANTALLA 1: DIAGNÓSTICO ============ -->
+  <div class="screen hidden" id="screen1">
+    <div class="card">
+      <h2>Descripción del problema</h2>
+      <div class="field">
+        <label>¿Qué reporta el cliente / usuario?</label>
+        <textarea id="descripcionProblema" placeholder="Se recibe equipo, reportan que..."></textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Fotografía de recibido</h2>
+      <button type="button" class="btn-line" onclick="document.getElementById('fotosRecibidoInput').click()">📷 Agregar fotos de recibido</button>
+      <input type="file" class="hidden-input" id="fotosRecibidoInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosRecibido, 'gridRecibido', 'recibido')">
+      <div class="photo-counter" id="counterRecibido">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridRecibido"></div>
+    </div>
+
+    <div class="card">
+      <h2>Observaciones</h2>
+      <div class="card-desc">Ej. "llegó roto", "empaque en buenas condiciones", "cables sueltos"...</div>
+      <div id="observacionesList"></div>
+      <button type="button" class="btn-add-mini" onclick="agregarObservacion()">+ Agregar observación</button>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-prev" onclick="mostrarPantalla(0)">← Anterior</button>
+      <button class="btn-nav btn-next" onclick="avanzar(1)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ============ PANTALLA 2: REQUERIMIENTO ============ -->
+  <div class="screen hidden" id="screen2">
+    <div class="card">
+      <h2>Servicios a realizar</h2>
+      <div class="card-desc">Selecciona los servicios que se van a cotizar / realizar.</div>
+      <div class="chip-row" id="chipsServicios"></div>
+      <div style="margin-top:12px;">
+        <div style="font-size:0.9rem; font-weight:600; color:var(--azul); margin-bottom:6px;">Otros servicios (no están en la lista)</div>
+        <div id="serviciosOtrosList"></div>
+        <button type="button" class="btn-add-mini" onclick="agregarServicioOtro()">+ Agregar otro servicio</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Materiales / refacciones requeridas</h2>
+      <div class="card-desc">Para armar la cotización. Ej. "Rodamiento NU 312 C3", "Grasa sintética Mobil SHC 100".</div>
+      <div id="materialesList"></div>
+      <button type="button" class="btn-add-mini" onclick="agregarMaterial()">+ Agregar material / refacción</button>
+      <button type="button" class="btn-line" style="margin-top:10px;" onclick="generarListaMateriales()">🖨 Generar lista de materiales (reporte aparte)</button>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-prev" onclick="mostrarPantalla(1)">← Anterior</button>
+      <button class="btn-nav btn-next" onclick="avanzar(2)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ============ PANTALLA 3: PRUEBAS ELÉCTRICAS INICIALES ============ -->
+  <div class="screen hidden" id="screen3">
+    <div class="card">
+      <div class="toggle-row">
+        <label class="toggle-text">¿Este equipo es eléctrico / trifásico?</label>
+        <label class="switch"><input type="checkbox" id="aplicaElectricoInicial" checked onchange="toggleElectrico('Inicial')"><span class="slider"></span></label>
+      </div>
+
+      <div id="bloqueElectricoInicial">
+        <h2>Pruebas eléctricas iniciales</h2>
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin-bottom:6px;">Corriente (A)</div>
+        <div class="field-row">
+          <input type="text" id="corrL1_ini" placeholder="L1">
+          <input type="text" id="corrL2_ini" placeholder="L2">
+          <input type="text" id="corrL3_ini" placeholder="L3">
+        </div>
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:12px 0 6px;">Voltaje (V)</div>
+        <div class="field-row">
+          <input type="text" id="voltL1_ini" placeholder="L1">
+          <input type="text" id="voltL2_ini" placeholder="L2">
+          <input type="text" id="voltL3_ini" placeholder="L3">
+        </div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado general</div>
+        <div class="chip-row">
+          <div class="chip" data-val="OK" onclick="seleccionarEstado(this,'ini')">Funcionando OK</div>
+          <div class="chip" data-val="Revision" onclick="seleccionarEstado(this,'ini')">Revisión</div>
+          <div class="chip" data-val="Fuera" onclick="seleccionarEstado(this,'ini')">Fuera de servicio</div>
+        </div>
+
+        <div class="field" style="margin-top:12px;">
+          <label>Notas</label>
+          <textarea id="notasElectricasIni" placeholder="Ej. Equipo presenta falla hidráulica..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-prev" onclick="mostrarPantalla(2)">← Anterior</button>
+      <button class="btn-nav btn-next" onclick="avanzar(3)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ============ PANTALLA 4: BITÁCORA DE SERVICIO ============ -->
+  <div class="screen hidden" id="screen4">
+    <div class="card">
+      <h2>Bitácora de servicio realizado</h2>
+      <div class="card-desc">Describe con detalle todo lo que se hizo. El reporte se genera automático con este texto.</div>
+      <div class="field">
+        <textarea id="bitacoraTexto" rows="8" placeholder="Ej. Se revisó el circuito eléctrico, se detectó falso contacto en terminal, se ajustó quedando OK. Se retiró bomba para pruebas de funcionamiento hidráulico..." oninput="bitacoraTexto = this.value"></textarea>
+      </div>
+      <button type="button" class="btn-line" onclick="document.getElementById('fotosBitacoraInput').click()">📷 Agregar fotos del servicio</button>
+      <input type="file" class="hidden-input" id="fotosBitacoraInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosBitacora, 'gridBitacora', 'bitacora')">
+      <div class="photo-counter" id="counterBitacora">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridBitacora"></div>
+    </div>
+
+    <div class="card">
+      <div class="toggle-row" style="margin-bottom:0;">
+        <label class="toggle-text">¿Este servicio incluyó pintura?</label>
+        <label class="switch"><input type="checkbox" id="aplicaPintura" onchange="togglePintura()"><span class="slider"></span></label>
+      </div>
+      <div id="bloquePintura" class="hidden" style="margin-top:14px;">
+        <div class="antes-despues">
+          <div class="col">
+            <h4>Antes</h4>
+            <button type="button" class="btn-line" style="padding:10px;" onclick="document.getElementById('fotosPinturaAntesInput').click()">📷 Foto antes</button>
+            <input type="file" class="hidden-input" id="fotosPinturaAntesInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosPinturaAntes, 'gridPinturaAntes', 'pintura_antes')">
+            <div class="photo-grid" id="gridPinturaAntes"></div>
+          </div>
+          <div class="col">
+            <h4>Después</h4>
+            <button type="button" class="btn-line" style="padding:10px;" onclick="document.getElementById('fotosPinturaDespuesInput').click()">📷 Foto después</button>
+            <input type="file" class="hidden-input" id="fotosPinturaDespuesInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosPinturaDespues, 'gridPinturaDespues', 'pintura_despues')">
+            <div class="photo-grid" id="gridPinturaDespues"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-prev" onclick="mostrarPantalla(3)">← Anterior</button>
+      <button class="btn-nav btn-next" onclick="avanzar(4)">Siguiente →</button>
+    </div>
+  </div>
+
+  <!-- ============ PANTALLA 5: CIERRE ============ -->
+  <div class="screen hidden" id="screen5">
+    <div class="card" id="bloqueElectricoFinalCard">
+      <h2>Pruebas eléctricas finales</h2>
+      <div id="bloqueElectricoFinal">
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin-bottom:6px;">Corriente (A)</div>
+        <div class="field-row">
+          <input type="text" id="corrL1_fin" placeholder="L1">
+          <input type="text" id="corrL2_fin" placeholder="L2">
+          <input type="text" id="corrL3_fin" placeholder="L3">
+        </div>
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:12px 0 6px;">Voltaje (V)</div>
+        <div class="field-row">
+          <input type="text" id="voltL1_fin" placeholder="L1">
+          <input type="text" id="voltL2_fin" placeholder="L2">
+          <input type="text" id="voltL3_fin" placeholder="L3">
+        </div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado general</div>
+        <div class="chip-row">
+          <div class="chip" data-val="OK" onclick="seleccionarEstado(this,'fin')">Funcionando OK</div>
+          <div class="chip" data-val="Revision" onclick="seleccionarEstado(this,'fin')">Revisión</div>
+          <div class="chip" data-val="Fuera" onclick="seleccionarEstado(this,'fin')">Fuera de servicio</div>
+        </div>
+
+        <div class="field" style="margin-top:12px;">
+          <label>Notas</label>
+          <textarea id="notasElectricasFin" placeholder="Ej. Equipo hidráulicamente OK..."></textarea>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Evidencia final</h2>
+      <button type="button" class="btn-line" onclick="document.getElementById('fotosFinalInput').click()">📷 Agregar fotos finales</button>
+      <input type="file" class="hidden-input" id="fotosFinalInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosFinal, 'gridFinal', 'final')">
+      <div class="photo-counter" id="counterFinal">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridFinal"></div>
+
+      <div class="field" style="margin-top:12px;">
+        <label>Video de pruebas (nota)</label>
+        <input type="text" id="videoNota" placeholder="Ej. video enviado por WhatsApp al cliente">
+      </div>
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-prev" onclick="mostrarPantalla(4)">← Anterior</button>
+      <button class="btn-nav btn-next" onclick="avanzar(5)">Ver reporte →</button>
+    </div>
+  </div>
+
+  <!-- ============ PANTALLA 6: VISTA PREVIA DEL REPORTE ============ -->
+  <div class="screen hidden" id="screen6">
+    <div class="card">
+      <h2>Vista previa del reporte</h2>
+      <div class="card-desc">Esto es lo que se generaría automáticamente. Revisa y ajusta lo que necesites en las pantallas anteriores.</div>
+    </div>
+
+    <div class="preview-doc card" id="previewDoc" style="padding:0;"></div>
+
+    <div id="envioStatus" class="orden-status-msg hidden"></div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav btn-prev" onclick="mostrarPantalla(4)">← Editar</button>
+    </div>
+    <button class="btn-submit-final" id="btnEnviarReporte" onclick="enviarReporteGeneral()">✓ Guardar y enviar reporte</button>
+    <button class="btn-line" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+  </div>
+
+</main>
+
+<script>
+function esc(s){ const d = document.createElement("div"); d.textContent = String(s || ""); return d.innerHTML; }
+
+/* ============================================================
+   AIRTABLE CONFIG
+   ============================================================ */
+const TABLA_ORDENES = "tblcyGwDeOORxELJg";
+const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+
+const OF = {
+  serie: "fldj245KNDJ2B5jxG",
+  cliente: "fldUkOvdOHTXMDWX7",
+  estado: "fldRtvzailqq6WbQu",
+  tipoServicio: "fld0rhBYkk5nAnXcT",
+  tipoEquipo: "fldBhqLRYDHl2L2tJ",
+  descripcionOtro: "fldo5FXSYcTkhI396",
+  folio: "fldpMUMLpNCGGQcIo",
+  reporteGeneralCompletado: "fldJgJ2UZ7ufze8C5"
+};
+
+const RG = {
+  folio: "fldKBCvEigK6R8hOQ",
+  ordenServicio: "fldSIaStYemOiievZ",
+  nombreCorto: "fldWoaxMR962Fj2HF",
+  marca: "fldL9OPmEgJ9XkKoq",
+  color: "fldl8PsvBF74TgPir",
+  modeloEquipo: "fldXeJ7sOnEGFXXw7",
+  numParte: "fld9FbgcU4LE2IAe6",
+  descripcionProblema: "fld97fTrbIGRZUXjF",
+  observacionesJson: "fldsiseneLWcnRohF",
+  serviciosJson: "fldJKJxfz5cIUn2Tn",
+  serviciosOtrosJson: "fldP8tvQEQUyrMOx9",
+  materialesJson: "fldDjAainIuzcjOxe",
+  aplicaElectrico: "fldaDOq4voNSMwkEK",
+  pruebasElectricasJson: "fldxASjok0JqL8SHx",
+  aplicaPintura: "fldT8xxcCqQjlBCBe",
+  bitacoraTexto: "fldW0e0FUKxgje7Ky",
+  videoNota: "fld7OGfsgn9VFI6cR",
+  fotosRecibido: "fldcBRSr2SFxyTbHW",
+  fotosBitacora: "fld3s920VvM9QC7qR",
+  fotosPinturaAntes: "fldP3090cnvLpk7CM",
+  fotosPinturaDespues: "fldaPzquSHFOnNgto",
+  fotosFinal: "fldfrWCVJQD5Bna4T"
+};
+
+let ordenRecordId = null;
+let reporteEnviado = false;
+
+const STEP_LABELS = [
+  "Paso 1 de 7 — Datos generales",
+  "Paso 2 de 7 — Diagnóstico",
+  "Paso 3 de 7 — Requerimiento",
+  "Paso 4 de 7 — Pruebas eléctricas iniciales",
+  "Paso 5 de 7 — Bitácora de servicio",
+  "Paso 6 de 7 — Cierre y evidencia final",
+  "Paso 7 de 7 — Vista previa"
+];
+
+const PREFIJOS = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
+
+const SERVICIOS_CATALOGO = [
+  "Recolección de equipo",
+  "Revisión y diagnóstico",
+  "Pruebas eléctricas",
+  "Desensamble de equipo",
+  "Suministro e instalación de refacción",
+  "Servicio de lubricación",
+  "Ensamble de equipo",
+  "Servicio de pintura",
+  "Fabricación e instalación de placa",
+  "Reparación de cableado",
+  "Servicio de limpieza",
+  "Pruebas de funcionamiento"
+];
+
+let pantallaActual = 0;
+let fotosRecibido = [];
+let fotosFinal = [];
+let fotosPinturaAntes = [];
+let fotosPinturaDespues = [];
+let observaciones = [];
+let materiales = [];
+let serviciosOtros = [];
+let bitacoraTexto = "";
+let fotosBitacora = [];
+let serviciosSeleccionados = new Set();
+let estadoIni = "";
+let estadoFin = "";
+
+function mostrarPantalla(n){
+  [0,1,2,3,4,5,6].forEach(i => {
+    const el = document.getElementById("screen" + i);
+    if(el) el.classList.toggle("hidden", i !== n);
+    const dot = document.getElementById("dot" + i);
+    if(dot){ dot.classList.remove("active","done"); if(i < n) dot.classList.add("done"); else if(i === n) dot.classList.add("active"); }
+  });
+  document.getElementById("stepLabel").textContent = STEP_LABELS[n] || "";
+  pantallaActual = n;
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  if(n === 6) generarVistaPrevia();
+}
+
+async function avanzar(desde){
+  if(desde === 0){
+    const ok = await confirmarDatosGenerales();
+    if(!ok) return;
+  }
+  mostrarPantalla(desde + 1);
+}
+
+async function confirmarDatosGenerales(){
+  const cliente = document.getElementById("cliente").value.trim();
+  const folio = document.getElementById("folio").value.trim();
+  const tipoEquipo = document.getElementById("tipoEquipo").value;
+  const statusEl = document.getElementById("folioStatus");
+
+  if(!tipoEquipo || !cliente || !folio){
+    statusEl.classList.remove("hidden","success");
+    statusEl.classList.add("error");
+    statusEl.textContent = "Faltan datos: tipo de equipo, cliente y folio son obligatorios.";
+    return false;
+  }
+
+  statusEl.classList.remove("hidden","error","success");
+  statusEl.textContent = "Verificando folio...";
+
+  try{
+    const formula = encodeURIComponent(`{${OF.folio}}="${folio}"`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const resp = await fetch(url, { headers: {} });
+    const data = await resp.json();
+    const existente = (data.records || [])[0];
+
+    if(existente){
+      ordenRecordId = existente.id;
+      statusEl.classList.add("success");
+      statusEl.textContent = `Folio existente — continuando con la orden ${folio}.`;
+      return true;
+    }
+
+    const descripcionOtro = document.getElementById("descripcionOtro").value.trim();
+    const fields = {
+      [OF.folio]: folio,
+      [OF.cliente]: cliente,
+      [OF.tipoServicio]: "General",
+      [OF.tipoEquipo]: tipoEquipo,
+      [OF.estado]: "Recibido"
+    };
+    if(tipoEquipo === "Otro" && descripcionOtro) fields[OF.descripcionOtro] = descripcionOtro;
+
+    const createResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ fields }] })
+    });
+    const createData = await createResp.json();
+    if(!createResp.ok) throw new Error(createData?.error?.message || "Error al crear la orden");
+
+    ordenRecordId = createData.records[0].id;
+    statusEl.classList.add("success");
+    statusEl.textContent = `Orden ${folio} creada — estado Recibido.`;
+    return true;
+  } catch(err){
+    statusEl.classList.add("error");
+    statusEl.textContent = "Error al verificar/crear la orden: " + err.message;
+    return false;
+  }
+}
+
+function onTipoEquipoChange(){
+  const tipo = document.getElementById("tipoEquipo").value;
+  document.getElementById("descripcionOtroWrap").classList.toggle("hidden", tipo !== "Otro");
+  const esElectrico = (tipo === "Motor" || tipo === "Motoreductor" || tipo === "Motobomba");
+  document.getElementById("electricoDatosWrap").classList.toggle("hidden", !esElectrico);
+  document.getElementById("aplicaElectricoInicial").checked = esElectrico || tipo === "";
+  toggleElectrico("Inicial");
+
+  const prefijo = PREFIJOS[tipo] || "";
+  document.getElementById("folio").value = prefijo ? (prefijo + "-001") : "";
+}
+
+function toggleElectrico(sufijo){
+  const check = document.getElementById("aplicaElectricoInicial").checked;
+  document.getElementById("bloqueElectricoInicial").classList.toggle("hidden", !check);
+  document.getElementById("bloqueElectricoFinalCard").classList.toggle("hidden", !check);
+}
+
+function seleccionarEstado(el, cual){
+  const grupo = el.parentElement;
+  grupo.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
+  el.classList.add("on");
+  if(cual === "ini") estadoIni = el.dataset.val;
+  else estadoFin = el.dataset.val;
+}
+
+function togglePintura(){
+  document.getElementById("bloquePintura").classList.toggle("hidden", !document.getElementById("aplicaPintura").checked);
+}
+
+/* ============ FOTOS (genérico) ============ */
+function manejarFotos(inputEl, arr, gridId, prefix){
+  const files = Array.from(inputEl.files || []);
+  if(files.length === 0) return;
+  let pendientes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      arr.push({ dataUrl: e.target.result, filename: `${prefix}_${arr.length + 1}.jpg` });
+      pendientes--;
+      if(pendientes === 0) renderizarGrid(arr, gridId, prefix);
+    };
+    reader.readAsDataURL(file);
+  });
+  inputEl.value = "";
+}
+
+function renderizarGrid(arr, gridId, prefix){
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = arr.map((foto, i) => `
+    <div class="photo-thumb">
+      <img src="${foto.dataUrl}" alt="Foto ${i+1}">
+      <button type="button" class="remove-btn" onclick="eliminarFoto('${prefix}', ${i})">✕</button>
+    </div>
+  `).join("");
+  const counterMap = { recibido:"counterRecibido", final:"counterFinal", bitacora:"counterBitacora" };
+  const counterId = counterMap[prefix];
+  if(counterId) document.getElementById(counterId).textContent = `${arr.length} foto${arr.length===1?"":"s"} seleccionada${arr.length===1?"":"s"}`;
+}
+
+function getArrByPrefix(prefix){
+  if(prefix === "recibido") return fotosRecibido;
+  if(prefix === "final") return fotosFinal;
+  if(prefix === "bitacora") return fotosBitacora;
+  if(prefix === "pintura_antes") return fotosPinturaAntes;
+  if(prefix === "pintura_despues") return fotosPinturaDespues;
+  return [];
+}
+
+function eliminarFoto(prefix, i){
+  const arr = getArrByPrefix(prefix);
+  arr.splice(i, 1);
+  const gridMap = { recibido:"gridRecibido", final:"gridFinal", bitacora:"gridBitacora", pintura_antes:"gridPinturaAntes", pintura_despues:"gridPinturaDespues" };
+  renderizarGrid(arr, gridMap[prefix], prefix);
+}
+
+/* ============ OBSERVACIONES ============ */
+function agregarObservacion(){
+  observaciones.push("");
+  renderObservaciones();
+}
+function eliminarObservacion(i){
+  observaciones.splice(i, 1);
+  renderObservaciones();
+}
+function actualizarObservacion(i, val){
+  observaciones[i] = val;
+}
+function renderObservaciones(){
+  document.getElementById("observacionesList").innerHTML = observaciones.map((obs, i) => `
+    <div class="bullet-row">
+      <input type="text" value="${esc(obs)}" placeholder="Ej. Empaque en buenas condiciones" oninput="actualizarObservacion(${i}, this.value)">
+      <button type="button" class="btn-x" onclick="eliminarObservacion(${i})">✕</button>
+    </div>
+  `).join("");
+}
+
+/* ============ MATERIALES ============ */
+function agregarMaterial(){
+  materiales.push("");
+  renderMateriales();
+}
+function eliminarMaterial(i){
+  materiales.splice(i, 1);
+  renderMateriales();
+}
+function actualizarMaterial(i, val){
+  materiales[i] = val;
+}
+function renderMateriales(){
+  document.getElementById("materialesList").innerHTML = materiales.map((m, i) => `
+    <div class="bullet-row">
+      <input type="text" value="${esc(m)}" placeholder="Ej. Rodamiento NU 312 C3" oninput="actualizarMaterial(${i}, this.value)">
+      <button type="button" class="btn-x" onclick="eliminarMaterial(${i})">✕</button>
+    </div>
+  `).join("");
+}
+
+function generarListaMateriales(){
+  const folio = document.getElementById("folio").value || "———";
+  const cliente = document.getElementById("cliente").value;
+  const nombreCorto = document.getElementById("nombreCorto").value;
+  const lista = materiales.filter(m => m);
+
+  const w = window.open("", "_blank");
+  w.document.write(`
+    <html><head><title>Lista de materiales ${esc(folio)}</title>
+    <style>
+      body{ font-family: Arial, sans-serif; padding: 24px; }
+      h1{ font-size: 1.2rem; color:#1a3a5c; border-bottom:2px solid #1a3a5c; padding-bottom:8px; }
+      .info{ font-size:0.9rem; margin-bottom:16px; }
+      ul{ font-size:0.95rem; line-height:1.8; }
+    </style></head>
+    <body>
+      <h1>Lista de materiales / refacciones — ${esc(folio)}</h1>
+      <div class="info"><b>Cliente:</b> ${esc(cliente)}${nombreCorto ? ` — <b>Equipo:</b> ${esc(nombreCorto)}` : ""}</div>
+      <ul>${lista.length ? lista.map(m => `<li>${esc(m)}</li>`).join("") : "<li>Sin materiales registrados</li>"}</ul>
+    </body></html>
+  `);
+  w.document.close();
+  w.print();
+}
+
+/* ============ SERVICIOS OTROS (lista) ============ */
+function agregarServicioOtro(){
+  serviciosOtros.push("");
+  renderServiciosOtros();
+}
+function eliminarServicioOtro(i){
+  serviciosOtros.splice(i, 1);
+  renderServiciosOtros();
+}
+function actualizarServicioOtro(i, val){
+  serviciosOtros[i] = val;
+}
+function renderServiciosOtros(){
+  document.getElementById("serviciosOtrosList").innerHTML = serviciosOtros.map((s, i) => `
+    <div class="bullet-row">
+      <input type="text" value="${esc(s)}" placeholder="Ej. Servicio de balanceo dinámico" oninput="actualizarServicioOtro(${i}, this.value)">
+      <button type="button" class="btn-x" onclick="eliminarServicioOtro(${i})">✕</button>
+    </div>
+  `).join("");
+}
+
+/* ============ SERVICIOS (chips) ============ */
+function renderChipsServicios(){
+  document.getElementById("chipsServicios").innerHTML = SERVICIOS_CATALOGO.map(s => `
+    <div class="chip" onclick="toggleServicio(this,'${esc(s)}')">${esc(s)}</div>
+  `).join("");
+}
+function toggleServicio(el, servicio){
+  el.classList.toggle("on");
+  if(serviciosSeleccionados.has(servicio)) serviciosSeleccionados.delete(servicio);
+  else serviciosSeleccionados.add(servicio);
+}
+
+/* ============ VISTA PREVIA DEL REPORTE ============ */
+function generarVistaPrevia(){
+  const folio = document.getElementById("folio").value || "———";
+  const cliente = document.getElementById("cliente").value;
+  const usuario = document.getElementById("usuario").value;
+  const spec = document.getElementById("spec").value;
+  const numSerie = document.getElementById("numSerie").value;
+  const numParte = document.getElementById("numParte").value;
+  const potencia = document.getElementById("potencia").value;
+  const frame = document.getElementById("frame").value;
+  const marca = document.getElementById("marca").value;
+  const nombreCorto = document.getElementById("nombreCorto").value;
+  const descripcionProblema = document.getElementById("descripcionProblema").value;
+  const notasIni = document.getElementById("notasElectricasIni").value;
+  const notasFin = document.getElementById("notasElectricasFin").value;
+  const aplicaElectrico = document.getElementById("aplicaElectricoInicial").checked;
+  const aplicaPintura = document.getElementById("aplicaPintura").checked;
+  const videoNota = document.getElementById("videoNota").value;
+
+  let html = "";
+  html += `<div class="ph">REPORTE ${esc(folio)}</div>`;
+  html += `<table class="info">
+    <tr><td class="k">CLIENTE</td><td>${esc(cliente)}</td><td class="k">USUARIO</td><td>${esc(usuario)}</td></tr>
+    ${nombreCorto ? `<tr><td class="k">EQUIPO (apodo)</td><td colspan="3">${esc(nombreCorto)}</td></tr>` : ""}
+    <tr><td class="k">EQUIPO</td><td>${esc(spec) || esc(marca)}</td><td class="k">N° SERIE / S/N</td><td>${esc(numSerie)}</td></tr>
+    ${numParte ? `<tr><td class="k">N° PARTE</td><td>${esc(numParte)}</td><td class="k"></td><td></td></tr>` : ""}
+    ${aplicaElectrico ? `<tr><td class="k">POTENCIA</td><td>${esc(potencia)}</td><td class="k">FRAME</td><td>${esc(frame)}</td></tr>` : ""}
+  </table>`;
+
+  html += `<div class="ph">I. DESCRIPCIÓN DEL PROBLEMA</div>`;
+  html += `<div class="sec">${esc(descripcionProblema) || "—"}</div>`;
+
+  html += `<div class="ph">II. FOTOGRAFÍA DE RECIBIDO</div>`;
+  html += `<div class="foto-row">${fotosRecibido.map(f => `<img src="${f.dataUrl}">`).join("") || "<div class='sec'>Sin fotos</div>"}</div>`;
+
+  html += `<div class="ph">III. OBSERVACIONES</div>`;
+  html += `<div class="sec"><ul>${observaciones.filter(o=>o).map(o => `<li>${esc(o)}</li>`).join("") || "<li>—</li>"}</ul></div>`;
+
+  html += `<div class="ph">IV. REQUERIMIENTO</div>`;
+  html += `<div class="sec"><ul>
+    ${[...serviciosSeleccionados].map(s => `<li>Servicio de ${esc(s.toLowerCase())}</li>`).join("")}
+    ${serviciosOtros.filter(s=>s).map(s => `<li>${esc(s)}</li>`).join("")}
+    ${materiales.filter(m=>m).map(m => `<li><i>${esc(m)}</i></li>`).join("")}
+  </ul></div>`;
+
+  if(aplicaElectrico){
+    html += `<div class="ph">V. PRUEBAS ELÉCTRICAS BÁSICAS (INICIAL)</div>`;
+    html += `<div class="sec">
+      Corriente: L1 ${esc(document.getElementById("corrL1_ini").value)} A · L2 ${esc(document.getElementById("corrL2_ini").value)} A · L3 ${esc(document.getElementById("corrL3_ini").value)} A<br>
+      Voltaje: L1 ${esc(document.getElementById("voltL1_ini").value)} V · L2 ${esc(document.getElementById("voltL2_ini").value)} V · L3 ${esc(document.getElementById("voltL3_ini").value)} V<br>
+      Estado: <b>${esc(estadoIni) || "—"}</b><br>
+      ${esc(notasIni)}
+    </div>`;
+  }
+
+  html += `<div class="ph">VI. SERVICIO REALIZADO</div>`;
+  html += `<div class="sec">${esc(bitacoraTexto) || "(sin descripción)"}</div>`;
+  if(fotosBitacora.length){
+    html += `<div class="foto-row">${fotosBitacora.map(f => `<img src="${f.dataUrl}">`).join("")}</div>`;
+  }
+
+  if(aplicaPintura){
+    html += `<div class="ph">VII. SERVICIO DETALLADO DE PINTURA</div>`;
+    html += `<table class="info" style="text-align:center;"><tr><td class="k" style="text-align:center;">ANTES</td><td class="k" style="text-align:center;">DESPUÉS</td></tr></table>`;
+    html += `<div style="display:flex;">
+      <div class="foto-row" style="flex:1;">${fotosPinturaAntes.map(f => `<img src="${f.dataUrl}">`).join("")}</div>
+      <div class="foto-row" style="flex:1;">${fotosPinturaDespues.map(f => `<img src="${f.dataUrl}">`).join("")}</div>
+    </div>`;
+  }
+
+  if(aplicaElectrico){
+    html += `<div class="ph">VIII. PRUEBAS ELÉCTRICAS BÁSICAS (FINALES)</div>`;
+    html += `<div class="sec">
+      Corriente: L1 ${esc(document.getElementById("corrL1_fin").value)} A · L2 ${esc(document.getElementById("corrL2_fin").value)} A · L3 ${esc(document.getElementById("corrL3_fin").value)} A<br>
+      Voltaje: L1 ${esc(document.getElementById("voltL1_fin").value)} V · L2 ${esc(document.getElementById("voltL2_fin").value)} V · L3 ${esc(document.getElementById("voltL3_fin").value)} V<br>
+      Estado: <b>${esc(estadoFin) || "—"}</b><br>
+      ${esc(notasFin)}
+    </div>`;
+  }
+
+  html += `<div class="ph">IX. EVIDENCIA FINAL</div>`;
+  html += `<div class="foto-row">${fotosFinal.map(f => `<img src="${f.dataUrl}">`).join("") || "<div class='sec'>Sin fotos</div>"}</div>`;
+  if(videoNota) html += `<div class="sec">🎥 ${esc(videoNota)}</div>`;
+
+  document.getElementById("previewDoc").innerHTML = html;
+}
+
+/* ============ ENVÍO A AIRTABLE ============ */
+async function subirFotosA(recordId, fieldId, fotos){
+  for(const f of fotos){
+    await fetch(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contentType: "image/jpeg",
+        filename: f.filename || `foto_${Date.now()}.jpg`,
+        file: f.dataUrl.split(",")[1]
+      })
+    });
+  }
+}
+
+async function enviarReporteGeneral(){
+  if(reporteEnviado) return;
+  if(!ordenRecordId){
+    alert("No se encontró la orden. Regresa a la pantalla 1 y vuelve a intentar.");
+    return;
+  }
+
+  const statusEl = document.getElementById("envioStatus");
+  const btn = document.getElementById("btnEnviarReporte");
+  btn.disabled = true;
+  statusEl.classList.remove("hidden","error","success");
+  statusEl.textContent = "Guardando reporte...";
+
+  try{
+    const folio = document.getElementById("folio").value.trim();
+    const pruebasElectricas = {
+      inicial: {
+        corriente: [document.getElementById("corrL1_ini").value, document.getElementById("corrL2_ini").value, document.getElementById("corrL3_ini").value],
+        voltaje: [document.getElementById("voltL1_ini").value, document.getElementById("voltL2_ini").value, document.getElementById("voltL3_ini").value],
+        estado: estadoIni,
+        notas: document.getElementById("notasElectricasIni").value
+      },
+      final: {
+        corriente: [document.getElementById("corrL1_fin").value, document.getElementById("corrL2_fin").value, document.getElementById("corrL3_fin").value],
+        voltaje: [document.getElementById("voltL1_fin").value, document.getElementById("voltL2_fin").value, document.getElementById("voltL3_fin").value],
+        estado: estadoFin,
+        notas: document.getElementById("notasElectricasFin").value
+      }
+    };
+
+    const fields = {
+      [RG.folio]: folio,
+      [RG.ordenServicio]: [ordenRecordId],
+      [RG.nombreCorto]: document.getElementById("nombreCorto").value,
+      [RG.marca]: document.getElementById("marca").value,
+      [RG.color]: document.getElementById("color").value,
+      [RG.modeloEquipo]: document.getElementById("spec").value,
+      [RG.numParte]: document.getElementById("numParte").value,
+      [RG.descripcionProblema]: document.getElementById("descripcionProblema").value,
+      [RG.observacionesJson]: JSON.stringify(observaciones.filter(o=>o)),
+      [RG.serviciosJson]: JSON.stringify([...serviciosSeleccionados]),
+      [RG.serviciosOtrosJson]: JSON.stringify(serviciosOtros.filter(s=>s)),
+      [RG.materialesJson]: JSON.stringify(materiales.filter(m=>m)),
+      [RG.aplicaElectrico]: document.getElementById("aplicaElectricoInicial").checked,
+      [RG.pruebasElectricasJson]: JSON.stringify(pruebasElectricas),
+      [RG.aplicaPintura]: document.getElementById("aplicaPintura").checked,
+      [RG.bitacoraTexto]: bitacoraTexto,
+      [RG.videoNota]: document.getElementById("videoNota").value
+    };
+
+    statusEl.textContent = "Guardando datos del reporte...";
+    const createResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ fields }] })
+    });
+    const createData = await createResp.json();
+    if(!createResp.ok) throw new Error(createData?.error?.message || "Error al guardar el reporte");
+    const reporteRecordId = createData.records[0].id;
+
+    statusEl.textContent = "Subiendo fotos de recibido...";
+    await subirFotosA(reporteRecordId, RG.fotosRecibido, fotosRecibido);
+    statusEl.textContent = "Subiendo fotos de la bitácora...";
+    await subirFotosA(reporteRecordId, RG.fotosBitacora, fotosBitacora);
+    if(document.getElementById("aplicaPintura").checked){
+      statusEl.textContent = "Subiendo fotos de pintura...";
+      await subirFotosA(reporteRecordId, RG.fotosPinturaAntes, fotosPinturaAntes);
+      await subirFotosA(reporteRecordId, RG.fotosPinturaDespues, fotosPinturaDespues);
+    }
+    statusEl.textContent = "Subiendo evidencia final...";
+    await subirFotosA(reporteRecordId, RG.fotosFinal, fotosFinal);
+
+    statusEl.textContent = "Marcando orden como terminada...";
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true } })
+    });
+
+    reporteEnviado = true;
+    statusEl.classList.add("success");
+    statusEl.textContent = "✓ Reporte guardado y orden marcada como Terminado.";
+    btn.textContent = "✓ Reporte enviado";
+  } catch(err){
+    statusEl.classList.add("error");
+    statusEl.textContent = "Error al enviar: " + err.message;
+    btn.disabled = false;
+  }
+}
+
+/* ============ INIT ============ */
+renderChipsServicios();
+mostrarPantalla(0);
+</script>
+
+</body>
+</html>
