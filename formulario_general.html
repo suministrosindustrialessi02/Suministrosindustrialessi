@@ -121,6 +121,15 @@
   .bullet-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
   .bullet-row input{ flex:1; padding:9px 11px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem; }
   .btn-x{ width:32px; height:32px; border:none; border-radius:6px; background:#fdecea; color:var(--rojo); font-weight:700; cursor:pointer; flex-shrink:0; }
+
+  .material-row{ border:1px solid var(--gris); border-radius:8px; padding:10px 40px 10px 10px; margin-bottom:10px; position:relative; background:#fafbfc; }
+  .material-row .mat-line1{ display:flex; gap:8px; margin-bottom:6px; }
+  .material-row input{ padding:9px 11px; border:1px solid #ccc; border-radius:6px; font-size:0.9rem; width:100%; box-sizing:border-box; }
+  .material-row .mat-cant{ width:64px; flex-shrink:0; }
+  .material-row .mat-unidad{ width:110px; flex-shrink:0; }
+  .material-row .mat-desc{ margin-bottom:6px; font-weight:600; }
+  .material-row .mat-nota{ font-size:0.82rem; }
+  .material-row .btn-x{ position:absolute; top:8px; right:8px; width:28px; height:28px; }
   .btn-add-mini{ background:none; border:1.5px dashed var(--azul-claro); color:var(--azul); border-radius:6px; padding:8px 12px; font-size:0.85rem; font-weight:700; cursor:pointer; width:100%; margin-top:4px; }
 
   .paso-card{ border:1px solid var(--gris); border-radius:8px; padding:12px; margin-bottom:12px; }
@@ -165,6 +174,19 @@
 
   <!-- ============ PANTALLA 0: DATOS GENERALES ============ -->
   <div class="screen" id="screen0">
+    <div class="card" id="cardBuscarPreReg" style="background:#fff8e1;border:1px solid var(--ambar-borde,#f0c96a);">
+      <h2 style="font-size:1rem;">¿El equipo ya fue registrado por administración?</h2>
+      <div class="card-desc">Si administración lo dio de alta antes de que llegara, escribe el folio o el N° de serie para cargar sus datos. Si es un equipo nuevo, deja esto vacío y llena el formulario normal abajo.</div>
+      <div class="field-row" style="align-items:flex-end;">
+        <div class="field">
+          <label>Folio o N° de serie</label>
+          <input type="text" id="buscarPreReg" placeholder="Ej. MOT-003 o PRE-SN-001" onkeydown="if(event.key==='Enter'){event.preventDefault();buscarEquipoRegistrado();}">
+        </div>
+        <button type="button" class="btn-line" style="max-width:120px;margin:0;" onclick="buscarEquipoRegistrado()">🔍 Buscar</button>
+      </div>
+      <div id="buscarPreRegStatus" class="orden-status-msg hidden" style="margin-top:8px;"></div>
+    </div>
+
     <div class="card">
       <h2>Datos generales del equipo</h2>
 
@@ -183,8 +205,8 @@
           </select>
         </div>
         <div class="field" id="otroEquipoWrap" style="max-width:130px;">
-          <label>Folio</label>
-          <input type="text" id="folio" placeholder="MOT-001">
+          <label>Folio (automático)</label>
+          <input type="text" id="folio" placeholder="MOT-001" readonly style="background:#f0f0f0;">
           <div id="folioStatus" class="orden-status-msg hidden"></div>
         </div>
       </div>
@@ -328,26 +350,34 @@
   <div class="screen hidden" id="screen3">
     <div class="card">
       <div class="toggle-row">
-        <label class="toggle-text">¿Este equipo es eléctrico / trifásico?</label>
+        <label class="toggle-text">¿Aplican pruebas eléctricas a este equipo?</label>
+        <span id="aplicaElectricoTexto" style="font-size:0.8rem; font-weight:700; color:var(--verde); margin-right:8px;">Aplica</span>
         <label class="switch"><input type="checkbox" id="aplicaElectricoInicial" checked onchange="toggleElectrico('Inicial')"><span class="slider"></span></label>
       </div>
 
       <div id="bloqueElectricoInicial">
         <h2>Pruebas eléctricas iniciales</h2>
-        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin-bottom:6px;">Corriente (A)</div>
-        <div class="field-row">
-          <input type="text" id="corrL1_ini" placeholder="L1">
-          <input type="text" id="corrL2_ini" placeholder="L2">
-          <input type="text" id="corrL3_ini" placeholder="L3">
-        </div>
-        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:12px 0 6px;">Voltaje (V)</div>
-        <div class="field-row">
-          <input type="text" id="voltL1_ini" placeholder="L1">
-          <input type="text" id="voltL2_ini" placeholder="L2">
-          <input type="text" id="voltL3_ini" placeholder="L3">
+
+        <div class="field" style="margin-bottom:12px;">
+          <label>Número de líneas del motor</label>
+          <select id="numLineas" onchange="renderResistenciaBobinas()">
+            <option value="3">3 líneas (L1, L2, L3)</option>
+            <option value="6" selected>6 líneas (U, V, W)</option>
+            <option value="9">9 líneas</option>
+          </select>
         </div>
 
-        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado general</div>
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin-bottom:6px;">Resistencia entre bobinas (Ω)</div>
+        <div id="resistenciaBobinasIni"></div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:10px 0 6px;">Puesta a tierra (Ω)</div>
+        <div class="field-row">
+          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1 – Tierra</label><input type="text" id="tierraL1_ini" placeholder="Valor"></div>
+          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L2 – Tierra</label><input type="text" id="tierraL2_ini" placeholder="Valor"></div>
+          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L3 – Tierra</label><input type="text" id="tierraL3_ini" placeholder="Valor"></div>
+        </div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado (resistencia / puesta a tierra)</div>
         <div class="chip-row">
           <div class="chip" data-val="OK" onclick="seleccionarEstado(this,'ini')">Funcionando OK</div>
           <div class="chip" data-val="Revision" onclick="seleccionarEstado(this,'ini')">Revisión</div>
@@ -356,7 +386,26 @@
 
         <div class="field" style="margin-top:12px;">
           <label>Notas</label>
-          <textarea id="notasElectricasIni" placeholder="Ej. Equipo presenta falla hidráulica..."></textarea>
+          <textarea id="notasElectricasIni" placeholder="Ej. Motor se encuentra trabajando correctamente..."></textarea>
+        </div>
+
+        <div id="avisoSinPruebasIni" class="hidden" style="margin-top:14px; background:#fdecea; border:1px solid var(--rojo); border-radius:8px; padding:10px 12px; font-size:0.85rem; color:var(--rojo);">
+          ⚠ Estado "Fuera de servicio" — no se realizan pruebas de corriente/voltaje iniciales (el equipo requiere bobinado o reparación mayor).
+        </div>
+
+        <div id="bloqueCorrienteVoltajeIni">
+          <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:16px 0 6px;">Corriente (A)</div>
+          <div class="field-row">
+            <input type="text" id="corrL1_ini" placeholder="L1">
+            <input type="text" id="corrL2_ini" placeholder="L2">
+            <input type="text" id="corrL3_ini" placeholder="L3">
+          </div>
+          <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:12px 0 6px;">Voltaje (V)</div>
+          <div class="field-row">
+            <input type="text" id="voltL1_ini" placeholder="L1">
+            <input type="text" id="voltL2_ini" placeholder="L2">
+            <input type="text" id="voltL3_ini" placeholder="L3">
+          </div>
         </div>
       </div>
     </div>
@@ -371,11 +420,10 @@
   <div class="screen hidden" id="screen4">
     <div class="card">
       <h2>Bitácora de servicio realizado</h2>
-      <div class="card-desc">Describe con detalle todo lo que se hizo. El reporte se genera automático con este texto.</div>
-      <div class="field">
-        <textarea id="bitacoraTexto" rows="8" placeholder="Ej. Se revisó el circuito eléctrico, se detectó falso contacto en terminal, se ajustó quedando OK. Se retiró bomba para pruebas de funcionamiento hidráulico..." oninput="bitacoraTexto = this.value"></textarea>
-      </div>
-      <button type="button" class="btn-line" onclick="document.getElementById('fotosBitacoraInput').click()">📷 Agregar fotos del servicio</button>
+      <div class="card-desc">Agrega un punto por cada cosa que se hizo. El reporte se genera automático con esta lista.</div>
+      <div id="bitacoraList"></div>
+      <button type="button" class="btn-add-mini" onclick="agregarBitacoraPunto()">+ Agregar punto</button>
+      <button type="button" class="btn-line" style="margin-top:10px;" onclick="document.getElementById('fotosBitacoraInput').click()">📷 Agregar fotos del servicio</button>
       <input type="file" class="hidden-input" id="fotosBitacoraInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosBitacora, 'gridBitacora', 'bitacora')">
       <div class="photo-counter" id="counterBitacora">0 fotos seleccionadas</div>
       <div class="photo-grid" id="gridBitacora"></div>
@@ -415,7 +463,19 @@
     <div class="card" id="bloqueElectricoFinalCard">
       <h2>Pruebas eléctricas finales</h2>
       <div id="bloqueElectricoFinal">
-        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin-bottom:6px;">Corriente (A)</div>
+        <div class="card-desc" style="margin-bottom:10px;">Las pruebas finales siempre se realizan completas — se asume que el equipo ya fue reparado.</div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin-bottom:6px;">Resistencia entre bobinas (Ω)</div>
+        <div id="resistenciaBobinasFin"></div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:10px 0 6px;">Puesta a tierra (Ω)</div>
+        <div class="field-row">
+          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1 – Tierra</label><input type="text" id="tierraL1_fin" placeholder="Valor"></div>
+          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L2 – Tierra</label><input type="text" id="tierraL2_fin" placeholder="Valor"></div>
+          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L3 – Tierra</label><input type="text" id="tierraL3_fin" placeholder="Valor"></div>
+        </div>
+
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:16px 0 6px;">Corriente (A)</div>
         <div class="field-row">
           <input type="text" id="corrL1_fin" placeholder="L1">
           <input type="text" id="corrL2_fin" placeholder="L2">
@@ -428,7 +488,7 @@
           <input type="text" id="voltL3_fin" placeholder="L3">
         </div>
 
-        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado general</div>
+        <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado (resistencia / puesta a tierra)</div>
         <div class="chip-row">
           <div class="chip" data-val="OK" onclick="seleccionarEstado(this,'fin')">Funcionando OK</div>
           <div class="chip" data-val="Revision" onclick="seleccionarEstado(this,'fin')">Revisión</div>
@@ -437,7 +497,7 @@
 
         <div class="field" style="margin-top:12px;">
           <label>Notas</label>
-          <textarea id="notasElectricasFin" placeholder="Ej. Equipo hidráulicamente OK..."></textarea>
+          <textarea id="notasElectricasFin" placeholder="Ej. Motor se encuentra trabajando correctamente..."></textarea>
         </div>
       </div>
     </div>
@@ -476,7 +536,6 @@
       <button class="btn-nav btn-prev" onclick="mostrarPantalla(4)">← Editar</button>
     </div>
     <button class="btn-submit-final" id="btnEnviarReporte" onclick="enviarReporteGeneral()">✓ Guardar y enviar reporte</button>
-    <button class="btn-line" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
   </div>
 
 </main>
@@ -489,6 +548,15 @@ function esc(s){ const d = document.createElement("div"); d.textContent = String
    ============================================================ */
 const TABLA_ORDENES = "tblcyGwDeOORxELJg";
 const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
+const BF = {
+  serie:               "fldegmWGpcWW7Awzn", // aquí se guarda el folio (General no usa serie)
+  cliente:             "fldzogHAx1BAkw4q2",
+  ultimaActualizacion: "fldXxLdLrsLruVFnq",
+  datosJson:           "fldSdxpRwhyvSWEgJ",
+  porcentaje:          "fldsmzz7mJjY6gHNn",
+  pantallaActual:      "fld8oNLBBTxWxCGS5",
+};
 
 const OF = {
   serie: "fldj245KNDJ2B5jxG",
@@ -498,7 +566,12 @@ const OF = {
   tipoEquipo: "fldBhqLRYDHl2L2tJ",
   descripcionOtro: "fldo5FXSYcTkhI396",
   folio: "fldpMUMLpNCGGQcIo",
-  reporteGeneralCompletado: "fldJgJ2UZ7ufze8C5"
+  reporteGeneralCompletado: "fldJgJ2UZ7ufze8C5",
+  serie: "fldj245KNDJ2B5jxG",
+  spec: "fldkkXFzqKeGSIqJQ",
+  hp: "fldjyFFAaL0dIFWIE",
+  frame: "fldSvMeOGe98aT2e0",
+  volts: "fldLxVAorFAGaboOF",
 };
 
 const RG = {
@@ -528,6 +601,10 @@ const RG = {
 
 let ordenRecordId = null;
 let reporteEnviado = false;
+let _bfRecordIdGeneral = null; // ID del registro en TABLA_BORRADORES de Airtable
+let _bfSyncTimerGeneral = null;
+let _autoSaveIntervalGeneral = null;
+let _dbGeneral = null; // IndexedDB — borrador local completo (incluye fotos)
 
 const STEP_LABELS = [
   "Paso 1 de 7 — Datos generales",
@@ -564,7 +641,7 @@ let fotosPinturaDespues = [];
 let observaciones = [];
 let materiales = [];
 let serviciosOtros = [];
-let bitacoraTexto = "";
+let bitacoraPuntos = [];
 let fotosBitacora = [];
 let serviciosSeleccionados = new Set();
 let estadoIni = "";
@@ -581,12 +658,20 @@ function mostrarPantalla(n){
   pantallaActual = n;
   window.scrollTo({ top: 0, behavior: "smooth" });
   if(n === 6) generarVistaPrevia();
+  guardarBorradorGeneral(); // checkpoint: guarda progreso completo al cambiar de pantalla (avanzar o "Anterior")
 }
 
 async function avanzar(desde){
   if(desde === 0){
     const ok = await confirmarDatosGenerales();
     if(!ok) return;
+  }
+  if(desde === 1 && ordenRecordId){
+    fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [OF.estado]: "En proceso" } })
+    }).catch(()=>{});
   }
   mostrarPantalla(desde + 1);
 }
@@ -607,17 +692,42 @@ async function confirmarDatosGenerales(){
   statusEl.classList.remove("hidden","error","success");
   statusEl.textContent = "Verificando folio...";
 
+  // Datos generales del equipo — se guardan directo en ORDENES (reutiliza los mismos
+  // campos que usa Sulzer: N° de serie, SPEC, Frame, Volts, HP) para que "Ver detalle"
+  // en el dashboard los pueda mostrar desde que se crea la orden.
+  const datosEquipo = {
+    [OF.serie]:  document.getElementById("numSerie").value.trim(),
+    [OF.spec]:   document.getElementById("spec").value.trim(),
+    [OF.frame]:  document.getElementById("frame").value.trim(),
+  };
+  const potenciaNum = parseFloat(document.getElementById("potencia").value);
+  if(!isNaN(potenciaNum)) datosEquipo[OF.hp] = potenciaNum;
+  const voltsNum = parseFloat(document.getElementById("volts").value);
+  if(!isNaN(voltsNum)) datosEquipo[OF.volts] = voltsNum;
+
   try{
     const formula = encodeURIComponent(`{${OF.folio}}="${folio}"`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url, { headers: {} });
+    const resp = await fetch(url);
     const data = await resp.json();
     const existente = (data.records || [])[0];
 
     if(existente){
       ordenRecordId = existente.id;
+      // Si el equipo estaba "Por llegar" (pre-registrado), ahora llegó → pasa a "Recibido".
+      const estadoRaw = existente.fields[OF.estado];
+      const estadoActual = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+      const patchFields = { ...datosEquipo };
+      if(estadoActual === "Por llegar") patchFields[OF.estado] = "Recibido";
+      fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: patchFields })
+      }).catch(()=>{});
       statusEl.classList.add("success");
-      statusEl.textContent = `Folio existente — continuando con la orden ${folio}.`;
+      statusEl.textContent = estadoActual === "Por llegar"
+        ? `Equipo ${folio} recibido — continuando con el servicio.`
+        : `Folio existente — continuando con la orden ${folio}.`;
       return true;
     }
 
@@ -627,7 +737,8 @@ async function confirmarDatosGenerales(){
       [OF.cliente]: cliente,
       [OF.tipoServicio]: "General",
       [OF.tipoEquipo]: tipoEquipo,
-      [OF.estado]: "Recibido"
+      [OF.estado]: "Recibido",
+      ...datosEquipo,
     };
     if(tipoEquipo === "Otro" && descripcionOtro) fields[OF.descripcionOtro] = descripcionOtro;
 
@@ -650,34 +761,159 @@ async function confirmarDatosGenerales(){
   }
 }
 
-function onTipoEquipoChange(){
-  const tipo = document.getElementById("tipoEquipo").value;
+// Muestra/oculta campos según el tipo de equipo (sin tocar el folio)
+function aplicarVisibilidadTipoEquipo(tipo){
   document.getElementById("descripcionOtroWrap").classList.toggle("hidden", tipo !== "Otro");
   const esElectrico = (tipo === "Motor" || tipo === "Motoreductor" || tipo === "Motobomba");
   document.getElementById("electricoDatosWrap").classList.toggle("hidden", !esElectrico);
   document.getElementById("aplicaElectricoInicial").checked = esElectrico || tipo === "";
   toggleElectrico("Inicial");
+}
 
+async function onTipoEquipoChange(){
+  const tipo = document.getElementById("tipoEquipo").value;
+  aplicarVisibilidadTipoEquipo(tipo);
+
+  const folioEl = document.getElementById("folio");
   const prefijo = PREFIJOS[tipo] || "";
-  document.getElementById("folio").value = prefijo ? (prefijo + "-001") : "";
+  if(!prefijo){ folioEl.value = ""; return; }
+  folioEl.value = "Generando...";
+  folioEl.value = await generarFolioAutomatico(prefijo);
+}
+
+/* ============================================================
+   BUSCAR EQUIPO PRE-REGISTRADO por administración
+   (folio o N° de serie). Carga los datos y pre-llena Pantalla 0.
+   ============================================================ */
+async function buscarEquipoRegistrado(){
+  const q = document.getElementById("buscarPreReg").value.trim();
+  const statusEl = document.getElementById("buscarPreRegStatus");
+  if(!q){
+    statusEl.className = "orden-status-msg error";
+    statusEl.textContent = "Escribe el folio o N° de serie del equipo.";
+    return;
+  }
+  statusEl.className = "orden-status-msg";
+  statusEl.textContent = "Buscando...";
+
+  try{
+    const qEsc = q.replace(/"/g, '\\"');
+    const formula = encodeURIComponent(`AND({${OF.tipoServicio}}="General", OR({${OF.folio}}="${qEsc}", {${OF.serie}}="${qEsc}"))`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const rec = (data.records || [])[0];
+
+    if(!rec){
+      statusEl.className = "orden-status-msg error";
+      statusEl.textContent = `No se encontró ningún equipo registrado con "${q}". Verifica el dato o llena el formulario como equipo nuevo.`;
+      return;
+    }
+
+    const f = rec.fields;
+    const estadoRaw = f[OF.estado];
+    const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+    if(["Terminado","Entregado"].includes(estado)){
+      statusEl.className = "orden-status-msg error";
+      statusEl.textContent = `La orden de "${q}" ya está ${estado}. No se puede reabrir desde aquí.`;
+      return;
+    }
+
+    ordenRecordId = rec.id;
+
+    // Pre-llenar Pantalla 0
+    const setVal = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined && val !== null) el.value = val; };
+    const tipoEquipoRaw = f[OF.tipoEquipo];
+    const tipoEquipo = (tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "";
+    setVal("tipoEquipo", tipoEquipo);
+    aplicarVisibilidadTipoEquipo(tipoEquipo);
+    setVal("folio",    f[OF.folio]);
+    setVal("cliente",  f[OF.cliente]);
+    setVal("numSerie", f[OF.serie]);
+    setVal("spec",     f[OF.spec]);
+    setVal("frame",    f[OF.frame]);
+    if(f[OF.volts] != null) setVal("volts", f[OF.volts]);
+    if(f[OF.hp] != null)    setVal("potencia", f[OF.hp]);
+
+    // Datos adicionales (marca/color/nombre/n° parte) desde el borrador que dejó administración
+    try{
+      const folioVal = f[OF.folio] || "";
+      const bfFormula = encodeURIComponent(`{${BF.serie}}="${folioVal}"`);
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`);
+      if(bfRes.ok){
+        const bfData = await bfRes.json();
+        const bf = (bfData.records||[])[0];
+        if(bf && bf.fields[BF.datosJson]){
+          const datos = JSON.parse(bf.fields[BF.datosJson]);
+          setVal("nombreCorto", datos.nombreCorto);
+          setVal("marca", datos.marca);
+          setVal("color", datos.color);
+          setVal("numParte", datos.numParte);
+        }
+      }
+    } catch(e){}
+
+    statusEl.className = "orden-status-msg success";
+    statusEl.textContent = `✓ Equipo ${f[OF.folio]||q} cargado. Revisa los datos abajo y continúa el formulario normal.`;
+  } catch(err){
+    statusEl.className = "orden-status-msg error";
+    statusEl.textContent = "Error al buscar: " + (err.message || "sin conexión");
+  }
+}
+
+async function generarFolioAutomatico(prefijo){
+  try{
+    const formula = encodeURIComponent(`FIND("${prefijo}-", {${OF.folio}}) = 1`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true&fields[]=${OF.folio}`;
+    const resp = await fetch(url);
+    const data = await resp.json();
+    let maxNum = 0;
+    (data.records || []).forEach(r => {
+      const folio = r.fields[OF.folio] || "";
+      const m = folio.match(new RegExp(`^${prefijo}-(\\d+)$`));
+      if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    });
+    const siguiente = String(maxNum + 1).padStart(3, "0");
+    return `${prefijo}-${siguiente}`;
+  }catch(e){
+    return `${prefijo}-001`;
+  }
 }
 
 function toggleElectrico(sufijo){
   const check = document.getElementById("aplicaElectricoInicial").checked;
   document.getElementById("bloqueElectricoInicial").classList.toggle("hidden", !check);
   document.getElementById("bloqueElectricoFinalCard").classList.toggle("hidden", !check);
+  const txt = document.getElementById("aplicaElectricoTexto");
+  if(txt){
+    txt.textContent = check ? "Aplica" : "No aplica";
+    txt.style.color = check ? "var(--verde)" : "var(--gris-oscuro)";
+  }
+  guardarBorradorGeneral();
 }
 
 function seleccionarEstado(el, cual){
   const grupo = el.parentElement;
   grupo.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
   el.classList.add("on");
-  if(cual === "ini") estadoIni = el.dataset.val;
-  else estadoFin = el.dataset.val;
+  if(cual === "ini"){
+    estadoIni = el.dataset.val;
+    actualizarVisibilidadCorrienteVoltajeIni();
+  } else {
+    estadoFin = el.dataset.val;
+  }
+  guardarBorradorGeneral();
+}
+
+function actualizarVisibilidadCorrienteVoltajeIni(){
+  const fueraDeServicio = estadoIni === "Fuera";
+  document.getElementById("bloqueCorrienteVoltajeIni").classList.toggle("hidden", fueraDeServicio);
+  document.getElementById("avisoSinPruebasIni").classList.toggle("hidden", !fueraDeServicio);
 }
 
 function togglePintura(){
   document.getElementById("bloquePintura").classList.toggle("hidden", !document.getElementById("aplicaPintura").checked);
+  guardarBorradorGeneral();
 }
 
 /* ============ FOTOS (genérico) ============ */
@@ -708,6 +944,7 @@ function renderizarGrid(arr, gridId, prefix){
   const counterMap = { recibido:"counterRecibido", final:"counterFinal", bitacora:"counterBitacora" };
   const counterId = counterMap[prefix];
   if(counterId) document.getElementById(counterId).textContent = `${arr.length} foto${arr.length===1?"":"s"} seleccionada${arr.length===1?"":"s"}`;
+  guardarBorradorGeneral();
 }
 
 function getArrByPrefix(prefix){
@@ -734,9 +971,11 @@ function agregarObservacion(){
 function eliminarObservacion(i){
   observaciones.splice(i, 1);
   renderObservaciones();
+  guardarBorradorGeneral();
 }
 function actualizarObservacion(i, val){
   observaciones[i] = val;
+  guardarBorradorGeneral();
 }
 function renderObservaciones(){
   document.getElementById("observacionesList").innerHTML = observaciones.map((obs, i) => `
@@ -747,23 +986,429 @@ function renderObservaciones(){
   `).join("");
 }
 
+/* ============================================================
+   RESISTENCIA ENTRE BOBINAS — filas dependen del número de líneas
+   del motor (3 / 6 / 9). Se comparte entre pruebas inicial y final
+   porque es una propiedad fija del motor, no de cada medición.
+   ============================================================ */
+function renderResistenciaBobinas(){
+  const n = document.getElementById("numLineas").value;
+  ["Ini","Fin"].forEach(suf => {
+    const cont = document.getElementById("resistenciaBobinas" + suf);
+    if(!cont) return;
+    const s = suf.toLowerCase();
+    let html;
+    if(n === "3"){
+      html = `<div class="field-row">
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1, L2</label><input type="text" id="resL1L2_${s}" placeholder="Valor"></div>
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">L2, L3</label><input type="text" id="resL2L3_${s}" placeholder="Valor"></div>
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">L3, L1</label><input type="text" id="resL3L1_${s}" placeholder="Valor"></div>
+      </div>`;
+    } else if(n === "9"){
+      html = `<div class="field-row">
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">1, 4</label><input type="text" id="res14_${s}" placeholder="Valor"></div>
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">2, 5</label><input type="text" id="res25_${s}" placeholder="Valor"></div>
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">3, 6</label><input type="text" id="res36_${s}" placeholder="Valor"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">7, 8, 9 — valor 1</label><input type="text" id="res789a_${s}" placeholder="Valor"></div>
+      </div>`;
+    } else {
+      html = `<div class="field-row">
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">U1, U2</label><input type="text" id="resU1U2_${s}" placeholder="Valor"></div>
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">V1, V2</label><input type="text" id="resV1V2_${s}" placeholder="Valor"></div>
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">W1, W2</label><input type="text" id="resW1W2_${s}" placeholder="Valor"></div>
+      </div>`;
+    }
+    cont.innerHTML = html;
+  });
+  guardarBorradorGeneral();
+}
+
+// Lee los valores actuales de resistencia según el número de líneas seleccionado
+function obtenerResistenciaData(sufijo){
+  const n = document.getElementById("numLineas").value;
+  const gv = id => document.getElementById(id)?.value || "";
+  if(n === "3"){
+    return { numLineas: "3", valores: { l1l2: gv(`resL1L2_${sufijo}`), l2l3: gv(`resL2L3_${sufijo}`), l3l1: gv(`resL3L1_${sufijo}`) } };
+  }
+  if(n === "9"){
+    return { numLineas: "9", valores: { r14: gv(`res14_${sufijo}`), r25: gv(`res25_${sufijo}`), r36: gv(`res36_${sufijo}`), r789: gv(`res789a_${sufijo}`) } };
+  }
+  return { numLineas: "6", valores: { u1u2: gv(`resU1U2_${sufijo}`), v1v2: gv(`resV1V2_${sufijo}`), w1w2: gv(`resW1W2_${sufijo}`) } };
+}
+
+function obtenerTierraData(sufijo){
+  const gv = id => document.getElementById(id)?.value || "";
+  return { l1: gv(`tierraL1_${sufijo}`), l2: gv(`tierraL2_${sufijo}`), l3: gv(`tierraL3_${sufijo}`) };
+}
+
+function textoResistencia(data){
+  const v = data.valores;
+  if(data.numLineas === "3") return `L1,L2 ${esc(v.l1l2)} Ω · L2,L3 ${esc(v.l2l3)} Ω · L3,L1 ${esc(v.l3l1)} Ω`;
+  if(data.numLineas === "9") return `1,4 ${esc(v.r14)} Ω · 2,5 ${esc(v.r25)} Ω · 3,6 ${esc(v.r36)} Ω · 7,8,9 ${esc(v.r789)} Ω`;
+  return `U1,U2 ${esc(v.u1u2)} Ω · V1,V2 ${esc(v.v1v2)} Ω · W1,W2 ${esc(v.w1w2)} Ω`;
+}
+
+function textoTierra(t){
+  return `L1-Tierra ${esc(t.l1)} Ω · L2-Tierra ${esc(t.l2)} Ω · L3-Tierra ${esc(t.l3)} Ω`;
+}
+
+// true si obj (valor suelto, array o el objeto anidado de resistencia/tierra) no tiene ningún valor cargado
+function todosVacios(obj){
+  if(Array.isArray(obj)) return obj.every(v => todosVacios(v));
+  if(obj && typeof obj === "object") return Object.values(obj).every(v => todosVacios(v));
+  return obj === undefined || obj === null || String(obj).trim() === "";
+}
+
 /* ============ MATERIALES ============ */
 function agregarMaterial(){
-  materiales.push("");
+  materiales.push({ cantidad:"", unidad:"", descripcion:"", nota:"" });
   renderMateriales();
 }
 function eliminarMaterial(i){
   materiales.splice(i, 1);
   renderMateriales();
+  guardarBorradorGeneral();
 }
-function actualizarMaterial(i, val){
-  materiales[i] = val;
+function actualizarMaterial(i, campo, val){
+  materiales[i][campo] = val;
+  guardarBorradorGeneral();
 }
 function renderMateriales(){
   document.getElementById("materialesList").innerHTML = materiales.map((m, i) => `
-    <div class="bullet-row">
-      <input type="text" value="${esc(m)}" placeholder="Ej. Rodamiento NU 312 C3" oninput="actualizarMaterial(${i}, this.value)">
+    <div class="material-row">
       <button type="button" class="btn-x" onclick="eliminarMaterial(${i})">✕</button>
+      <div class="mat-line1">
+        <input type="text" class="mat-cant" value="${esc(m.cantidad)}" placeholder="Cant." inputmode="decimal" oninput="actualizarMaterial(${i},'cantidad',this.value)">
+        <input type="text" class="mat-unidad" value="${esc(m.unidad)}" placeholder="Unidad (pza, kg, m...)" oninput="actualizarMaterial(${i},'unidad',this.value)">
+      </div>
+      <input type="text" class="mat-desc" value="${esc(m.descripcion)}" placeholder="Ej. Rodamiento NU 312 C3" oninput="actualizarMaterial(${i},'descripcion',this.value)">
+      <input type="text" class="mat-nota" value="${esc(m.nota)}" placeholder="Nota (opcional)" oninput="actualizarMaterial(${i},'nota',this.value)">
+    </div>
+  `).join("");
+}
+
+// Materiales "válidos" para guardar/mostrar en reportes = los que tienen al menos descripción
+function materialesValidos(){
+  return materiales.filter(m => m && m.descripcion && m.descripcion.trim());
+}
+
+/* ============================================================
+   INDEXEDDB — BORRADOR LOCAL COMPLETO (formulario general)
+   Base separada de la de Sulzer para no mezclar esquemas.
+   ============================================================ */
+const DB_NAME_GENERAL    = "si_formulario_general_db";
+const DB_VERSION_GENERAL = 1;
+const STORE_NAME_GENERAL = "borradores_general";
+
+function initDBGeneral(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME_GENERAL, DB_VERSION_GENERAL);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if(!db.objectStoreNames.contains(STORE_NAME_GENERAL))
+        db.createObjectStore(STORE_NAME_GENERAL, { keyPath:"folio" });
+    };
+    req.onsuccess = e => {
+      _dbGeneral = e.target.result;
+      if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+      resolve(_dbGeneral);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+function _dbStoreGeneral(mode){ return _dbGeneral.transaction(STORE_NAME_GENERAL, mode).objectStore(STORE_NAME_GENERAL); }
+function guardarEnDBGeneral(datos){
+  return new Promise((resolve, reject) => {
+    const req = _dbStoreGeneral("readwrite").put(datos);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+function buscarEnDBGeneral(folio){
+  return new Promise((resolve, reject) => {
+    const req = _dbStoreGeneral("readonly").get(folio);
+    req.onsuccess = e => resolve(e.target.result || null);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+function eliminarDeDBGeneral(folio){
+  return new Promise((resolve, reject) => {
+    const req = _dbStoreGeneral("readwrite").delete(folio);
+    req.onsuccess = () => resolve();
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+/* ============================================================
+   GUARDAR BORRADOR — captura TODAS las pantallas (0 a 5) y lo
+   guarda en IndexedDB (local, incluye fotos) + sincroniza un
+   resumen a Airtable BORRADORES (para el dashboard: % de avance,
+   pantalla en la que se quedó, y disponibilidad del reporte de
+   materiales). Se llama en cada cambio de pantalla y en los
+   puntos clave de edición (listas, chips, fotos).
+   ============================================================ */
+async function guardarBorradorGeneral(){
+  if(!_dbGeneral) return;
+  const folio = document.getElementById("folio").value.trim();
+  if(!folio || folio === "Generando...") return;
+
+  const gv = id => document.getElementById(id)?.value || "";
+
+  let completas = 0;
+  if(gv("tipoEquipo") && gv("cliente").trim()) completas++;
+  if(gv("descripcionProblema").trim() || fotosRecibido.length > 0) completas++;
+  if(serviciosSeleccionados.size > 0 || materialesValidos().length > 0) completas++;
+  if(!document.getElementById("aplicaElectricoInicial").checked || estadoIni) completas++;
+  if(bitacoraPuntos.filter(p=>p).length > 0) completas++;
+  if(fotosFinal.length > 0 || estadoFin) completas++;
+  const porcentaje = Math.round((completas / 6) * 100);
+
+  const datos = {
+    folio,
+    _ts: Date.now(),
+    _porcentaje: porcentaje,
+    pantallaActual,
+    ordenRecordId,
+    reporteEnviado,
+    tipoEquipo:          gv("tipoEquipo"),
+    descripcionOtro:     gv("descripcionOtro"),
+    cliente:             gv("cliente"),
+    usuario:             gv("usuario"),
+    nombreCorto:         gv("nombreCorto"),
+    marca:               gv("marca"),
+    color:               gv("color"),
+    spec:                gv("spec"),
+    numSerie:            gv("numSerie"),
+    numParte:            gv("numParte"),
+    potencia:            gv("potencia"),
+    frame:               gv("frame"),
+    volts:               gv("volts"),
+    amperaje:            gv("amperaje"),
+    descripcionProblema: gv("descripcionProblema"),
+    observaciones:       observaciones.slice(),
+    fotosRecibido:       fotosRecibido.slice(),
+    serviciosSeleccionados: [...serviciosSeleccionados],
+    serviciosOtros:      serviciosOtros.slice(),
+    materiales:          materiales.map(m => ({...m})),
+    numLineas:           gv("numLineas"),
+    aplicaElectrico:     document.getElementById("aplicaElectricoInicial").checked,
+    estadoIni, estadoFin,
+    notasIni:            gv("notasElectricasIni"),
+    notasFin:            gv("notasElectricasFin"),
+    resistenciaIni:      obtenerResistenciaData("ini"),
+    resistenciaFin:      obtenerResistenciaData("fin"),
+    tierraIni:           obtenerTierraData("ini"),
+    tierraFin:           obtenerTierraData("fin"),
+    corrienteIni:        [gv("corrL1_ini"), gv("corrL2_ini"), gv("corrL3_ini")],
+    voltajeIni:          [gv("voltL1_ini"), gv("voltL2_ini"), gv("voltL3_ini")],
+    corrienteFin:        [gv("corrL1_fin"), gv("corrL2_fin"), gv("corrL3_fin")],
+    voltajeFin:          [gv("voltL1_fin"), gv("voltL2_fin"), gv("voltL3_fin")],
+    bitacoraPuntos:      bitacoraPuntos.slice(),
+    fotosBitacora:       fotosBitacora.slice(),
+    aplicaPintura:       document.getElementById("aplicaPintura").checked,
+    fotosPinturaAntes:   fotosPinturaAntes.slice(),
+    fotosPinturaDespues: fotosPinturaDespues.slice(),
+    fotosFinal:          fotosFinal.slice(),
+    videoNota:           gv("videoNota"),
+  };
+
+  try{
+    await guardarEnDBGeneral(datos);
+    programarSyncAirtableGeneral(datos);
+  } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
+}
+
+/* ============================================================
+   RESTAURAR BORRADOR — repinta todas las pantallas con los
+   datos guardados y salta a la pantalla donde se quedó.
+   ============================================================ */
+function restaurarBorradorGeneral(datos){
+  const setVal = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined && val !== null) el.value = val; };
+
+  ordenRecordId  = datos.ordenRecordId || null;
+  reporteEnviado = !!datos.reporteEnviado;
+
+  setVal("tipoEquipo", datos.tipoEquipo);
+  const esElectricoTipo = (datos.tipoEquipo === "Motor" || datos.tipoEquipo === "Motoreductor" || datos.tipoEquipo === "Motobomba");
+  document.getElementById("descripcionOtroWrap").classList.toggle("hidden", datos.tipoEquipo !== "Otro");
+  document.getElementById("electricoDatosWrap").classList.toggle("hidden", !esElectricoTipo);
+  setVal("descripcionOtro", datos.descripcionOtro);
+  setVal("folio",     datos.folio);
+  setVal("cliente",   datos.cliente);
+  setVal("usuario",   datos.usuario);
+  setVal("nombreCorto", datos.nombreCorto);
+  setVal("marca",     datos.marca);
+  setVal("color",     datos.color);
+  setVal("spec",      datos.spec);
+  setVal("numSerie",  datos.numSerie);
+  setVal("numParte",  datos.numParte);
+  setVal("potencia",  datos.potencia);
+  setVal("frame",     datos.frame);
+  setVal("volts",     datos.volts);
+  setVal("amperaje",  datos.amperaje);
+
+  setVal("descripcionProblema", datos.descripcionProblema);
+  observaciones = (datos.observaciones || []).slice();
+  renderObservaciones();
+  fotosRecibido = (datos.fotosRecibido || []).slice();
+  renderizarGrid(fotosRecibido, "gridRecibido", "recibido");
+
+  serviciosSeleccionados = new Set(datos.serviciosSeleccionados || []);
+  renderChipsServicios();
+  document.querySelectorAll("#chipsServicios .chip").forEach(c => {
+    c.classList.toggle("on", serviciosSeleccionados.has(c.textContent));
+  });
+  serviciosOtros = (datos.serviciosOtros || []).slice();
+  renderServiciosOtros();
+  materiales = (datos.materiales || []).map(m => ({ cantidad:"", unidad:"", descripcion:"", nota:"", ...m }));
+  renderMateriales();
+
+  setVal("numLineas", datos.numLineas || "6");
+  renderResistenciaBobinas();
+  restaurarResistencia(datos.resistenciaIni, "ini");
+  restaurarResistencia(datos.resistenciaFin, "fin");
+  setVal("tierraL1_ini", datos.tierraIni?.l1); setVal("tierraL2_ini", datos.tierraIni?.l2); setVal("tierraL3_ini", datos.tierraIni?.l3);
+  setVal("tierraL1_fin", datos.tierraFin?.l1); setVal("tierraL2_fin", datos.tierraFin?.l2); setVal("tierraL3_fin", datos.tierraFin?.l3);
+
+  document.getElementById("aplicaElectricoInicial").checked = datos.aplicaElectrico !== false;
+  toggleElectrico("Inicial");
+  if(datos.estadoIni) restaurarChipEstado("ini", datos.estadoIni);
+  if(datos.estadoFin) restaurarChipEstado("fin", datos.estadoFin);
+  setVal("notasElectricasIni", datos.notasIni);
+  setVal("notasElectricasFin", datos.notasFin);
+  const ci = datos.corrienteIni || []; setVal("corrL1_ini",ci[0]); setVal("corrL2_ini",ci[1]); setVal("corrL3_ini",ci[2]);
+  const vi = datos.voltajeIni   || []; setVal("voltL1_ini",vi[0]); setVal("voltL2_ini",vi[1]); setVal("voltL3_ini",vi[2]);
+  const cf = datos.corrienteFin || []; setVal("corrL1_fin",cf[0]); setVal("corrL2_fin",cf[1]); setVal("corrL3_fin",cf[2]);
+  const vf = datos.voltajeFin   || []; setVal("voltL1_fin",vf[0]); setVal("voltL2_fin",vf[1]); setVal("voltL3_fin",vf[2]);
+
+  bitacoraPuntos = (datos.bitacoraPuntos || []).slice();
+  renderBitacoraPuntos();
+  fotosBitacora = (datos.fotosBitacora || []).slice();
+  renderizarGrid(fotosBitacora, "gridBitacora", "bitacora");
+  document.getElementById("aplicaPintura").checked = !!datos.aplicaPintura;
+  togglePintura();
+  fotosPinturaAntes = (datos.fotosPinturaAntes || []).slice();
+  renderizarGrid(fotosPinturaAntes, "gridPinturaAntes", "pintura_antes");
+  fotosPinturaDespues = (datos.fotosPinturaDespues || []).slice();
+  renderizarGrid(fotosPinturaDespues, "gridPinturaDespues", "pintura_despues");
+
+  fotosFinal = (datos.fotosFinal || []).slice();
+  renderizarGrid(fotosFinal, "gridFinal", "final");
+  setVal("videoNota", datos.videoNota);
+
+  mostrarPantalla(datos.pantallaActual || 0);
+}
+
+function restaurarResistencia(data, sufijo){
+  if(!data || !data.valores) return;
+  const v = data.valores;
+  const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val ?? ""; };
+  if(data.numLineas === "3"){
+    setVal(`resL1L2_${sufijo}`, v.l1l2); setVal(`resL2L3_${sufijo}`, v.l2l3); setVal(`resL3L1_${sufijo}`, v.l3l1);
+  } else if(data.numLineas === "9"){
+    setVal(`res14_${sufijo}`, v.r14); setVal(`res25_${sufijo}`, v.r25); setVal(`res36_${sufijo}`, v.r36);
+    setVal(`res789a_${sufijo}`, Array.isArray(v.r789) ? v.r789[0] : v.r789);
+  } else {
+    setVal(`resU1U2_${sufijo}`, v.u1u2); setVal(`resV1V2_${sufijo}`, v.v1v2); setVal(`resW1W2_${sufijo}`, v.w1w2);
+  }
+}
+
+function restaurarChipEstado(sufijo, valor){
+  const screenId = sufijo === "ini" ? "screen3" : "screen5";
+  document.querySelectorAll(`#${screenId} .chip-row .chip`).forEach(c => c.classList.toggle("on", c.dataset.val === valor));
+  if(sufijo === "ini"){ estadoIni = valor; actualizarVisibilidadCorrienteVoltajeIni(); }
+  else { estadoFin = valor; }
+}
+
+/* ============================================================
+   SINCRONIZAR PROGRESO CON AIRTABLE (TABLA_BORRADORES)
+   Alimenta el dashboard: % de avance, pantalla actual, y los
+   datos que necesita el botón "Lista de Materiales" para estar
+   disponible antes de que el técnico termine el formulario.
+   ============================================================ */
+function programarSyncAirtableGeneral(datos){
+  clearTimeout(_bfSyncTimerGeneral);
+  _bfSyncTimerGeneral = setTimeout(() => sincronizarProgresoBorradorGeneralAT(datos), 800);
+}
+
+async function sincronizarProgresoBorradorGeneralAT(datos){
+  const folio = datos.folio;
+  if(!folio) return;
+
+  const campos = {
+    [BF.serie]:               folio,
+    [BF.cliente]:             datos.cliente || "",
+    [BF.ultimaActualizacion]: new Date().toISOString().split("T")[0],
+    [BF.porcentaje]:          datos._porcentaje,
+    [BF.pantallaActual]:      datos.pantallaActual,
+    [BF.datosJson]:           JSON.stringify({
+      materiales:  materialesValidos(),
+      nombreCorto: datos.nombreCorto || "",
+      modelo:      datos.spec || "",
+      marca:       datos.marca || "",
+      color:       datos.color || "",
+      numParte:    datos.numParte || "",
+    }),
+  };
+
+  try{
+    if(!_bfRecordIdGeneral){
+      const formula = encodeURIComponent(`{${BF.serie}}="${folio}"`);
+      const busca = await fetch(
+        `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`
+      );
+      const bd = await busca.json();
+      if(bd.records?.length) _bfRecordIdGeneral = bd.records[0].id;
+    }
+
+    if(_bfRecordIdGeneral){
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
+        method: "PATCH",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields: campos })
+      });
+    } else {
+      const crea = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
+        method: "POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ records:[{ fields: campos }] })
+      });
+      const cd = await crea.json();
+      if(cd.records?.[0]) _bfRecordIdGeneral = cd.records[0].id;
+    }
+  } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
+}
+
+async function eliminarBorradorGeneralAirtable(){
+  if(!_bfRecordIdGeneral) return;
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
+      method: "DELETE"
+    });
+  } catch(e){}
+}
+
+/* ============ BITÁCORA (lista de puntos) ============ */
+function agregarBitacoraPunto(){
+  bitacoraPuntos.push("");
+  renderBitacoraPuntos();
+}
+function eliminarBitacoraPunto(i){
+  bitacoraPuntos.splice(i, 1);
+  renderBitacoraPuntos();
+  guardarBorradorGeneral();
+}
+function actualizarBitacoraPunto(i, val){
+  bitacoraPuntos[i] = val;
+  guardarBorradorGeneral();
+}
+function renderBitacoraPuntos(){
+  document.getElementById("bitacoraList").innerHTML = bitacoraPuntos.map((p, i) => `
+    <div class="bullet-row">
+      <input type="text" value="${esc(p)}" placeholder="Ej. Se revisó circuito eléctrico, se ajustó terminal suelta" oninput="actualizarBitacoraPunto(${i}, this.value)">
+      <button type="button" class="btn-x" onclick="eliminarBitacoraPunto(${i})">✕</button>
     </div>
   `).join("");
 }
@@ -772,7 +1417,16 @@ function generarListaMateriales(){
   const folio = document.getElementById("folio").value || "———";
   const cliente = document.getElementById("cliente").value;
   const nombreCorto = document.getElementById("nombreCorto").value;
-  const lista = materiales.filter(m => m);
+  const lista = materialesValidos();
+
+  const filas = lista.length
+    ? lista.map(m => `<tr>
+        <td style="text-align:center">${esc(m.cantidad) || "—"}</td>
+        <td style="text-align:center">${esc(m.unidad) || "—"}</td>
+        <td>${esc(m.descripcion)}</td>
+        <td>${esc(m.nota)}</td>
+      </tr>`).join("")
+    : `<tr><td colspan="4" style="text-align:center;color:#888">Sin materiales registrados</td></tr>`;
 
   const w = window.open("", "_blank");
   w.document.write(`
@@ -781,12 +1435,17 @@ function generarListaMateriales(){
       body{ font-family: Arial, sans-serif; padding: 24px; }
       h1{ font-size: 1.2rem; color:#1a3a5c; border-bottom:2px solid #1a3a5c; padding-bottom:8px; }
       .info{ font-size:0.9rem; margin-bottom:16px; }
-      ul{ font-size:0.95rem; line-height:1.8; }
+      table{ width:100%; border-collapse:collapse; font-size:0.9rem; }
+      th,td{ border:1px solid #999; padding:6px 8px; }
+      th{ background:#1a3a5c; color:#fff; text-align:left; }
     </style></head>
     <body>
-      <h1>Lista de materiales / refacciones — ${esc(folio)}</h1>
+      <h1>Lista de materiales / refacciones / requerimientos — ${esc(folio)}</h1>
       <div class="info"><b>Cliente:</b> ${esc(cliente)}${nombreCorto ? ` — <b>Equipo:</b> ${esc(nombreCorto)}` : ""}</div>
-      <ul>${lista.length ? lista.map(m => `<li>${esc(m)}</li>`).join("") : "<li>Sin materiales registrados</li>"}</ul>
+      <table>
+        <tr><th style="width:10%">Cant.</th><th style="width:16%">Unidad</th><th>Descripción</th><th style="width:26%">Nota</th></tr>
+        ${filas}
+      </table>
     </body></html>
   `);
   w.document.close();
@@ -801,9 +1460,11 @@ function agregarServicioOtro(){
 function eliminarServicioOtro(i){
   serviciosOtros.splice(i, 1);
   renderServiciosOtros();
+  guardarBorradorGeneral();
 }
 function actualizarServicioOtro(i, val){
   serviciosOtros[i] = val;
+  guardarBorradorGeneral();
 }
 function renderServiciosOtros(){
   document.getElementById("serviciosOtrosList").innerHTML = serviciosOtros.map((s, i) => `
@@ -824,6 +1485,7 @@ function toggleServicio(el, servicio){
   el.classList.toggle("on");
   if(serviciosSeleccionados.has(servicio)) serviciosSeleccionados.delete(servicio);
   else serviciosSeleccionados.add(servicio);
+  guardarBorradorGeneral();
 }
 
 /* ============ VISTA PREVIA DEL REPORTE ============ */
@@ -868,21 +1530,34 @@ function generarVistaPrevia(){
   html += `<div class="sec"><ul>
     ${[...serviciosSeleccionados].map(s => `<li>Servicio de ${esc(s.toLowerCase())}</li>`).join("")}
     ${serviciosOtros.filter(s=>s).map(s => `<li>${esc(s)}</li>`).join("")}
-    ${materiales.filter(m=>m).map(m => `<li><i>${esc(m)}</i></li>`).join("")}
   </ul></div>`;
 
+  const listaMat = materialesValidos();
+  html += `<div class="ph">MATERIALES / REFACCIONES</div>`;
+  html += listaMat.length
+    ? `<table class="info" style="font-size:0.85rem;">
+        <tr style="background:#f0f0f0;font-weight:700;"><td>CANT.</td><td>UNIDAD</td><td>DESCRIPCIÓN</td><td>NOTA</td></tr>
+        ${listaMat.map(m => `<tr><td>${esc(m.cantidad)||"—"}</td><td>${esc(m.unidad)||"—"}</td><td>${esc(m.descripcion)}</td><td>${esc(m.nota)}</td></tr>`).join("")}
+      </table>`
+    : `<div class="sec">Sin materiales registrados.</div>`;
+
   if(aplicaElectrico){
+    const gv2 = id => document.getElementById(id).value;
+    const resIni = obtenerResistenciaData("ini");
+    const tierraIni = obtenerTierraData("ini");
     html += `<div class="ph">V. PRUEBAS ELÉCTRICAS BÁSICAS (INICIAL)</div>`;
     html += `<div class="sec">
-      Corriente: L1 ${esc(document.getElementById("corrL1_ini").value)} A · L2 ${esc(document.getElementById("corrL2_ini").value)} A · L3 ${esc(document.getElementById("corrL3_ini").value)} A<br>
-      Voltaje: L1 ${esc(document.getElementById("voltL1_ini").value)} V · L2 ${esc(document.getElementById("voltL2_ini").value)} V · L3 ${esc(document.getElementById("voltL3_ini").value)} V<br>
+      Resistencia entre bobinas (${esc(resIni.numLineas)} líneas): ${textoResistencia(resIni)}<br>
+      Puesta a tierra: ${textoTierra(tierraIni)}<br>
       Estado: <b>${esc(estadoIni) || "—"}</b><br>
       ${esc(notasIni)}
+      ${estadoIni === "Fuera" ? `<br><b style="color:#c62828">⚠ No se realizaron pruebas de corriente/voltaje iniciales.</b>` : `<br>Corriente: L1 ${esc(gv2("corrL1_ini"))} A · L2 ${esc(gv2("corrL2_ini"))} A · L3 ${esc(gv2("corrL3_ini"))} A<br>Voltaje: L1 ${esc(gv2("voltL1_ini"))} V · L2 ${esc(gv2("voltL2_ini"))} V · L3 ${esc(gv2("voltL3_ini"))} V`}
     </div>`;
   }
 
   html += `<div class="ph">VI. SERVICIO REALIZADO</div>`;
-  html += `<div class="sec">${esc(bitacoraTexto) || "(sin descripción)"}</div>`;
+  const puntosBitacora = bitacoraPuntos.filter(p=>p);
+  html += `<div class="sec"><ul>${puntosBitacora.length ? puntosBitacora.map(p => `<li>${esc(p)}</li>`).join("") : "<li>(sin descripción)</li>"}</ul></div>`;
   if(fotosBitacora.length){
     html += `<div class="foto-row">${fotosBitacora.map(f => `<img src="${f.dataUrl}">`).join("")}</div>`;
   }
@@ -897,10 +1572,20 @@ function generarVistaPrevia(){
   }
 
   if(aplicaElectrico){
+    const gv3 = id => document.getElementById(id).value;
+    const resFin = obtenerResistenciaData("fin");
+    const tierraFin = obtenerTierraData("fin");
+    const corrFin = [gv3("corrL1_fin"), gv3("corrL2_fin"), gv3("corrL3_fin")];
+    const voltFin = [gv3("voltL1_fin"), gv3("voltL2_fin"), gv3("voltL3_fin")];
+    const finVacio = todosVacios(resFin.valores) && todosVacios(tierraFin) && todosVacios(corrFin) && todosVacios(voltFin);
     html += `<div class="ph">VIII. PRUEBAS ELÉCTRICAS BÁSICAS (FINALES)</div>`;
-    html += `<div class="sec">
-      Corriente: L1 ${esc(document.getElementById("corrL1_fin").value)} A · L2 ${esc(document.getElementById("corrL2_fin").value)} A · L3 ${esc(document.getElementById("corrL3_fin").value)} A<br>
-      Voltaje: L1 ${esc(document.getElementById("voltL1_fin").value)} V · L2 ${esc(document.getElementById("voltL2_fin").value)} V · L3 ${esc(document.getElementById("voltL3_fin").value)} V<br>
+    html += finVacio
+      ? `<div class="sec" style="color:#666">No fue requerido realizar pruebas eléctricas finales.</div>`
+      : `<div class="sec">
+      Resistencia entre bobinas (${esc(resFin.numLineas)} líneas): ${textoResistencia(resFin)}<br>
+      Puesta a tierra: ${textoTierra(tierraFin)}<br>
+      Corriente: L1 ${esc(corrFin[0])} A · L2 ${esc(corrFin[1])} A · L3 ${esc(corrFin[2])} A<br>
+      Voltaje: L1 ${esc(voltFin[0])} V · L2 ${esc(voltFin[1])} V · L3 ${esc(voltFin[2])} V<br>
       Estado: <b>${esc(estadoFin) || "—"}</b><br>
       ${esc(notasFin)}
     </div>`;
@@ -943,18 +1628,25 @@ async function enviarReporteGeneral(){
 
   try{
     const folio = document.getElementById("folio").value.trim();
+    const gv = id => document.getElementById(id).value;
     const pruebasElectricas = {
+      numLineas: document.getElementById("numLineas").value,
       inicial: {
-        corriente: [document.getElementById("corrL1_ini").value, document.getElementById("corrL2_ini").value, document.getElementById("corrL3_ini").value],
-        voltaje: [document.getElementById("voltL1_ini").value, document.getElementById("voltL2_ini").value, document.getElementById("voltL3_ini").value],
+        resistencia: obtenerResistenciaData("ini").valores,
+        tierra: obtenerTierraData("ini"),
+        corriente: [gv("corrL1_ini"), gv("corrL2_ini"), gv("corrL3_ini")],
+        voltaje: [gv("voltL1_ini"), gv("voltL2_ini"), gv("voltL3_ini")],
+        omitidoCorrienteVoltaje: estadoIni === "Fuera",
         estado: estadoIni,
-        notas: document.getElementById("notasElectricasIni").value
+        notas: gv("notasElectricasIni")
       },
       final: {
-        corriente: [document.getElementById("corrL1_fin").value, document.getElementById("corrL2_fin").value, document.getElementById("corrL3_fin").value],
-        voltaje: [document.getElementById("voltL1_fin").value, document.getElementById("voltL2_fin").value, document.getElementById("voltL3_fin").value],
+        resistencia: obtenerResistenciaData("fin").valores,
+        tierra: obtenerTierraData("fin"),
+        corriente: [gv("corrL1_fin"), gv("corrL2_fin"), gv("corrL3_fin")],
+        voltaje: [gv("voltL1_fin"), gv("voltL2_fin"), gv("voltL3_fin")],
         estado: estadoFin,
-        notas: document.getElementById("notasElectricasFin").value
+        notas: gv("notasElectricasFin")
       }
     };
 
@@ -970,11 +1662,11 @@ async function enviarReporteGeneral(){
       [RG.observacionesJson]: JSON.stringify(observaciones.filter(o=>o)),
       [RG.serviciosJson]: JSON.stringify([...serviciosSeleccionados]),
       [RG.serviciosOtrosJson]: JSON.stringify(serviciosOtros.filter(s=>s)),
-      [RG.materialesJson]: JSON.stringify(materiales.filter(m=>m)),
+      [RG.materialesJson]: JSON.stringify(materialesValidos()),
       [RG.aplicaElectrico]: document.getElementById("aplicaElectricoInicial").checked,
       [RG.pruebasElectricasJson]: JSON.stringify(pruebasElectricas),
       [RG.aplicaPintura]: document.getElementById("aplicaPintura").checked,
-      [RG.bitacoraTexto]: bitacoraTexto,
+      [RG.bitacoraTexto]: bitacoraPuntos.filter(p=>p).map(p => "- " + p).join("\n"),
       [RG.videoNota]: document.getElementById("videoNota").value
     };
 
@@ -1011,6 +1703,9 @@ async function enviarReporteGeneral(){
     statusEl.classList.add("success");
     statusEl.textContent = "✓ Reporte guardado y orden marcada como Terminado.";
     btn.textContent = "✓ Reporte enviado";
+    if(_autoSaveIntervalGeneral){ clearInterval(_autoSaveIntervalGeneral); _autoSaveIntervalGeneral = null; }
+    eliminarBorradorGeneralAirtable(); // el reporte final ya existe en REPORTES_GENERAL, se quita del monitor en vivo
+    eliminarDeDBGeneral(folio).catch(()=>{}); // ya no hace falta el borrador local — el técnico terminó
   } catch(err){
     statusEl.classList.add("error");
     statusEl.textContent = "Error al enviar: " + err.message;
@@ -1018,9 +1713,32 @@ async function enviarReporteGeneral(){
   }
 }
 
-/* ============ INIT ============ */
+/* ============================================================
+   INIT — restaura el borrador local si se abrió desde el
+   dashboard con ?folio=X ("Continuar formulario"), o deja el
+   formulario listo para empezar uno nuevo.
+   ============================================================ */
 renderChipsServicios();
+renderResistenciaBobinas();
 mostrarPantalla(0);
+
+(async function initFormularioGeneral(){
+  try{ await initDBGeneral(); } catch(e){ console.warn("IndexedDB no disponible:", e); }
+
+  const folioUrl = new URLSearchParams(window.location.search).get("folio");
+  if(folioUrl){
+    let datos = null;
+    try{ datos = await buscarEnDBGeneral(folioUrl); } catch(e){}
+    if(datos && !datos.reporteEnviado){
+      restaurarBorradorGeneral(datos);
+    } else {
+      document.getElementById("folio").value = folioUrl;
+      alert(`No se encontró un borrador local de la orden ${folioUrl} en este dispositivo.\n\nSi el formulario se empezó en otro dispositivo o navegador, continúa desde ese mismo dispositivo.`);
+    }
+  }
+
+  _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
+})();
 </script>
 
 </body>

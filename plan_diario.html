@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plan Diario — Suministros Industriales SI</title>
+<style>
+:root{
+  --navy:          #0c1e35;
+  --azul:          #12325a;
+  --azul-claro:    #1d5496;
+  --azul-medio:    #2563a8;
+  --azul-acento:   #3b82c4;
+  --azul-bg:       #e8f0fb;
+  --blanco:        #ffffff;
+  --fondo:         #eef1f6;
+  --gris:          #dde3ec;
+  --gris-texto:    #485568;
+  --gris-oscuro:   #3d4a5c;
+  --verde:         #0e7a3c;
+  --verde-bg:      #e3f5ec;
+  --verde-borde:   #a3d9b8;
+  --ambar:         #976010;
+  --ambar-bg:      #fdf3db;
+  --ambar-borde:   #f0c96a;
+  --rojo:          #991b1b;
+  --rojo-bg:       #fde8e8;
+  --rojo-borde:    #f5a5a5;
+  --sombra:        0 1px 4px rgba(12,30,53,0.07), 0 4px 12px rgba(12,30,53,0.05);
+  --radio:         10px;
+  --radio-sm:      6px;
+  --grad-marca:    linear-gradient(90deg, #f2741a 0%, #a0228e 52%, #1d5496 100%);
+}
+*{ box-sizing:border-box; margin:0; padding:0; }
+body{
+  font-family:"Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  background:linear-gradient(180deg,#eef2f8 0%,#e6ebf3 100%);
+  background-attachment:fixed;
+  color:var(--gris-oscuro);
+  min-height:100vh;
+  font-size:14px;
+}
+header{
+  background:var(--navy); color:var(--blanco);
+  padding:0 32px; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px; min-height:64px; position:sticky; top:0; z-index:200;
+}
+header::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--grad-marca); }
+.header-brand{ display:flex; align-items:center; gap:14px; padding:10px 0; }
+.header-brand img{ height:38px; width:auto; border-radius:8px; background:#fff; padding:4px; }
+.header-brand h1{ font-size:0.88rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#fff; }
+.header-brand p{ font-size:0.72rem; color:rgba(255,255,255,0.45); letter-spacing:0.3px; margin-top:2px; }
+.header-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0; }
+.btn-header{
+  padding:7px 16px; border-radius:var(--radio-sm); font-size:0.78rem; font-weight:600;
+  cursor:pointer; border:1px solid rgba(255,255,255,0.2); white-space:nowrap;
+  background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.85); transition:all 0.15s;
+  text-decoration:none; display:inline-flex; align-items:center;
+}
+.btn-header:hover{ background:rgba(255,255,255,0.16); border-color:rgba(255,255,255,0.35); }
+.btn-header.acento{ background:var(--azul-claro); border-color:var(--azul-claro); color:#fff; }
+
+main{ max-width:1100px; margin:0 auto; padding:24px 24px 56px; }
+
+.date-nav{
+  background:var(--blanco); border-radius:var(--radio); box-shadow:var(--sombra);
+  border:1px solid var(--gris); padding:14px 20px; margin-bottom:18px;
+  display:flex; align-items:center; justify-content:center; gap:16px;
+}
+.date-nav button{
+  width:34px; height:34px; border-radius:50%; border:1px solid var(--gris); background:var(--fondo);
+  color:var(--azul); font-size:1rem; font-weight:700; cursor:pointer;
+}
+.date-nav button:hover{ background:var(--azul-bg); }
+.date-nav .fecha-actual{ font-weight:700; color:var(--navy); font-size:1rem; text-align:center; min-width:220px; text-transform:capitalize; }
+.date-nav .btn-hoy{
+  width:auto; border-radius:var(--radio-sm); padding:0 12px; font-size:0.75rem; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.4px; background:var(--azul-bg); color:var(--azul-claro); border-color:#b8d0ee;
+}
+
+.titulo-plan{
+  background:var(--azul-bg); border:1px solid #b8d0ee; border-radius:var(--radio);
+  padding:14px 20px; text-align:center; margin-bottom:16px;
+}
+.titulo-plan h2{ font-size:1.15rem; font-weight:800; color:var(--navy); letter-spacing:0.5px; }
+.titulo-plan p{ font-size:0.8rem; color:var(--azul-claro); margin-top:2px; text-transform:capitalize; }
+
+.toolbar{ display:flex; justify-content:flex-end; margin-bottom:12px; }
+.btn-add{
+  background:var(--azul); color:#fff; border:1px solid var(--azul-claro); padding:9px 18px;
+  border-radius:var(--radio-sm); font-size:0.82rem; font-weight:700; cursor:pointer;
+}
+.btn-add:hover{ background:var(--azul-claro); }
+
+.tabla-wrap{
+  background:var(--blanco); border-radius:var(--radio); box-shadow:var(--sombra);
+  border:1px solid var(--gris); overflow:hidden; margin-bottom:20px;
+}
+table{ width:100%; border-collapse:collapse; font-size:0.83rem; }
+thead th{
+  background:var(--navy); color:rgba(255,255,255,0.75); font-weight:600; padding:10px 14px;
+  text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px; white-space:nowrap;
+}
+tbody tr{ border-bottom:1px solid var(--fondo); }
+tbody tr:last-child{ border-bottom:none; }
+tbody tr:hover{ background:#f7f9fc; }
+tbody tr.mio{ background:var(--verde-bg); }
+tbody tr.mio:hover{ background:#d9f0e3; }
+tbody tr.completado td{ color:#9aa5b3; text-decoration:line-through; }
+tbody tr.completado .chip-prioridad{ opacity:0.5; text-decoration:none; }
+tbody tr.orden-row{ background:#f4f8fd; }
+tbody tr.orden-row:hover{ background:#e9f1fb; }
+tbody tr.orden-row.mio{ background:var(--verde-bg); }
+.orden-tag{ display:inline-block; background:var(--azul-claro); color:#fff; font-size:0.6rem; font-weight:800; letter-spacing:0.4px; padding:1px 6px; border-radius:4px; vertical-align:middle; margin-right:4px; }
+.orden-continuar{ display:inline-block; margin-left:8px; font-size:0.74rem; font-weight:700; color:var(--azul-claro); text-decoration:none; white-space:nowrap; }
+.orden-continuar:hover{ text-decoration:underline; }
+.orden-badge{ display:inline-block; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:10px; }
+.orden-badge.proc{ background:#fdf3db; color:#976010; }
+.orden-badge.rec{ background:var(--azul-bg); color:var(--azul-claro); }
+td{ padding:11px 14px; vertical-align:middle; }
+.td-actividad{ font-weight:600; color:var(--gris-oscuro); max-width:280px; }
+.td-proceso{ color:var(--gris-texto); font-size:0.78rem; max-width:220px; }
+.chip-prioridad{
+  display:inline-flex; align-items:center; justify-content:center; min-width:34px; padding:3px 8px;
+  border-radius:5px; font-size:0.72rem; font-weight:800; white-space:nowrap;
+}
+.chip-prioridad.max{ background:var(--rojo-bg); color:var(--rojo); border:1px solid var(--rojo-borde); }
+.chip-prioridad.num{ background:var(--azul-bg); color:var(--azul-claro); border:1px solid #b8d0ee; }
+.chip-prioridad.sin{ background:var(--fondo); color:var(--gris-texto); border:1px solid var(--gris); }
+.btn-fila{
+  border:none; background:none; cursor:pointer; font-size:0.9rem; padding:4px 6px; border-radius:5px; color:var(--gris-texto);
+}
+.btn-fila:hover{ background:var(--fondo); }
+.chk-completado{ width:18px; height:18px; accent-color:var(--verde); cursor:pointer; }
+.empty-row td{ padding:36px; text-align:center; color:var(--gris-texto); font-style:italic; }
+
+/* MODAL */
+.modal-overlay{ position:fixed; inset:0; background:rgba(8,18,35,0.65); z-index:1000; display:flex; align-items:center; justify-content:center; padding:20px; }
+.modal-overlay.hidden{ display:none; }
+.modal{ background:#fff; border-radius:var(--radio); box-shadow:0 20px 60px rgba(0,0,0,0.3); width:100%; max-width:480px; max-height:90vh; overflow-y:auto; }
+.modal-header{ padding:18px 22px 14px; border-bottom:1px solid var(--gris); display:flex; justify-content:space-between; align-items:center; }
+.modal-header h3{ font-size:0.95rem; font-weight:700; color:var(--azul); }
+.modal-close{ background:none; border:none; font-size:1.2rem; cursor:pointer; color:var(--gris-texto); }
+.modal-body{ padding:18px 22px; }
+.campo{ margin-bottom:14px; }
+.campo label{ display:block; font-size:0.72rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; }
+.campo input[type=text], .campo input[type=number], .campo select, .campo textarea{
+  width:100%; padding:9px 11px; border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.85rem; font-family:inherit;
+}
+.campo textarea{ resize:vertical; min-height:60px; }
+.fila-2{ display:flex; gap:10px; }
+.fila-2 .campo{ flex:1; }
+.chk-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.chk-row input{ width:16px; height:16px; }
+.modal-footer{ padding:14px 22px 18px; border-top:1px solid var(--gris); display:flex; justify-content:space-between; gap:8px; }
+.btn-guardar{ padding:9px 20px; background:var(--azul); color:#fff; border:1px solid var(--azul-medio); border-radius:var(--radio-sm); font-size:0.84rem; font-weight:700; cursor:pointer; }
+.btn-guardar:hover{ background:var(--azul-claro); }
+.btn-cancelar{ padding:9px 18px; background:var(--fondo); color:var(--gris-oscuro); border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.84rem; font-weight:600; cursor:pointer; }
+.btn-eliminar{ padding:9px 14px; background:var(--rojo-bg); color:var(--rojo); border:1px solid var(--rojo-borde); border-radius:var(--radio-sm); font-size:0.8rem; font-weight:700; cursor:pointer; }
+
+.spinner-wrap{ text-align:center; padding:60px 20px; color:var(--gris-texto); }
+.hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <img src="logo_SI.jpg" alt="SI">
+    <div>
+      <h1>Centro de Servicio</h1>
+      <p>Plan Diario</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn-header" onclick="cargarPlan()">↻ Actualizar</button>
+    <a class="btn-header" href="dashboard.html" style="color:#fff;text-decoration:none;display:inline-flex;align-items:center;">Ir al Dashboard →</a>
+    <button class="btn-header" onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main>
+  <div class="date-nav">
+    <button onclick="cambiarDia(-1)">←</button>
+    <div class="fecha-actual" id="fechaActualLbl">—</div>
+    <button onclick="cambiarDia(1)">→</button>
+    <button class="btn-hoy" onclick="irAHoy()">Hoy</button>
+  </div>
+
+  <div class="titulo-plan">
+    <h2>PLAN DIARIO DE C.S. SI</h2>
+    <p id="fechaLarga">—</p>
+  </div>
+
+  <div class="toolbar hidden" id="toolbarAdmin">
+    <button class="btn-add" onclick="abrirModal()">+ Agregar tarea</button>
+  </div>
+
+  <div id="spinnerWrap" class="spinner-wrap">Cargando plan del día...</div>
+
+  <div class="tabla-wrap hidden" id="tablaWrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:center">Prioridad</th>
+          <th>Asignado</th>
+          <th>Cliente</th>
+          <th>Actividad</th>
+          <th>Entrega</th>
+          <th>Proceso</th>
+          <th style="text-align:center">✓</th>
+          <th id="thAccionesAdmin" class="hidden"></th>
+        </tr>
+      </thead>
+      <tbody id="tbodyPlan"></tbody>
+    </table>
+  </div>
+</main>
+
+<!-- MODAL AGREGAR/EDITAR TAREA (solo Admin) -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modalTitulo">Agregar tarea</h3>
+      <button class="modal-close" onclick="cerrarModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="chk-row">
+        <input type="checkbox" id="mPrioridadMax" onchange="toggleMax()">
+        <label for="mPrioridadMax" style="margin:0;text-transform:none;font-weight:600;font-size:0.85rem;">Es prioridad MÁXIMA</label>
+      </div>
+      <div class="campo" id="wrapPrioridadNum">
+        <label>Prioridad (número, 1 = más urgente)</label>
+        <input type="number" id="mPrioridad" min="1" step="1" placeholder="Ej. 1">
+      </div>
+      <div class="campo">
+        <label>Asignado a</label>
+        <select id="mTecnico"><option value="">— Sin asignar —</option></select>
+      </div>
+      <div class="campo">
+        <label>Cliente (dejar vacío si es tarea interna del C.S.)</label>
+        <input type="text" id="mCliente" placeholder="Ej. ABB">
+      </div>
+      <div class="campo">
+        <label>Actividad *</label>
+        <input type="text" id="mActividad" placeholder="Ej. Servicio de pintura a motores de 2 HP">
+      </div>
+      <div class="chk-row">
+        <input type="checkbox" id="mFechaEntregaNA" onchange="toggleFechaEntregaNA()">
+        <label for="mFechaEntregaNA" style="margin:0;text-transform:none;font-weight:600;font-size:0.85rem;">Sin fecha de entrega (N/A)</label>
+      </div>
+      <div class="campo" id="wrapFechaEntrega">
+        <label>Fecha de entrega</label>
+        <input type="date" id="mFechaEntrega">
+      </div>
+      <div class="campo">
+        <label>Proceso / notas</label>
+        <textarea id="mProceso" placeholder="Ej. Compartir evidencias finales de pintura"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-eliminar hidden" id="btnEliminarTarea" onclick="eliminarTareaModal()">Eliminar</button>
+      <div style="flex:1"></div>
+      <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-guardar" onclick="guardarTarea()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SESIÓN
+   ============================================================ */
+const _sesion = (() => {
+  try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
+})();
+if(!_sesion || !_sesion.rol || (_sesion.rol !== "Admin" && _sesion.rol !== "Tecnico")){
+  window.location.href = "login.html";
+}
+const esAdmin = _sesion.rol === "Admin";
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const TABLA_PLAN = "tblJRotpG8YV8wpvv";
+const TABLA_USUARIOS = "tblBLOdgolBZWZjyb";
+const PF = {
+  actividad:     "fldyQhHdIi13pUoI4",
+  fecha:         "fldHoHWaTzjhu8fVC",
+  prioridad:     "fldbwzM3q5xOX9E07",
+  tecnico:       "fldojnLKHG0wRd42A",
+  cliente:       "fld8Zo54d0Wrkxs2l",
+  fechaEntrega:  "fldVKDSEayEURltar",
+  proceso:       "fldWlydwLZcdpSGzA",
+  completado:    "fld8aLJSb0zU2b9tY",
+};
+const UF = { nombre:"fldmBBHrmw8YfCztf", rol:"fldrYhMpiJDQnfyTQ", activo:"fldhRUxF61z3p5voa" };
+const TABLA_ORDENES = "tblcyGwDeOORxELJg";
+const OF = {
+  serie:"fldj245KNDJ2B5jxG", cliente:"fldUkOvdOHTXMDWX7", estado:"fldRtvzailqq6WbQu",
+  tipoServicio:"fld0rhBYkk5nAnXcT", tipoEquipo:"fldBhqLRYDHl2L2tJ", folio:"fldpMUMLpNCGGQcIo",
+  prioridad:"fldLskZ89jqrWxuGy", tecnicoAsignado:"fldyyr9YbJCPGUWmE", fechaEntregaProgramada:"fldcWlXUh65ftgFs9",
+};
+
+function esc(s){ const d = document.createElement("div"); d.textContent = String(s||""); return d.innerHTML; }
+function hoyISO(){ return new Date().toISOString().slice(0,10); }
+
+let fechaSeleccionada = hoyISO();
+let todasLasTareas = [];
+let ordenesActivas = [];
+let tecnicosList = [];
+let editandoId = null;
+
+/* ============================================================
+   CARGA
+   ============================================================ */
+async function fetchTecnicos(){
+  try{
+    const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&returnFieldsByFieldId=true&pageSize=100`;
+    const res = await fetch(url);
+    if(!res.ok) return [];
+    const d = await res.json();
+    return (d.records || [])
+      .filter(r => {
+        const rol = r.fields[UF.rol];
+        const rolNombre = rol && typeof rol === "object" ? rol.name : rol;
+        return rolNombre === "Tecnico" && r.fields[UF.activo];
+      })
+      .map(r => r.fields[UF.nombre])
+      .filter(Boolean)
+      .sort((a,b) => a.localeCompare(b));
+  } catch(e){ return []; }
+}
+
+async function fetchTareas(){
+  let all = [], offset = null;
+  const base = `/.netlify/functions/airtable?table=${TABLA_PLAN}`;
+  do{
+    let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+    if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+    const res = await fetch(url);
+    if(!res.ok) throw new Error("Error al cargar el plan diario");
+    const d = await res.json();
+    all = all.concat(d.records || []);
+    offset = d.offset || null;
+  } while(offset);
+  return all.map(rec => ({
+    id: rec.id,
+    actividad:    rec.fields[PF.actividad] || "",
+    fecha:        rec.fields[PF.fecha] || "",
+    prioridad:    (rec.fields[PF.prioridad] !== undefined && rec.fields[PF.prioridad] !== null) ? Number(rec.fields[PF.prioridad]) : null,
+    tecnico:      rec.fields[PF.tecnico] || "",
+    cliente:      rec.fields[PF.cliente] || "",
+    fechaEntrega: rec.fields[PF.fechaEntrega] || "",
+    proceso:      rec.fields[PF.proceso] || "",
+    completado:   !!rec.fields[PF.completado],
+  }));
+}
+
+// Órdenes activas en el C.S. (Recibido + En proceso) — se muestran automáticamente en el plan de HOY
+async function fetchOrdenesActivas(){
+  try{
+    let all = [], offset = null;
+    const base = `/.netlify/functions/airtable?table=${TABLA_ORDENES}`;
+    do{
+      let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+      if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+      const res = await fetch(url);
+      if(!res.ok) return [];
+      const d = await res.json();
+      all = all.concat(d.records || []);
+      offset = d.offset || null;
+    } while(offset);
+    const normEstado = e => (e||"").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+    return all.map(rec => {
+      const f = rec.fields;
+      const estadoRaw = f[OF.estado];
+      const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+      const tipoEqRaw = f[OF.tipoEquipo];
+      const tipoEquipo = (tipoEqRaw && tipoEqRaw.name) || tipoEqRaw || "";
+      const tipoSrvRaw = f[OF.tipoServicio];
+      const tipoServicio = ((tipoSrvRaw && tipoSrvRaw.name) || tipoSrvRaw) || "Sulzer";
+      return {
+        id: rec.id,
+        folio: f[OF.folio] || "",
+        serie: f[OF.serie] || "",
+        cliente: f[OF.cliente] || "",
+        estadoNorm: normEstado(estado),
+        estado,
+        tipoServicio,
+        tipoEquipo,
+        prioridad: (f[OF.prioridad] !== undefined && f[OF.prioridad] !== null) ? Number(f[OF.prioridad]) : null,
+        tecnico: f[OF.tecnicoAsignado] || "",
+        fechaEntrega: f[OF.fechaEntregaProgramada] || "",
+      };
+    }).filter(o => o.estadoNorm === "recibido" || o.estadoNorm === "en proceso" || o.estadoNorm.includes("proceso"));
+  } catch(e){ return []; }
+}
+
+async function cargarPlan(){
+  document.getElementById("spinnerWrap").classList.remove("hidden");
+  document.getElementById("tablaWrap").classList.add("hidden");
+  try{
+    const [tareas, tecnicos, ordenes] = await Promise.all([fetchTareas(), fetchTecnicos(), fetchOrdenesActivas()]);
+    todasLasTareas = tareas;
+    tecnicosList = tecnicos;
+    ordenesActivas = ordenes;
+    renderTodo();
+  } catch(e){
+    document.getElementById("spinnerWrap").textContent = "Error al cargar el plan diario. " + (e.message||"");
+  }
+}
+
+/* ============================================================
+   FILTRO POR FECHA (con roll-over de pendientes hacia "hoy")
+   ============================================================ */
+function tareasParaFecha(fechaISO){
+  const hoy = hoyISO();
+  if(fechaISO === hoy){
+    return todasLasTareas.filter(t => t.fecha === fechaISO || (t.fecha && t.fecha < fechaISO && !t.completado));
+  }
+  return todasLasTareas.filter(t => t.fecha === fechaISO);
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+function renderTodo(){
+  const d = new Date(fechaSeleccionada + "T00:00:00");
+  document.getElementById("fechaActualLbl").textContent = d.toLocaleDateString("es-MX", { day:"2-digit", month:"short", year:"numeric" });
+  document.getElementById("fechaLarga").textContent = d.toLocaleDateString("es-MX", { weekday:"long", day:"2-digit", month:"long", year:"numeric" });
+
+  document.getElementById("toolbarAdmin").classList.toggle("hidden", !esAdmin);
+  document.getElementById("thAccionesAdmin").classList.toggle("hidden", !esAdmin);
+
+  // Ítems combinados: tareas manuales + (solo en HOY) órdenes de servicio activas
+  const items = tareasParaFecha(fechaSeleccionada).map(t => ({ ...t, _tipo: "tarea" }));
+  if(fechaSeleccionada === hoyISO()){
+    ordenesActivas.forEach(o => items.push({ ...o, _tipo: "orden" }));
+  }
+  items.sort((a,b) => {
+    const pa = a.prioridad ?? 999, pb = b.prioridad ?? 999;
+    return pa - pb;
+  });
+
+  const tbody = document.getElementById("tbodyPlan");
+  if(items.length === 0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">No hay tareas ni servicios para este día.</td></tr>`;
+  } else {
+    tbody.innerHTML = items.map(it => it._tipo === "orden" ? filaOrden(it) : filaTarea(it)).join("");
+  }
+
+  document.getElementById("spinnerWrap").classList.add("hidden");
+  document.getElementById("tablaWrap").classList.remove("hidden");
+}
+
+function chipPrioridadHtml(prioridad){
+  const cls = prioridad === 0 ? "max" : (prioridad != null ? "num" : "sin");
+  const txt = prioridad === 0 ? "MAX" : (prioridad != null ? prioridad : "—");
+  return `<span class="chip-prioridad ${cls}">${txt}</span>`;
+}
+
+function filaTarea(t){
+  const esMio = _sesion.rol === "Tecnico" && t.tecnico && t.tecnico.trim() === (_sesion.nombre||"").trim();
+  return `<tr class="${t.completado ? "completado" : ""} ${esMio ? "mio" : ""}">
+    <td style="text-align:center">${chipPrioridadHtml(t.prioridad)}</td>
+    <td>${esc(t.tecnico) || "—"}</td>
+    <td>${esc(t.cliente) || "—"}</td>
+    <td class="td-actividad" ${esAdmin ? `onclick="abrirModal('${t.id}')" style="cursor:pointer"` : ""}>${esc(t.actividad)}</td>
+    <td>${esc(t.fechaEntrega) || "—"}</td>
+    <td class="td-proceso">${esc(t.proceso) || "—"}</td>
+    <td style="text-align:center"><input type="checkbox" class="chk-completado" ${t.completado?"checked":""} onchange="toggleCompletado('${t.id}', this.checked)"></td>
+    ${esAdmin ? `<td style="text-align:center"><button class="btn-fila" onclick="abrirModal('${t.id}')" title="Editar">✏️</button></td>` : ""}
+  </tr>`;
+}
+
+function filaOrden(o){
+  const esMio = _sesion.rol === "Tecnico" && o.tecnico && o.tecnico.trim() === (_sesion.nombre||"").trim();
+  const id = o.folio || o.serie || "—";
+  const esGeneral = o.tipoServicio === "General";
+  const equipo = esGeneral ? (o.tipoEquipo || "Equipo") : "Motor Sulzer";
+  const link = esGeneral
+    ? `formulario_general.html?folio=${encodeURIComponent(o.folio)}`
+    : `formulario_maestro.html?serie=${encodeURIComponent(o.serie)}`;
+  const estadoChip = o.estadoNorm.includes("proceso")
+    ? `<span class="orden-badge proc">En proceso</span>`
+    : `<span class="orden-badge rec">Recibido</span>`;
+  const entrega = o.fechaEntrega ? o.fechaEntrega.split("-").reverse().join("/") : "—";
+  return `<tr class="orden-row ${esMio ? "mio" : ""}">
+    <td style="text-align:center">${chipPrioridadHtml(o.prioridad)}</td>
+    <td>${esc(o.tecnico) || "—"}</td>
+    <td>${esc(o.cliente) || "—"}</td>
+    <td class="td-actividad">
+      <span class="orden-tag">SERVICIO</span> ${esc(id)} · ${esc(equipo)}
+      <a href="${link}" class="orden-continuar">Continuar →</a>
+    </td>
+    <td>${esc(entrega)}</td>
+    <td class="td-proceso">${estadoChip}</td>
+    <td style="text-align:center" title="Se completa al terminar el servicio">—</td>
+    ${esAdmin ? `<td></td>` : ""}
+  </tr>`;
+}
+
+function cambiarDia(delta){
+  const d = new Date(fechaSeleccionada + "T00:00:00");
+  d.setDate(d.getDate() + delta);
+  fechaSeleccionada = d.toISOString().slice(0,10);
+  renderTodo();
+}
+function irAHoy(){ fechaSeleccionada = hoyISO(); renderTodo(); }
+
+/* ============================================================
+   COMPLETAR TAREA (Admin y Técnico pueden marcar)
+   ============================================================ */
+async function toggleCompletado(id, valor){
+  const t = todasLasTareas.find(x => x.id === id);
+  if(t) t.completado = valor;
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${id}`, {
+      method: "PATCH",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ fields: { [PF.completado]: valor } })
+    });
+  } catch(e){}
+  renderTodo();
+}
+
+/* ============================================================
+   MODAL AGREGAR / EDITAR (solo Admin)
+   ============================================================ */
+function poblarSelectTecnicos(seleccionado){
+  const sel = document.getElementById("mTecnico");
+  sel.innerHTML = `<option value="">— Sin asignar —</option>` +
+    tecnicosList.map(n => `<option value="${esc(n)}" ${n===seleccionado?"selected":""}>${esc(n)}</option>`).join("");
+}
+
+function toggleMax(){
+  const max = document.getElementById("mPrioridadMax").checked;
+  document.getElementById("wrapPrioridadNum").classList.toggle("hidden", max);
+}
+
+function toggleFechaEntregaNA(){
+  const na = document.getElementById("mFechaEntregaNA").checked;
+  document.getElementById("wrapFechaEntrega").classList.toggle("hidden", na);
+}
+
+// "2026-07-03" -> "03/07/2026"
+function isoAFechaCorta(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||"");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "";
+}
+// "03/07/2026" -> "2026-07-03" (para precargar el <input type=date>). Si ya viene en ISO, se regresa igual.
+function fechaCortaAIso(txt){
+  if(/^\d{4}-\d{2}-\d{2}$/.test(txt||"")) return txt;
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(txt||"");
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : "";
+}
+
+function abrirModal(id){
+  if(!esAdmin) return;
+  editandoId = id || null;
+  const t = id ? todasLasTareas.find(x => x.id === id) : null;
+
+  document.getElementById("modalTitulo").textContent = t ? "Editar tarea" : "Agregar tarea";
+  document.getElementById("btnEliminarTarea").classList.toggle("hidden", !t);
+  poblarSelectTecnicos(t?.tecnico || "");
+
+  document.getElementById("mPrioridadMax").checked = !!(t && t.prioridad === 0);
+  document.getElementById("mPrioridad").value = (t && t.prioridad != null && t.prioridad !== 0) ? t.prioridad : "";
+  toggleMax();
+  document.getElementById("mCliente").value = t?.cliente || "";
+  document.getElementById("mActividad").value = t?.actividad || "";
+  const esNA = !!t && (!t.fechaEntrega || t.fechaEntrega.trim().toUpperCase() === "N/A");
+  document.getElementById("mFechaEntregaNA").checked = esNA;
+  document.getElementById("mFechaEntrega").value = esNA ? "" : fechaCortaAIso(t?.fechaEntrega);
+  toggleFechaEntregaNA();
+  document.getElementById("mProceso").value = t?.proceso || "";
+
+  document.getElementById("modalOverlay").classList.remove("hidden");
+}
+function cerrarModal(){
+  document.getElementById("modalOverlay").classList.add("hidden");
+  editandoId = null;
+}
+
+async function guardarTarea(){
+  const actividad = document.getElementById("mActividad").value.trim();
+  if(!actividad){ alert("La actividad es obligatoria."); return; }
+
+  const esMax = document.getElementById("mPrioridadMax").checked;
+  const prioridadNum = document.getElementById("mPrioridad").value;
+  const prioridad = esMax ? 0 : (prioridadNum !== "" ? Number(prioridadNum) : null);
+
+  const esNA = document.getElementById("mFechaEntregaNA").checked;
+  const fechaEntregaIso = document.getElementById("mFechaEntrega").value;
+  const fechaEntrega = esNA ? "N/A" : (fechaEntregaIso ? isoAFechaCorta(fechaEntregaIso) : "");
+
+  const fields = {
+    [PF.actividad]:    actividad,
+    [PF.tecnico]:       document.getElementById("mTecnico").value,
+    [PF.cliente]:       document.getElementById("mCliente").value.trim(),
+    [PF.fechaEntrega]:  fechaEntrega,
+    [PF.proceso]:       document.getElementById("mProceso").value.trim(),
+  };
+  if(prioridad !== null) fields[PF.prioridad] = prioridad;
+
+  try{
+    if(editandoId){
+      if(prioridad === null) fields[PF.prioridad] = null;
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${editandoId}`, {
+        method: "PATCH",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields })
+      });
+    } else {
+      fields[PF.fecha] = fechaSeleccionada;
+      fields[PF.completado] = false;
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}`, {
+        method: "POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ records:[{ fields }] })
+      });
+    }
+    cerrarModal();
+    await cargarPlan();
+  } catch(e){
+    alert("No se pudo guardar la tarea.");
+  }
+}
+
+async function eliminarTareaModal(){
+  if(!editandoId) return;
+  if(!confirm("¿Eliminar esta tarea del plan diario? Esta acción no se puede deshacer.")) return;
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${editandoId}`, {
+      method: "DELETE"
+    });
+    cerrarModal();
+    await cargarPlan();
+  } catch(e){
+    alert("No se pudo eliminar la tarea.");
+  }
+}
+
+function cerrarSesion(){
+  localStorage.removeItem("si_session");
+  window.location.href = "login.html";
+}
+
+/* ============ INIT ============ */
+cargarPlan();
+</script>
+
+</body>
+</html>

@@ -122,6 +122,11 @@ header::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:
   white-space: nowrap;
   transition: all 0.15s;
   letter-spacing: 0.3px;
+  color: #fff;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
 }
 .btn-refresh{
   background: rgba(255,255,255,0.08);
@@ -129,6 +134,8 @@ header::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:
 }
 .btn-refresh:hover{ background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.35); }
 .btn-refresh:disabled{ opacity: 0.35; cursor: default; }
+.btn-group{ display:flex; align-items:center; gap:6px; }
+.btn-crear:hover{ filter:brightness(1.12); }
 
 /* ===== TOPBAR (barra de navegación secundaria) ===== */
 .topbar{
@@ -741,6 +748,23 @@ footer{
 }
 footer strong{ color: var(--azul); }
 
+/* ===== SELECT INLINE (prioridad / técnico en tabla) ===== */
+.sel-fila{
+  padding: 5px 8px;
+  border: 1px solid var(--gris);
+  border-radius: var(--radio-sm);
+  font-size: 0.76rem;
+  color: var(--gris-oscuro);
+  background: var(--blanco);
+  outline: none;
+  font-family: inherit;
+  min-width: 100px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.sel-fila:focus{ border-color: var(--azul-medio); }
+.sel-fila:disabled{ opacity: 0.5; cursor: default; }
+
 /* ===== BTN VER ===== */
 .btn-ver{
   padding: 5px 12px;
@@ -853,6 +877,15 @@ footer strong{ color: var(--azul); }
 .ck-badge-sin  { background: var(--ambar-bg);      color: var(--ambar);      border-color: var(--ambar-borde); }
 
 .ck-modal-body{ overflow-y: auto; padding: 16px 24px 20px; flex: 1; }
+.detalle-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 20px; }
+.detalle-item{ border-bottom:1px solid var(--fondo); padding-bottom:8px; }
+.detalle-item .lbl{ font-size:0.68rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+.detalle-item .val{ font-size:0.9rem; font-weight:600; color:var(--gris-oscuro); }
+.detalle-seccion{ font-size:0.72rem; font-weight:700; color:var(--azul); text-transform:uppercase; letter-spacing:0.6px; margin:18px 0 10px; padding-bottom:6px; border-bottom:1.5px solid var(--gris); }
+.detalle-seccion:first-child{ margin-top:0; }
+.prereg-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
+.prereg-campo label{ display:block; font-size:0.68rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
+.prereg-campo input, .prereg-campo select{ width:100%; padding:8px 10px; border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.85rem; font-family:inherit; }
 .ck-seccion{ margin-bottom: 16px; }
 .ck-seccion-titulo{
   font-size: 0.72rem;
@@ -1032,10 +1065,26 @@ footer strong{ color: var(--azul); }
       <span class="sync-dot" id="syncDot"></span>
       Última actualización: <strong id="syncTime">—</strong>
     </div>
-    <a class="btn-header" href="formulario_maestro.html" style="background:#1d5496;color:#fff;border-color:#1d5496;text-decoration:none;display:inline-flex;align-items:center;">+ Nueva orden Sulzer</a>
-    <button class="btn-header btn-refresh" id="btnRefresh" onclick="cargarDatos()">↻ Actualizar datos</button>
-    <span id="badgeNoOk" style="display:none; background:#dc2626; color:#fff; border-radius:10px; padding:2px 7px; font-size:0.72rem; font-weight:700; margin-left:-6px; margin-right:4px;">0</span>
-    <button class="btn-header btn-refresh" id="btnVerNoOk" onclick="abrirPanelNoOk()">⚠ Ver NO OK activos</button>
+
+    <a class="btn-header btn-refresh" href="plan_diario.html">Plan Diario</a>
+
+    <span class="header-divider"></span>
+
+    <div class="btn-group">
+      <a class="btn-header btn-crear" href="formulario_maestro.html" style="background:#1d5496;border-color:#1d5496;">+ Sulzer</a>
+      <a class="btn-header btn-crear" href="formulario_general.html" style="background:#e65100;border-color:#e65100;">+ General</a>
+      <button class="btn-header btn-crear" id="btnPreRegistro" style="background:#976010;border-color:#976010" onclick="abrirPreRegistro()">Pre-registrar</button>
+    </div>
+
+    <span class="header-divider"></span>
+
+    <button class="btn-header btn-refresh" id="btnRefresh" onclick="cargarDatos()">↻ Actualizar</button>
+    <button class="btn-header btn-refresh" id="btnVerNoOk" onclick="abrirPanelNoOk()">
+      ⚠ NO OK<span id="badgeNoOk" style="display:none; background:#dc2626; color:#fff; border-radius:10px; padding:1px 6px; font-size:0.68rem; font-weight:700; margin-left:5px;">0</span>
+    </button>
+
+    <span class="header-divider"></span>
+
     <button class="btn-header btn-refresh" onclick="cerrarSesion()">Cerrar sesión</button>
   </div>
 </header>
@@ -1224,8 +1273,32 @@ footer strong{ color: var(--azul); }
       <span class="filtro-resultado" id="filtroResultado"></span>
     </div>
 
-    <!-- TABLA ÓRDENES ACTIVAS -->
+    <!-- TABLA EQUIPOS POR LLEGAR (pre-registrados, aún no llegan al taller) -->
     <div class="section-label">Registros</div>
+    <div class="table-section hidden" id="seccionPorLlegar">
+      <div class="section-header" id="hdrPorLlegar" onclick="toggleSec('porLlegar')">
+        <h2><span class="sh-indicator" style="background:var(--ambar)"></span>Equipos por llegar <span class="badge" id="badgePorLlegar">0</span></h2>
+        <span class="toggle-icon" id="iconPorLlegar">▼</span>
+      </div>
+      <div class="table-wrap" id="wrapPorLlegar">
+        <table>
+          <thead>
+            <tr>
+              <th>Folio</th>
+              <th>Equipo</th>
+              <th>Cliente</th>
+              <th>N° de serie</th>
+              <th>Técnico</th>
+              <th style="text-align:center">Detalle</th>
+              <th style="text-align:center">Acción</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPorLlegar"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TABLA ÓRDENES ACTIVAS -->
     <div class="table-section">
       <div class="section-header" id="hdrActivas" onclick="toggleSec('activas')">
         <h2><span class="sh-indicator activo"></span>Órdenes en Centro de Servicio <span class="badge" id="badgeActivas">0</span></h2>
@@ -1239,6 +1312,9 @@ footer strong{ color: var(--azul); }
               <th>Servicio</th>
               <th>Equipo</th>
               <th>Cliente</th>
+              <th style="text-align:center">Prioridad</th>
+              <th>Técnico</th>
+              <th>Entrega prog.</th>
               <th>Estado</th>
               <th>Progreso docs.</th>
               <th style="text-align:center">Días en C.S</th>
@@ -1264,6 +1340,9 @@ footer strong{ color: var(--azul); }
               <th>Servicio</th>
               <th>Equipo</th>
               <th>Cliente</th>
+              <th style="text-align:center">Prioridad</th>
+              <th>Técnico</th>
+              <th>Entrega prog.</th>
               <th>Estado</th>
               <th>Progreso docs.</th>
               <th style="text-align:center">Días en C.S</th>
@@ -1313,6 +1392,112 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL DETALLE — Servicios Generales -->
+<div class="modal-overlay hidden" id="modalDetalleGeneral" onclick="cerrarDetalleGeneralSiFuera(event)">
+  <div class="ck-modal" style="max-width:560px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Detalle del Equipo</h2>
+        <button class="modal-close" onclick="cerrarDetalleGeneral()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body" id="detalleGeneralBody">
+      <div style="text-align:center;padding:40px;color:var(--gris-texto)">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <p>Cargando datos del equipo...</p>
+      </div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarDetalleGeneral()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PRE-REGISTRO DE EQUIPO (Admin) -->
+<div class="modal-overlay hidden" id="modalPreRegistro" onclick="cerrarPreRegistroSiFuera(event)">
+  <div class="ck-modal" style="max-width:560px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Pre-registrar equipo (por llegar)</h2>
+        <button class="modal-close" onclick="cerrarPreRegistro()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body">
+      <p style="font-size:0.8rem;color:var(--gris-texto);margin-bottom:14px">
+        Da de alta un equipo con los datos que el cliente adelantó. Cuando llegue al taller, el técnico lo busca por folio o N° de serie en el formulario y continúa el flujo normal.
+      </p>
+      <div class="prereg-grid">
+        <div class="prereg-campo">
+          <label>Tipo de equipo *</label>
+          <select id="preTipoEquipo" onchange="preRegGenerarFolio()">
+            <option value="">-- Seleccione --</option>
+            <option value="Motor">Motor</option>
+            <option value="Reductor">Reductor</option>
+            <option value="Motobomba">Motobomba</option>
+            <option value="Motoreductor">Motoreductor</option>
+            <option value="Cilindro">Cilindro</option>
+            <option value="Valvula">Válvula</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
+        <div class="prereg-campo">
+          <label>Folio (automático)</label>
+          <input type="text" id="preFolio" readonly style="background:var(--fondo)">
+        </div>
+        <div class="prereg-campo">
+          <label>Cliente *</label>
+          <input type="text" id="preCliente" placeholder="Ej. ABB">
+        </div>
+        <div class="prereg-campo">
+          <label>Nombre / apodo del equipo</label>
+          <input type="text" id="preNombreCorto" placeholder="Ej. Motor de la línea 3">
+        </div>
+        <div class="prereg-campo">
+          <label>Marca</label>
+          <input type="text" id="preMarca" placeholder="Ej. ABB, Sew, Nord">
+        </div>
+        <div class="prereg-campo">
+          <label>Color</label>
+          <input type="text" id="preColor" placeholder="Ej. azul RAL 5010">
+        </div>
+        <div class="prereg-campo">
+          <label>Modelo / SPEC</label>
+          <input type="text" id="preSpec" placeholder="Ej. M3BP 200 MLA 4">
+        </div>
+        <div class="prereg-campo">
+          <label>N° de serie</label>
+          <input type="text" id="preSerie" placeholder="Ej. F2404185885">
+        </div>
+        <div class="prereg-campo">
+          <label>N° de parte</label>
+          <input type="text" id="preNumParte" placeholder="Ej. 247161">
+        </div>
+        <div class="prereg-campo">
+          <label>Técnico asignado</label>
+          <select id="preTecnico"><option value="">— Sin asignar —</option></select>
+        </div>
+        <div class="prereg-campo">
+          <label>Potencia (HP / kW)</label>
+          <input type="text" id="prePotencia" placeholder="Ej. 30">
+        </div>
+        <div class="prereg-campo">
+          <label>Frame</label>
+          <input type="text" id="preFrame" placeholder="Ej. 213T">
+        </div>
+        <div class="prereg-campo">
+          <label>Volts</label>
+          <input type="text" id="preVolts" placeholder="Ej. 460">
+        </div>
+      </div>
+      <div id="preRegStatus" style="margin-top:12px;font-size:0.83rem;font-weight:600"></div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarPreRegistro()">Cancelar</button>
+      <button class="btn-imprimir" id="btnGuardarPreReg" onclick="guardarPreRegistro()">Guardar pre-registro</button>
+    </div>
+  </div>
+</div>
+
 
 <script>
 /* ============================================================
@@ -1332,6 +1517,12 @@ const TABLE_ID = "tblcyGwDeOORxELJg";
 const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
 const BF_SERIE = "fldegmWGpcWW7Awzn";
 const BF_PCT   = "fldsmzz7mJjY6gHNn";  // porcentaje en TABLA_BORRADORES
+const TABLA_USUARIOS = "tblBLOdgolBZWZjyb";
+const UF = {
+  nombre: "fldmBBHrmw8YfCztf",
+  rol:    "fldrYhMpiJDQnfyTQ",
+  activo: "fldhRUxF61z3p5voa",
+};
 // Auto-refresh desactivado — actualización manual
 
 const F = {
@@ -1347,6 +1538,9 @@ const F = {
   tipoEquipo:              "fldBhqLRYDHl2L2tJ",
   folio:                   "fldpMUMLpNCGGQcIo",
   reporteGeneralCompletado:"fldJgJ2UZ7ufze8C5",
+  prioridad:               "fldLskZ89jqrWxuGy",
+  tecnicoAsignado:         "fldyyr9YbJCPGUWmE",
+  fechaEntregaProgramada:  "fldcWlXUh65ftgFs9",
 };
 
 /* ============================================================
@@ -1357,6 +1551,7 @@ let filtradas       = [];
 let cargando        = false;
 let tsActualizacion = null;
 let borradorLookup  = {}; // serie.toUpperCase() → porcentaje en progreso
+let tecnicosList    = []; // nombres de técnicos activos (para el selector)
 
 /* ============================================================
    FETCH CON PAGINACIÓN
@@ -1367,7 +1562,7 @@ async function fetchAll(){
   do{
     let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
-    const res = await fetch(url, { headers:{ } });
+    const res = await fetch(url);
     if(!res.ok){
       const d = await res.json().catch(() => ({}));
       throw new Error((d.error && d.error.message) || `Error HTTP ${res.status}`);
@@ -1379,10 +1574,28 @@ async function fetchAll(){
   return all;
 }
 
+async function fetchTecnicos(){
+  try{
+    const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&returnFieldsByFieldId=true&pageSize=100`;
+    const res = await fetch(url);
+    if(!res.ok) return [];
+    const d = await res.json();
+    return (d.records || [])
+      .filter(r => {
+        const rol = r.fields[UF.rol];
+        const rolNombre = rol && typeof rol === "object" ? rol.name : rol;
+        return rolNombre === "Tecnico" && r.fields[UF.activo];
+      })
+      .map(r => r.fields[UF.nombre])
+      .filter(Boolean)
+      .sort((a,b) => a.localeCompare(b));
+  } catch(e){ return []; }
+}
+
 async function fetchBorradores(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url, { headers:{ }});
+    const res = await fetch(url);
     if(!res.ok) return {};
     const d = await res.json();
     const lookup = {};
@@ -1419,6 +1632,9 @@ function parsear(rec){
     evidencia:               !!f[F.evidencia],
     correccionesCompletadas: !!f[F.correccionesCompletadas],
     reporteGeneralCompletado: !!f[F.reporteGeneralCompletado],
+    prioridad:       (f[F.prioridad] !== undefined && f[F.prioridad] !== null) ? Number(f[F.prioridad]) : null,
+    tecnicoAsignado: f[F.tecnicoAsignado] || "",
+    fechaEntregaProgramada: f[F.fechaEntregaProgramada] || "",
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -1428,6 +1644,7 @@ function parsear(rec){
 
 function normEstado(e){
   const s = (e||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+  if(s.includes("por llegar")||s.includes("porllegar")) return "porllegar";
   if(s.includes("entregado")) return "entregado";
   if(s.includes("terminado")||s.includes("completado")) return "terminado";
   if(s.includes("proceso")||s.includes("progreso")||s.includes("activ")) return "proceso";
@@ -1451,9 +1668,10 @@ async function cargarDatos(){
   document.getElementById("content").classList.add("hidden");
 
   try{
-    const [recs, borradores] = await Promise.all([fetchAll(), fetchBorradores()]);
+    const [recs, borradores, tecnicos] = await Promise.all([fetchAll(), fetchBorradores(), fetchTecnicos()]);
     allOrdenes = recs.map(parsear);
     borradorLookup = borradores;
+    tecnicosList = tecnicos;
     aplicarFiltros();
     tsActualizacion = new Date();
     actualizarSyncInfo();
@@ -1509,7 +1727,8 @@ function limpiarFiltros(){
    RENDER DASHBOARD
    ============================================================ */
 function renderDashboard(ordenes){
-  const enTaller    = ordenes.filter(o => !["terminado","entregado"].includes(normEstado(o.estado)));
+  const porLlegar   = ordenes.filter(o => normEstado(o.estado) === "porllegar");
+  const enTaller    = ordenes.filter(o => !["terminado","entregado","porllegar"].includes(normEstado(o.estado)));
   const enProceso   = ordenes.filter(o => normEstado(o.estado) === "proceso");
   const terminadas  = ordenes.filter(o => normEstado(o.estado) === "terminado");
   const entregadas  = ordenes.filter(o => normEstado(o.estado) === "entregado");
@@ -1552,7 +1771,7 @@ function renderDashboard(ordenes){
   renderNuevosKPIs(ordenes);
 
   // Tablas — enTaller incluye TODAS las no terminadas/entregadas (incluso sin estado)
-  const activas   = enTaller.slice().sort(byDiasDesc);
+  const activas   = enTaller.slice().sort(byPrioridadYDias);
   const cerradas  = [...terminadas, ...entregadas].sort(byDiasDesc);
 
   document.getElementById("badgeActivas").textContent   = activas.length;
@@ -1560,11 +1779,43 @@ function renderDashboard(ordenes){
   renderTabla("tbodyActivas",   activas);
   renderTabla("tbodyTerminadas", cerradas);
 
+  // Equipos por llegar (pre-registrados) — sección propia, solo si hay
+  document.getElementById("seccionPorLlegar").classList.toggle("hidden", porLlegar.length === 0);
+  document.getElementById("badgePorLlegar").textContent = porLlegar.length;
+  renderTablaPorLlegar(porLlegar.slice().sort(byDiasDesc));
+
   document.getElementById("content").classList.remove("hidden");
 
 }
 
+function renderTablaPorLlegar(ordenes){
+  const tbody = document.getElementById("tbodyPorLlegar");
+  const esAdmin = _sesion && _sesion.rol === "Admin";
+  if(ordenes.length === 0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Sin equipos pre-registrados por llegar.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = ordenes.map(o => `<tr>
+    <td class="td-serie">${esc(o.folio || "—")}</td>
+    <td>${esc(o.tipoEquipo || "—")}</td>
+    <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
+    <td>${esc(o.serie || "—")}</td>
+    <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
+    <td class="td-num"><button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button></td>
+    <td class="td-num">${esAdmin
+      ? `<button class="btn-corr" style="background:#991b1b" onclick="cancelarPreRegistro('${o.id}','${esc(o.folio)}')">&#10005; Cancelar</button>`
+      : `<span style="color:var(--gris-texto);font-size:0.78rem">Esperando llegada</span>`}</td>
+  </tr>`).join("");
+}
+
 function byDiasDesc(a, b){
+  return (b.dias ?? -1) - (a.dias ?? -1);
+}
+
+function byPrioridadYDias(a, b){
+  const pa = a.prioridad ?? 99;
+  const pb = b.prioridad ?? 99;
+  if(pa !== pb) return pa - pb;
   return (b.dias ?? -1) - (a.dias ?? -1);
 }
 
@@ -1587,14 +1838,16 @@ function cambiarTab(tab){
 function renderTabla(tbodyId, ordenes){
   const tbody = document.getElementById(tbodyId);
   if(ordenes.length === 0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Sin registros en esta categoría.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="11">Sin registros en esta categoría.</td></tr>`;
     return;
   }
+  const esAdmin = _sesion && _sesion.rol === "Admin";
   tbody.innerHTML = ordenes.map(o => {
     const esGeneral = o.tipoServicio === "General";
     let p;
     if(esGeneral){
-      p = o.reporteGeneralCompletado ? 100 : (normEstado(o.estado) === "proceso" ? 40 : 0);
+      const bp = borradorLookup[o.folio?.toUpperCase()];
+      p = o.reporteGeneralCompletado ? 100 : (bp != null ? bp : (normEstado(o.estado) === "proceso" ? 40 : 0));
     } else {
       const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
       p = prog > 0 ? Math.round((prog/3)*100) : (borradorLookup[o.serie?.toUpperCase()] ?? 0);
@@ -1616,6 +1869,9 @@ function renderTabla(tbodyId, ordenes){
       <td>${servicioBadge}</td>
       <td>${esc(equipoTxt)}</td>
       <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
+      <td class="td-num">${celdaPrioridad(o, esAdmin)}</td>
+      <td>${celdaTecnico(o, esAdmin)}</td>
+      <td>${celdaEntregaProgramada(o, esAdmin)}</td>
       <td>${chipEstado(o.estado)}</td>
       <td>
         <div class="mini-prog">
@@ -1627,6 +1883,10 @@ function renderTabla(tbodyId, ordenes){
       <td class="td-num">
         ${esGeneral ? `
           <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
+          ${!["terminado","entregado"].includes(normEstado(o.estado))
+            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_general.html?folio=${encodeURIComponent(o.folio)}">&#9997; Continuar formulario</a>`
+            : ''}
+          <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
         ` : `
           <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
           ${!["terminado","entregado"].includes(normEstado(o.estado))
@@ -1648,13 +1908,315 @@ function renderTabla(tbodyId, ordenes){
   }).join("");
 }
 
-function verDetalleGeneral(id, identificador){
-  alert(`Orden ${identificador}\n\nEl detalle completo del reporte general (bitácora, fotos, materiales) se abrirá aquí en una próxima actualización. Por ahora puedes revisarlo directo en Airtable, tabla REPORTES_GENERAL.`);
+async function verDetalleGeneral(id, identificador){
+  document.getElementById("detalleGeneralBody").innerHTML = `
+    <div style="text-align:center;padding:40px;color:var(--gris-texto)">
+      <div class="spinner" style="margin:0 auto 16px"></div>
+      <p>Cargando datos del equipo...</p>
+    </div>`;
+  document.getElementById("modalDetalleGeneral").classList.remove("hidden");
+
+  const OFD = {
+    folio: "fldpMUMLpNCGGQcIo", cliente: "fldUkOvdOHTXMDWX7", tipoEquipo: "fldBhqLRYDHl2L2tJ",
+    estado: "fldRtvzailqq6WbQu", serie: "fldj245KNDJ2B5jxG", spec: "fldkkXFzqKeGSIqJQ",
+    hp: "fldjyFFAaL0dIFWIE", frame: "fldSvMeOGe98aT2e0", volts: "fldLxVAorFAGaboOF",
+  };
+  const T_RG = "tbluHVpYNulSFFvnw";
+  const RGD = { ordenServicio:"fldSIaStYemOiievZ", folio:"fldKBCvEigK6R8hOQ", nombreCorto:"fldWoaxMR962Fj2HF", marca:"fldL9OPmEgJ9XkKoq", color:"fldl8PsvBF74TgPir", numParte:"fld9FbgcU4LE2IAe6" };
+  const BF_DATOS_JSON = "fldSdxpRwhyvSWEgJ";
+
+  try{
+    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`);
+    if(!ordenRes.ok) throw new Error("No se pudo cargar la orden.");
+    const orden = await ordenRes.json();
+    const of = orden.fields || {};
+    const folio = of[OFD.folio] || identificador || "—";
+
+    // Datos adicionales (marca/color/nombre corto/n° parte): del reporte final si ya existe,
+    // o si no, del borrador en progreso (misma tabla que alimenta "Lista de Materiales").
+    let extra = { nombreCorto:"", marca:"", color:"", numParte:"" };
+    const rgFormula = encodeURIComponent(`OR(FIND("${id}",ARRAYJOIN({${RGD.ordenServicio}})),{${RGD.folio}}="${folio}")`);
+    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`);
+    if(rgRes.ok){
+      const rgData = await rgRes.json();
+      const rg = (rgData.records||[])[0];
+      if(rg){
+        extra = {
+          nombreCorto: rg.fields[RGD.nombreCorto] || "",
+          marca:       rg.fields[RGD.marca] || "",
+          color:       rg.fields[RGD.color] || "",
+          numParte:    rg.fields[RGD.numParte] || "",
+        };
+      }
+    }
+    if(!extra.nombreCorto && !extra.marca && !extra.color && !extra.numParte){
+      const bfFormula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`);
+      if(bfRes.ok){
+        const bfData = await bfRes.json();
+        const bf = (bfData.records||[])[0];
+        if(bf && bf.fields[BF_DATOS_JSON]){
+          try{
+            const datos = JSON.parse(bf.fields[BF_DATOS_JSON]);
+            extra = {
+              nombreCorto: datos.nombreCorto || "",
+              marca:       datos.marca || "",
+              color:       datos.color || "",
+              numParte:    datos.numParte || "",
+            };
+          } catch(e){}
+        }
+      }
+    }
+
+    const tipoEquipoRaw = of[OFD.tipoEquipo];
+    const tipoEquipo = (tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "—";
+    const estadoRaw = of[OFD.estado];
+    const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "—";
+
+    const item = (lbl, val) => `<div class="detalle-item"><div class="lbl">${esc(lbl)}</div><div class="val">${(val || val === 0) ? esc(String(val)) : "—"}</div></div>`;
+
+    document.getElementById("detalleGeneralBody").innerHTML = `
+      <div class="detalle-seccion">Datos generales</div>
+      <div class="detalle-grid">
+        ${item("Folio", folio)}
+        ${item("Cliente", of[OFD.cliente])}
+        ${item("Tipo de equipo", tipoEquipo)}
+        ${item("Estado", estado)}
+        ${item("Nombre / Apodo", extra.nombreCorto)}
+        ${item("Marca", extra.marca)}
+      </div>
+      <div class="detalle-seccion">Ficha técnica</div>
+      <div class="detalle-grid">
+        ${item("N° de serie", of[OFD.serie])}
+        ${item("Modelo / SPEC", of[OFD.spec])}
+        ${item("Frame", of[OFD.frame])}
+        ${item("Volts", of[OFD.volts])}
+        ${item("HP", of[OFD.hp])}
+        ${item("Color", extra.color)}
+        ${item("N° de parte", extra.numParte)}
+      </div>
+    `;
+  } catch(e){
+    document.getElementById("detalleGeneralBody").innerHTML = `
+      <div style="text-align:center;padding:40px;color:#991b1b">
+        <p><strong style="color:var(--rojo)">Error al cargar el detalle</strong></p>
+        <p style="font-size:0.82rem;margin-top:6px">${esc(e.message)}</p>
+      </div>`;
+  }
+}
+
+function cerrarDetalleGeneral(){ document.getElementById("modalDetalleGeneral").classList.add("hidden"); }
+function cerrarDetalleGeneralSiFuera(e){ if(e.target.id === "modalDetalleGeneral") cerrarDetalleGeneral(); }
+
+/* ============================================================
+   PRE-REGISTRO DE EQUIPO (Admin) — da de alta un equipo "Por llegar"
+   ============================================================ */
+const PREFIJOS_PREREG = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
+
+function abrirPreRegistro(){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  ["preCliente","preNombreCorto","preMarca","preColor","preSpec","preSerie","preNumParte","prePotencia","preFrame","preVolts","preFolio"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("preTipoEquipo").value = "";
+  document.getElementById("preRegStatus").textContent = "";
+  // Poblar técnicos
+  const sel = document.getElementById("preTecnico");
+  sel.innerHTML = `<option value="">— Sin asignar —</option>` +
+    tecnicosList.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  document.getElementById("modalPreRegistro").classList.remove("hidden");
+}
+function cerrarPreRegistro(){ document.getElementById("modalPreRegistro").classList.add("hidden"); }
+function cerrarPreRegistroSiFuera(e){ if(e.target.id === "modalPreRegistro") cerrarPreRegistro(); }
+
+// Genera el folio consultando los folios ya cargados (mismo esquema que el formulario)
+function preRegGenerarFolio(){
+  const tipo = document.getElementById("preTipoEquipo").value;
+  const prefijo = PREFIJOS_PREREG[tipo] || "";
+  const folioEl = document.getElementById("preFolio");
+  if(!prefijo){ folioEl.value = ""; return; }
+  let maxNum = 0;
+  allOrdenes.forEach(o => {
+    const m = (o.folio || "").match(new RegExp(`^${prefijo}-(\\d+)$`));
+    if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+  });
+  folioEl.value = `${prefijo}-${String(maxNum + 1).padStart(3, "0")}`;
+}
+
+async function guardarPreRegistro(){
+  const tipoEquipo = document.getElementById("preTipoEquipo").value;
+  const cliente = document.getElementById("preCliente").value.trim();
+  const folio = document.getElementById("preFolio").value.trim();
+  const statusEl = document.getElementById("preRegStatus");
+  if(!tipoEquipo || !cliente || !folio){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Tipo de equipo y cliente son obligatorios.";
+    return;
+  }
+  const gv = id => document.getElementById(id).value.trim();
+  const btn = document.getElementById("btnGuardarPreReg");
+  btn.disabled = true;
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando pre-registro...";
+
+  const fields = {
+    [F.folio]:        folio,
+    [F.cliente]:      cliente,
+    [F.tipoServicio]: "General",
+    [F.tipoEquipo]:   tipoEquipo,
+    [F.estado]:       "Por llegar",
+    [F.serie]:        gv("preSerie"),
+    "fldkkXFzqKeGSIqJQ": gv("preSpec"),   // SPEC
+    "fldSvMeOGe98aT2e0": gv("preFrame"),  // Frame
+  };
+  const tecnico = document.getElementById("preTecnico").value;
+  if(tecnico) fields[F.tecnicoAsignado] = tecnico;
+  const hp = parseFloat(gv("prePotencia"));
+  if(!isNaN(hp)) fields["fldjyFFAaL0dIFWIE"] = hp;
+  const volts = parseFloat(gv("preVolts"));
+  if(!isNaN(volts)) fields["fldLxVAorFAGaboOF"] = volts;
+
+  try{
+    // 1) Crear la ORDEN "Por llegar"
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}`, {
+      method: "POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ records:[{ fields }] })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data?.error?.message || "Error al crear la orden");
+
+    // 2) Guardar los datos adicionales (marca/color/nombre/n° parte) en BORRADORES,
+    //    igual que hace el formulario, para que el técnico los recupere al buscar el folio.
+    const datosJson = JSON.stringify({
+      materiales: [],
+      nombreCorto: gv("preNombreCorto"),
+      modelo: gv("preSpec"),
+      marca: gv("preMarca"),
+      color: gv("preColor"),
+      numParte: gv("preNumParte"),
+    });
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
+      method: "POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ records:[{ fields: {
+        [BF_SERIE]: folio,
+        "fldzogHAx1BAkw4q2": cliente,
+        "fldSdxpRwhyvSWEgJ": datosJson,
+        "fldXxLdLrsLruVFnq": new Date().toISOString().split("T")[0],
+      }}]})
+    }).catch(()=>{});
+
+    statusEl.style.color = "var(--verde)";
+    statusEl.textContent = `✓ Equipo ${folio} pre-registrado. Aparecerá en "Equipos por llegar".`;
+    setTimeout(async () => { cerrarPreRegistro(); await cargarDatos(); }, 1200);
+  } catch(err){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Error: " + (err.message || "no se pudo guardar");
+    btn.disabled = false;
+  }
+}
+
+async function cancelarPreRegistro(id, folio){
+  if(!confirm(`¿Cancelar el pre-registro de ${folio}? Se eliminará la orden. Esta acción no se puede deshacer.`)) return;
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
+      method: "DELETE"
+    });
+    // Borrar también el registro de BORRADORES asociado (por folio)
+    const formula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
+    const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`);
+    if(bfRes.ok){
+      const bfData = await bfRes.json();
+      for(const r of (bfData.records||[])){
+        await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${r.id}`, { method:"DELETE" }).catch(()=>{});
+      }
+    }
+    await cargarDatos();
+  } catch(e){ alert("No se pudo cancelar el pre-registro."); }
+}
+
+const PRIORIDAD_INFO = {
+  1: { lbl:"1 · Urgente",   color:"#991b1b", bg:"#fde8e8" },
+  2: { lbl:"2 · Alta",      color:"#b45309", bg:"#fdf3db" },
+  3: { lbl:"3 · Media",     color:"#1d5496", bg:"#e8f0fb" },
+  4: { lbl:"4 · Baja",      color:"#485568", bg:"#eef1f6" },
+  5: { lbl:"5 · Muy baja",  color:"#6b7280", bg:"#eef1f6" },
+};
+
+function chipPrioridad(p){
+  if(!p) return `<span class="chip chip-default">Sin definir</span>`;
+  const info = PRIORIDAD_INFO[p] || PRIORIDAD_INFO[5];
+  return `<span class="chip" style="background:${info.bg};color:${info.color};border-color:${info.color}33">${info.lbl}</span>`;
+}
+
+function celdaPrioridad(o, esAdmin){
+  if(!esAdmin) return chipPrioridad(o.prioridad);
+  const opciones = [`<option value="">Sin definir</option>`]
+    .concat([1,2,3,4,5].map(n =>
+      `<option value="${n}" ${o.prioridad===n?"selected":""}>${PRIORIDAD_INFO[n].lbl}</option>`));
+  return `<select class="sel-fila" onchange="actualizarCampoOrden('${o.id}','prioridad',this.value?Number(this.value):null,this)">${opciones.join("")}</select>`;
+}
+
+function celdaTecnico(o, esAdmin){
+  if(!esAdmin) return esc(o.tecnicoAsignado) || `<span style="color:var(--gris-texto)">— Sin asignar —</span>`;
+  const opciones = [`<option value="">— Sin asignar —</option>`]
+    .concat(tecnicosList.map(nombre =>
+      `<option value="${esc(nombre)}" ${o.tecnicoAsignado===nombre?"selected":""}>${esc(nombre)}</option>`));
+  return `<select class="sel-fila" onchange="actualizarCampoOrden('${o.id}','tecnicoAsignado',this.value,this)">${opciones.join("")}</select>`;
+}
+
+function formatoFechaCorta(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+function celdaEntregaProgramada(o, esAdmin){
+  const vencida = o.fechaEntregaProgramada
+    && o.fechaEntregaProgramada < new Date().toISOString().slice(0,10)
+    && !["terminado","entregado"].includes(normEstado(o.estado));
+  if(!esAdmin){
+    if(!o.fechaEntregaProgramada) return `<span style="color:var(--gris-texto)">—</span>`;
+    return vencida
+      ? `<span class="chip chip-recibido" style="background:var(--rojo-bg);color:var(--rojo);border-color:var(--rojo-borde)">${formatoFechaCorta(o.fechaEntregaProgramada)} ⚠</span>`
+      : formatoFechaCorta(o.fechaEntregaProgramada);
+  }
+  return `<input type="date" class="sel-fila" value="${o.fechaEntregaProgramada||""}"
+    style="${vencida?'border-color:var(--rojo);color:var(--rojo);font-weight:700':''}"
+    onchange="actualizarCampoOrden('${o.id}','fechaEntregaProgramada',this.value||null,this)">`;
+}
+
+async function actualizarCampoOrden(recordId, propLocal, valor, selectEl){
+  const fieldId = F[propLocal];
+  if(selectEl) selectEl.disabled = true;
+  try{
+    const url = `/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${recordId}`;
+    const res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ fields: { [fieldId]: valor } }),
+    });
+    if(!res.ok){
+      const d = await res.json().catch(() => ({}));
+      throw new Error((d.error && d.error.message) || `Error HTTP ${res.status}`);
+    }
+    [allOrdenes, filtradas].forEach(lista => {
+      const o = lista.find(x => x.id === recordId);
+      if(o) o[propLocal] = valor;
+    });
+    renderDashboard(filtradas);
+  } catch(err){
+    alert("No se pudo guardar el cambio: " + (err.message || "Sin conexión."));
+    if(selectEl) selectEl.disabled = false;
+  }
 }
 
 function chipEstado(estado){
   const k = normEstado(estado);
   const mapa = {
+    porllegar: { cls:"chip-recibido",  lbl: estado||"Por llegar" },
     recibido:  { cls:"chip-recibido",  lbl: estado||"Recibido" },
     proceso:   { cls:"chip-proceso",   lbl: estado||"En Proceso" },
     terminado: { cls:"chip-terminado", lbl: estado||"Terminado" },
@@ -1670,6 +2232,7 @@ function chipEstado(estado){
    ============================================================ */
 function renderPie(ordenes){
   const grupos = [
+    { key:"porllegar", label:"Por llegar",  color:"#c99a3a" },
     { key:"recibido",  label:"Recibido",    color:"#3a6fa8" },
     { key:"proceso",   label:"En Proceso",  color:"#f59e0b" },
     { key:"terminado", label:"Terminado",   color:"#1b7a34" },
@@ -1871,7 +2434,7 @@ async function verChecklist(ordenId, serie){
       `OR(FIND("${ordenId}", ARRAYJOIN({${F_CK_ORDEN_LINK}})), FIND("${serie} |", {fldHCz04kdMaGhjNR}))`
     );
     const url = `/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const res = await fetch(url, { headers:{ } });
+    const res = await fetch(url);
     if(!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
 
@@ -2327,6 +2890,8 @@ function aplicarRestriccionesRol(){
   if(_sesion.rol === "Tecnico"){
     const tabGeneral = document.getElementById("tab-general");
     if(tabGeneral) tabGeneral.style.display = "none";
+    const btnPre = document.getElementById("btnPreRegistro");
+    if(btnPre) btnPre.style.display = "none";
     cambiarTab("ordenes");
   }
 }
@@ -2359,8 +2924,7 @@ async function ejecutarMonitorNoOk(){
     const BF_ULTIMA_ACT = "fldXxLdLrsLruVFnq";
     const rBorr = await fetch(
       `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true` +
-      `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`,
-      { }
+      `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`
     );
     if(rBorr.ok){
       const dBorr = await rBorr.json();

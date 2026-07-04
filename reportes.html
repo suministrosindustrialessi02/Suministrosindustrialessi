@@ -94,7 +94,21 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
   </div>
 
   <div class="rep-title">Selecciona el reporte a generar</div>
-  <div class="rep-grid">
+  <div class="rep-grid" id="repGridGeneral" style="display:none">
+    <button class="rep-btn" id="btn-servicio-gen" onclick="generarServicioGeneral()">
+      <span class="rep-btn-icon">📄</span>
+      <span class="rep-btn-name">Reporte de Servicio</span>
+      <span class="rep-btn-desc">Diagnóstico, bitácora y evidencia del servicio</span>
+      <span class="rep-btn-status" id="st-servicio-gen">—</span>
+    </button>
+    <button class="rep-btn" id="btn-materiales-gen" onclick="generarListaMaterialesGeneral()">
+      <span class="rep-btn-icon">🧾</span>
+      <span class="rep-btn-name">Lista de Materiales</span>
+      <span class="rep-btn-desc">Materiales / refacciones para cotización</span>
+      <span class="rep-btn-status" id="st-materiales-gen">—</span>
+    </button>
+  </div>
+  <div class="rep-grid" id="repGridSulzer">
     <button class="rep-btn" id="btn-checklist" onclick="generarChecklist()">
       <span class="rep-btn-icon">📋</span>
       <span class="rep-btn-name">Checklist Sulzer</span>
@@ -138,12 +152,45 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 /* ============================================================
    CONFIGURACIÓN AIRTABLE
    ============================================================ */
-
-
 const T_ORDENES   = "tblcyGwDeOORxELJg";
 const T_CHECKLIST = "tbl1yAx029Em12QDG";
 const T_PINTURA   = "tbl6fY01T6q69BVN0";
 const T_EVIDENCIA = "tblSxLh7qYCkr4dTa";
+const T_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+
+// Field IDs — Ordenes (tipo de servicio / equipo)
+const FO = {
+  tipoServicio:     "fld0rhBYkk5nAnXcT",
+  tipoEquipo:       "fldBhqLRYDHl2L2tJ",
+  descripcionOtro:  "fldo5FXSYcTkhI396",
+  folio:            "fldpMUMLpNCGGQcIo",
+};
+
+// Field IDs — Reportes General
+const RG = {
+  folio:                  "fldKBCvEigK6R8hOQ",
+  ordenServicio:          "fldSIaStYemOiievZ",
+  nombreCorto:            "fldWoaxMR962Fj2HF",
+  marca:                  "fldL9OPmEgJ9XkKoq",
+  color:                  "fldl8PsvBF74TgPir",
+  modeloEquipo:           "fldXeJ7sOnEGFXXw7",
+  numParte:               "fld9FbgcU4LE2IAe6",
+  descripcionProblema:    "fld97fTrbIGRZUXjF",
+  observacionesJson:      "fldsiseneLWcnRohF",
+  serviciosJson:          "fldJKJxfz5cIUn2Tn",
+  serviciosOtrosJson:     "fldP8tvQEQUyrMOx9",
+  materialesJson:         "fldDjAainIuzcjOxe",
+  aplicaElectrico:        "fldaDOq4voNSMwkEK",
+  pruebasElectricasJson:  "fldxASjok0JqL8SHx",
+  aplicaPintura:          "fldT8xxcCqQjlBCBe",
+  bitacoraTexto:          "fldW0e0FUKxgje7Ky",
+  videoNota:              "fld7OGfsgn9VFI6cR",
+  fotosRecibido:          "fldcBRSr2SFxyTbHW",
+  fotosBitacora:          "fld3s920VvM9QC7qR",
+  fotosPinturaAntes:      "fldP3090cnvLpk7CM",
+  fotosPinturaDespues:    "fldaPzquSHFOnNgto",
+  fotosFinal:             "fldfrWCVJQD5Bna4T",
+};
 
 // Field IDs — Checklist
 const FCK = {
@@ -280,7 +327,7 @@ const NOTES_AFTER = {
 /* ============================================================
    ESTADO GLOBAL
    ============================================================ */
-let G = { orden:null, checklist:null, pintura:null, evidencia:null };
+let G = { orden:null, checklist:null, pintura:null, evidencia:null, general:null, esGeneral:false };
 let imagenPinturaB64 = null; // imagen fija del diagrama de puntos de inspección
 
 /* ============================================================
@@ -288,7 +335,7 @@ let imagenPinturaB64 = null; // imagen fija del diagrama de puntos de inspecció
    ============================================================ */
 async function at(tabla, params){
   const url = `/.netlify/functions/airtable?table=${tabla}&returnFieldsByFieldId=true&${params}`;
-  const r = await fetch(url, {});
+  const r = await fetch(url);
   if(!r.ok) throw new Error(`Airtable ${r.status}`);
   return (await r.json()).records || [];
 }
@@ -314,11 +361,39 @@ async function cargarDatos(){
 
   // 1) Orden
   const ordenRec = await fetch(
-    `/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${ordenId}&returnFieldsByFieldId=true`,
-    {}
+    `/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${ordenId}&returnFieldsByFieldId=true`
   );
   if(!ordenRec.ok) throw new Error("No se encontró la orden");
   G.orden = await ordenRec.json();
+
+  const tipoServicioRaw = fv(G.orden, FO.tipoServicio);
+  G.esGeneral = (tipoServicioRaw && (tipoServicioRaw.name || tipoServicioRaw)) === "General";
+
+  if(G.esGeneral){
+    // Reporte de servicio general — busca por link a la orden o por folio
+    const folio = fv(G.orden, FO.folio) || serie || "";
+    const rgFormula = encodeURIComponent(`OR(FIND("${ordenId}",ARRAYJOIN({${RG.ordenServicio}})),{${RG.folio}}="${folio}")`);
+    const rgRecs = await at(T_REPORTES_GENERAL, `filterByFormula=${rgFormula}`);
+    G.general = rgRecs[0] || null;
+
+    // Borrador de materiales (BORRADORES) — el técnico puede haber llenado los
+    // materiales sin haber terminado todavía el resto del servicio. Permite que
+    // el botón "Lista de Materiales" esté disponible desde ese momento.
+    if(!G.general && folio){
+      const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
+      const BF_SERIE      = "fldegmWGpcWW7Awzn";
+      const BF_DATOS_JSON = "fldSdxpRwhyvSWEgJ";
+      const bfFormula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
+      const bfRecs = await at(TABLA_BORRADORES, `filterByFormula=${bfFormula}`).catch(() => []);
+      const bfRec = bfRecs[0] || null;
+      if(bfRec){
+        let datos = {};
+        try{ datos = JSON.parse(bfRec.fields?.[BF_DATOS_JSON] || "{}"); }catch(e){}
+        if((datos.materiales || []).length > 0) G.materialesBorrador = datos;
+      }
+    }
+    return;
+  }
 
   const CK_ID_REG = "fldHCz04kdMaGhjNR"; // idRegistro checklist  → "SERIE | FECHA"
   const PT_ID_REG = "fld1bZfrM6MfrrJZp"; // idRegistro pintura    → "SERIE | FECHA"
@@ -345,8 +420,25 @@ async function cargarDatos(){
    ACTUALIZA UI PRINCIPAL
    ============================================================ */
 function actualizarUI(){
-  const serie    = G.orden?.fields?.["fldj245KNDJ2B5jxG"] || new URLSearchParams(location.search).get("serie") || "—";
+  const serie    = G.orden?.fields?.["fldj245KNDJ2B5jxG"] || fv(G.orden, FO.folio) || new URLSearchParams(location.search).get("serie") || "—";
   const cliente  = G.orden?.fields?.["fldUkOvdOHTXMDWX7"] || "—";
+
+  document.getElementById("repGridGeneral").style.display = G.esGeneral ? "" : "none";
+  document.getElementById("repGridSulzer").style.display  = G.esGeneral ? "none" : "";
+
+  if(G.esGeneral){
+    const ok       = '<span class="status-ok">✓ Datos disponibles</span>';
+    const borrador = '<span class="status-pend" style="color:#976010">🕓 Borrador disponible</span>';
+    const pend     = '<span class="status-pend">⚠ Sin datos</span>';
+    document.getElementById("mc-serie").textContent    = serie;
+    document.getElementById("mc-cliente").textContent  = cliente;
+    document.getElementById("mc-inspector").textContent= fv(G.general, RG.nombreCorto) || "—";
+    document.getElementById("mc-fecha").textContent    = fmtFecha(G.general?.createdTime);
+    document.getElementById("mc-orden").textContent    = fv(G.orden, FO.tipoEquipo)?.name || fv(G.orden, FO.tipoEquipo) || "—";
+    document.getElementById("st-servicio-gen").innerHTML   = G.general ? ok : pend;
+    document.getElementById("st-materiales-gen").innerHTML = G.general ? ok : (G.materialesBorrador ? borrador : pend);
+    return;
+  }
 
   let inspector = "—", fecha = "—", ordenCompra = "—";
   if(G.checklist){
@@ -553,10 +645,34 @@ function abrirVentana(htmlContent, titulo){
   const w = window.open("","_blank","width=900,height=700");
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${titulo}</title>${printCSS()}</head><body>
     <div class="print-bar no-print">
-      <button class="print-btn" onclick="window.print()">⬇ Imprimir / Guardar PDF</button>
+      <button class="print-btn" id="btnImprimir" onclick="window.print()" disabled>⏳ Cargando fotos...</button>
       <span class="print-info">En Chrome: Imprimir → Guardar como PDF | Destino → Guardar como PDF</span>
     </div>
     <div class="print-content">${htmlContent}</div>
+    <script>
+      (function(){
+        var btn = document.getElementById("btnImprimir");
+        var imgs = Array.prototype.slice.call(document.images);
+        var pendientes = imgs.filter(function(img){ return !img.complete; }).length;
+        function listo(){
+          btn.disabled = false;
+          btn.textContent = "⬇ Imprimir / Guardar PDF";
+        }
+        if(pendientes === 0){ listo(); return; }
+        var restantes = pendientes;
+        imgs.forEach(function(img){
+          if(img.complete) return;
+          img.addEventListener("load", check);
+          img.addEventListener("error", check);
+        });
+        function check(){
+          restantes--;
+          if(restantes <= 0) listo();
+        }
+        // Salvaguarda: si alguna imagen nunca dispara load/error, habilitar de todas formas a los 8s
+        setTimeout(listo, 8000);
+      })();
+    <\/script>
   </body></html>`);
   w.document.close();
 }
@@ -924,6 +1040,262 @@ async function generarServicio(){
   ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
 
   abrirVentana(html, `Reporte de Servicio — ${d.serie}`);
+}
+
+/* ============================================================
+   REPORTES — SERVICIOS GENERALES
+   ============================================================ */
+function headerTablaGeneral(titulo, datos){
+  const d = datos || {};
+  const tipoEquipoRaw = fv(G.orden, FO.tipoEquipo);
+  const cliente     = d.cliente     ?? (fv(G.orden, "fldUkOvdOHTXMDWX7") || "—");
+  const folio       = d.folio       ?? (fv(G.orden, FO.folio) || fv(G.general, RG.folio) || "—");
+  const tipoEquipo  = d.tipoEquipo  ?? ((tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "—");
+  const nombreCorto = d.nombreCorto ?? (fv(G.general, RG.nombreCorto) || "—");
+  const modelo      = d.modelo      ?? (fv(G.general, RG.modeloEquipo) || "—");
+  const marca       = d.marca       ?? (fv(G.general, RG.marca) || "—");
+  const color       = d.color       ?? (fv(G.general, RG.color) || "—");
+  const numParte    = d.numParte    ?? (fv(G.general, RG.numParte) || "—");
+  const fecha       = d.fecha       ?? fmtFecha(G.general?.createdTime);
+
+  return `
+  <table class="info-tbl">
+    <tr><td colspan="6" class="rep-title-cell">${titulo} — ${esc(folio)}</td></tr>
+    <tr>
+      <td class="lbl">CLIENTE:</td><td>${esc(cliente)}</td>
+      <td class="lbl">EQUIPO:</td><td>${esc(tipoEquipo)}</td>
+      <td class="lbl">FECHA:</td><td>${esc(fecha)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">NOMBRE / APODO:</td><td>${esc(nombreCorto)}</td>
+      <td class="lbl">MODELO / SPEC:</td><td>${esc(modelo)}</td>
+      <td class="lbl">MARCA:</td><td>${esc(marca)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">COLOR:</td><td>${esc(color)}</td>
+      <td class="lbl">N° DE PARTE:</td><td>${esc(numParte)}</td>
+      <td class="lbl"></td><td></td>
+    </tr>
+  </table>`;
+}
+
+function generarServicioGeneral(){
+  if(!G.general){ alert("No hay datos del reporte general."); return; }
+  const g = G.general.fields;
+  const folio = fv(G.orden, FO.folio) || fv(G.general, RG.folio) || "—";
+
+  let observaciones = [], servicios = [], serviciosOtros = [], pruebas = {};
+  try{ observaciones   = JSON.parse(g[RG.observacionesJson]     || "[]"); }catch(e){}
+  try{ servicios       = JSON.parse(g[RG.serviciosJson]          || "[]"); }catch(e){}
+  try{ serviciosOtros  = JSON.parse(g[RG.serviciosOtrosJson]     || "[]"); }catch(e){}
+  try{ pruebas         = JSON.parse(g[RG.pruebasElectricasJson]  || "{}"); }catch(e){}
+
+  const descripcionProblema = g[RG.descripcionProblema] || "";
+  const bitacoraTexto       = g[RG.bitacoraTexto] || "";
+  const aplicaElectrico     = !!g[RG.aplicaElectrico];
+  const aplicaPintura       = !!g[RG.aplicaPintura];
+
+  function secFotosGen(fieldId, titulo){
+    const arr = g[fieldId];
+    if(!arr || !arr.length) return "";
+    const imgs = arr.map((a,i) => `
+      <div class="foto-item">
+        <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
+        <div class="foto-caption">${i+1}</div>
+      </div>`).join("");
+    return `${titulo ? `<div class="serv-section">${esc(titulo)}</div>` : ""}<div class="fotos-grid">${imgs}</div>`;
+  }
+
+  // Requerimiento — SIN materiales (esos van en el reporte aparte)
+  const requerimientoItems = [...servicios, ...serviciosOtros];
+  const requerimientoHtml = requerimientoItems.length
+    ? `<ul style="margin-left:16px;font-size:8.5pt">${requerimientoItems.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`
+    : "<p style='font-size:7.5pt;color:#666;'>Sin servicios especificados.</p>";
+
+  let pruebasHtml = "";
+  if(aplicaElectrico){
+    const ini = pruebas.inicial || {};
+    const fin = pruebas.final || {};
+
+    function colorEstado(estado){
+      if(estado === "OK") return "#c0dd97";
+      if(estado === "Revision") return "#fac775";
+      if(estado === "Fuera") return "#f09595";
+      return "#eee";
+    }
+
+    function filasResistencia(r, numLineas){
+      r = r || {};
+      if(numLineas === "3"){
+        return `
+        <tr><td class="lbl">L1, L2</td><td>${esc(r.l1l2)} Ω</td></tr>
+        <tr><td class="lbl">L2, L3</td><td>${esc(r.l2l3)} Ω</td></tr>
+        <tr><td class="lbl">L3, L1</td><td>${esc(r.l3l1)} Ω</td></tr>`;
+      }
+      if(numLineas === "9"){
+        const r789 = Array.isArray(r.r789) ? r.r789[0] : r.r789; // compatibilidad con borradores viejos (array de 3)
+        return `
+        <tr><td class="lbl">1, 4</td><td>${esc(r.r14)} Ω</td></tr>
+        <tr><td class="lbl">2, 5</td><td>${esc(r.r25)} Ω</td></tr>
+        <tr><td class="lbl">3, 6</td><td>${esc(r.r36)} Ω</td></tr>
+        <tr><td class="lbl">7, 8, 9</td><td>${esc(r789)} Ω</td></tr>`;
+      }
+      return `
+      <tr><td class="lbl">U1, U2</td><td>${esc(r.u1u2)} Ω</td></tr>
+      <tr><td class="lbl">V1, V2</td><td>${esc(r.v1v2)} Ω</td></tr>
+      <tr><td class="lbl">W1, W2</td><td>${esc(r.w1w2)} Ω</td></tr>`;
+    }
+
+    function tablaResistenciaTierra(r, t, titulo, colorFondo, numLineas){
+      t = t || {};
+      return `
+      <table class="adh-tbl" style="width:48%; display:inline-table; vertical-align:top; margin-right:2%;">
+        <tr><th colspan="2" style="background:${colorFondo}!important; color:#000!important;">RESISTENCIA ENTRE BOBINAS ${esc(titulo)}</th></tr>
+        ${filasResistencia(r, numLineas)}
+      </table>
+      <table class="adh-tbl" style="width:48%; display:inline-table; vertical-align:top;">
+        <tr><th colspan="2" style="background:${colorFondo}!important; color:#000!important;">PUESTA A TIERRA ${esc(titulo)}</th></tr>
+        <tr><td class="lbl">L1 – Tierra</td><td>${esc(t.l1)} Ω</td></tr>
+        <tr><td class="lbl">L2 – Tierra</td><td>${esc(t.l2)} Ω</td></tr>
+        <tr><td class="lbl">L3 – Tierra</td><td>${esc(t.l3)} Ω</td></tr>
+      </table>`;
+    }
+
+    // Detecta si TODOS los valores de las pruebas finales están vacíos (no se hicieron)
+    function todosVacios(obj){
+      if(Array.isArray(obj)) return obj.every(v => todosVacios(v));
+      if(obj && typeof obj === "object") return Object.values(obj).every(v => todosVacios(v));
+      return obj === undefined || obj === null || String(obj).trim() === "";
+    }
+    const finVacio = todosVacios(fin.resistencia) && todosVacios(fin.tierra) && todosVacios(fin.corriente) && todosVacios(fin.voltaje);
+
+    pruebasHtml = `
+    <div class="serv-section">PRUEBAS ELÉCTRICAS BÁSICAS — INICIAL</div>
+    ${tablaResistenciaTierra(ini.resistencia, ini.tierra, "", colorEstado(ini.estado), pruebas.numLineas)}
+    ${ini.notas ? `<p style="font-size:8pt;margin:6px 0"><strong>Nota:</strong> ${esc(ini.notas)}</p>` : ""}
+    ${ini.omitidoCorrienteVoltaje ? `<p style="font-size:8pt;margin-bottom:8px;color:#c62828"><strong>⚠ No se realizaron pruebas de corriente/voltaje iniciales</strong> — estado "Fuera de servicio".</p>` : `
+    <table class="adh-tbl">
+      <tr><th></th><th>L1</th><th>L2</th><th>L3</th></tr>
+      <tr><td class="lbl">Corriente inicial (A)</td><td>${esc(ini.corriente?.[0])}</td><td>${esc(ini.corriente?.[1])}</td><td>${esc(ini.corriente?.[2])}</td></tr>
+      <tr><td class="lbl">Voltaje inicial (V)</td><td>${esc(ini.voltaje?.[0])}</td><td>${esc(ini.voltaje?.[1])}</td><td>${esc(ini.voltaje?.[2])}</td></tr>
+    </table>`}
+
+    <div class="serv-section">PRUEBAS ELÉCTRICAS BÁSICAS — FINAL</div>
+    ${finVacio ? `<p style="font-size:8pt;color:#666;margin-bottom:8px">No fue requerido realizar pruebas eléctricas finales.</p>` : `
+    ${tablaResistenciaTierra(fin.resistencia, fin.tierra, "", colorEstado(fin.estado), pruebas.numLineas)}
+    ${fin.notas ? `<p style="font-size:8pt;margin:6px 0"><strong>Nota:</strong> ${esc(fin.notas)}</p>` : ""}
+    <table class="adh-tbl">
+      <tr><th></th><th>L1</th><th>L2</th><th>L3</th></tr>
+      <tr><td class="lbl">Corriente final (A)</td><td>${esc(fin.corriente?.[0])}</td><td>${esc(fin.corriente?.[1])}</td><td>${esc(fin.corriente?.[2])}</td></tr>
+      <tr><td class="lbl">Voltaje final (V)</td><td>${esc(fin.voltaje?.[0])}</td><td>${esc(fin.voltaje?.[1])}</td><td>${esc(fin.voltaje?.[2])}</td></tr>
+    </table>`}`;
+  }
+
+  let pinturaHtml = "";
+  if(aplicaPintura){
+    const antes = g[RG.fotosPinturaAntes] || [];
+    const despues = g[RG.fotosPinturaDespues] || [];
+    if(antes.length || despues.length){
+      pinturaHtml = `
+      <div class="serv-section">SERVICIO DE PINTURA</div>
+      <table class="adh-tbl" style="margin-bottom:0"><tr><th style="width:50%">ANTES</th><th style="width:50%">DESPUÉS</th></tr></table>
+      <div style="display:flex;gap:10px;margin-bottom:8px">
+        <div class="fotos-grid" style="flex:1">${antes.map((a,i)=>`<div class="foto-item"><img src="${a.thumbnails?.large?.url||a.url}" loading="eager"><div class="foto-caption">${i+1}</div></div>`).join("")}</div>
+        <div class="fotos-grid" style="flex:1">${despues.map((a,i)=>`<div class="foto-item"><img src="${a.thumbnails?.large?.url||a.url}" loading="eager"><div class="foto-caption">${i+1}</div></div>`).join("")}</div>
+      </div>`;
+    }
+  }
+
+  const html = `
+  ${logoHtml()}
+  ${headerTablaGeneral("REPORTE DE SERVICIO")}
+
+  <div class="serv-section">I. DESCRIPCIÓN DEL PROBLEMA</div>
+  <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(descripcionProblema).replace(/\n/g,"<br>") || "—"}</div>
+
+  ${secFotosGen(RG.fotosRecibido, "II. FOTOGRAFÍA DE RECIBIDO")}
+
+  <div class="serv-section">III. OBSERVACIONES</div>
+  <div style="margin-bottom:8px">${observaciones.length ? `<ul style="margin-left:16px;font-size:8.5pt">${observaciones.map(o=>`<li>${esc(o)}</li>`).join("")}</ul>` : "<p style='font-size:7.5pt;color:#666;'>Sin observaciones.</p>"}</div>
+
+  <div class="serv-section">IV. REQUERIMIENTO</div>
+  ${requerimientoHtml}
+
+  ${pruebasHtml}
+
+  <div class="serv-section">V. SERVICIO REALIZADO</div>
+  <div style="margin-bottom:8px">${(() => {
+    const puntos = bitacoraTexto.split("\n").map(l => l.replace(/^-\s*/,"").trim()).filter(l => l);
+    return puntos.length
+      ? `<ul style="margin-left:16px;font-size:8.5pt">${puntos.map(p => `<li>${esc(p)}</li>`).join("")}</ul>`
+      : "<p style='font-size:7.5pt;color:#666;'>—</p>";
+  })()}</div>
+  ${secFotosGen(RG.fotosBitacora, "")}
+
+  ${pinturaHtml}
+
+  ${secFotosGen(RG.fotosFinal, "VI. EVIDENCIA FINAL")}
+
+  ${firmaHtml("—", "—", G.general?.createdTime)}`;
+
+  abrirVentana(html, `Reporte de Servicio — ${folio}`);
+}
+
+function generarListaMaterialesGeneral(){
+  if(!G.general && !G.materialesBorrador){ alert("No hay materiales registrados todavía para esta orden."); return; }
+
+  const folio = fv(G.orden, FO.folio) || fv(G.general, RG.folio) || "—";
+
+  let materiales, datosHeader, avisoBorrador;
+  if(G.general){
+    const g = G.general.fields;
+    try{ materiales = JSON.parse(g[RG.materialesJson] || "[]"); }catch(e){ materiales = []; }
+    datosHeader = null; // headerTablaGeneral usa G.general por default
+    avisoBorrador = "";
+  } else {
+    const d = G.materialesBorrador;
+    materiales = d.materiales || [];
+    datosHeader = {
+      nombreCorto: d.nombreCorto || "—",
+      modelo:      d.modelo      || "—",
+      marca:       d.marca       || "—",
+      color:       d.color       || "—",
+      numParte:    d.numParte    || "—",
+      fecha:       "—",
+    };
+    avisoBorrador = `<div style="background:#fdf3db;border:1px solid #f0c96a;border-left:3px solid #976010;color:#976010;padding:8px 12px;margin-bottom:10px;font-size:8pt;border-radius:4px">
+      ⚠ BORRADOR — el servicio aún está en proceso. Esta lista puede cambiar antes de que el técnico entregue el reporte final.
+    </div>`;
+  }
+
+  const html = `
+  ${logoHtml()}
+  ${avisoBorrador}
+  ${headerTablaGeneral("LISTA DE MATERIALES / REFACCIONES / REQUERIMIENTOS", datosHeader)}
+  <div class="serv-section">MATERIALES REQUERIDOS PARA COTIZACIÓN</div>
+  ${tablaMateriales(materiales)}`;
+
+  abrirVentana(html, `Lista de Materiales — ${folio}`);
+}
+
+// Tabla Cant./Unidad/Descripción/Nota. Compatible con registros viejos donde
+// materiales era un array de strings (se muestran solo en la columna Descripción).
+function tablaMateriales(materiales){
+  if(!materiales || !materiales.length) return "<p style='font-size:8pt;color:#666;'>Sin materiales registrados.</p>";
+  const filas = materiales.map(m => {
+    const o = (typeof m === "string") ? { descripcion: m } : (m || {});
+    return `<tr>
+      <td style="text-align:center">${esc(o.cantidad) || "—"}</td>
+      <td style="text-align:center">${esc(o.unidad) || "—"}</td>
+      <td>${esc(o.descripcion) || "—"}</td>
+      <td>${esc(o.nota) || ""}</td>
+    </tr>`;
+  }).join("");
+  return `
+  <table class="adh-tbl">
+    <tr><th style="width:10%">CANT.</th><th style="width:15%">UNIDAD</th><th>DESCRIPCIÓN</th><th style="width:28%">NOTA</th></tr>
+    ${filas}
+  </table>`;
 }
 
 

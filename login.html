@@ -150,7 +150,9 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     const sesion = { usuario, nombre, rol, ordenAsociada, ts: Date.now() };
     localStorage.setItem("si_session", JSON.stringify(sesion));
 
-    if(rol === "Admin" || rol === "Tecnico"){
+    if(rol === "Tecnico"){
+      window.location.href = "plan_diario.html";
+    } else if(rol === "Admin"){
       window.location.href = "dashboard.html";
     } else if(rol === "Cliente"){
       window.location.href = "cliente.html";
