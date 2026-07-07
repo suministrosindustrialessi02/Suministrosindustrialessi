@@ -274,10 +274,11 @@ td{ padding:11px 14px; vertical-align:middle; }
 const _sesion = (() => {
   try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
 })();
-if(!_sesion || !_sesion.rol || (_sesion.rol !== "Admin" && _sesion.rol !== "Tecnico")){
+const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
+if(!_sesionValida){
   window.location.href = "login.html";
 }
-const esAdmin = _sesion.rol === "Admin";
+const esAdmin = _sesionValida && _sesion.rol === "Admin";
 
 /* ============================================================
    CONFIG
@@ -648,7 +649,7 @@ function cerrarSesion(){
 }
 
 /* ============ INIT ============ */
-cargarPlan();
+if(_sesionValida) cargarPlan(); // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
 </script>
 
 </body>

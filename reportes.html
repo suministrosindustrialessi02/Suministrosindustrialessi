@@ -95,6 +95,12 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 
   <div class="rep-title">Selecciona el reporte a generar</div>
   <div class="rep-grid" id="repGridGeneral" style="display:none">
+    <button class="rep-btn" id="btn-diagnostico-gen" onclick="generarDiagnosticoGeneral()">
+      <span class="rep-btn-icon">🩺</span>
+      <span class="rep-btn-name">Diagnóstico</span>
+      <span class="rep-btn-desc">Diagnóstico y servicios propuestos — para autorización del cliente</span>
+      <span class="rep-btn-status" id="st-diagnostico-gen">—</span>
+    </button>
     <button class="rep-btn" id="btn-servicio-gen" onclick="generarServicioGeneral()">
       <span class="rep-btn-icon">📄</span>
       <span class="rep-btn-name">Reporte de Servicio</span>
@@ -164,6 +170,7 @@ const FO = {
   tipoEquipo:       "fldBhqLRYDHl2L2tJ",
   descripcionOtro:  "fldo5FXSYcTkhI396",
   folio:            "fldpMUMLpNCGGQcIo",
+  diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
 };
 
 // Field IDs — Reportes General
@@ -435,6 +442,7 @@ function actualizarUI(){
     document.getElementById("mc-inspector").textContent= fv(G.general, RG.nombreCorto) || "—";
     document.getElementById("mc-fecha").textContent    = fmtFecha(G.general?.createdTime);
     document.getElementById("mc-orden").textContent    = fv(G.orden, FO.tipoEquipo)?.name || fv(G.orden, FO.tipoEquipo) || "—";
+    document.getElementById("st-diagnostico-gen").innerHTML = fv(G.orden, FO.diagnosticoTexto) ? ok : pend;
     document.getElementById("st-servicio-gen").innerHTML   = G.general ? ok : pend;
     document.getElementById("st-materiales-gen").innerHTML = G.general ? ok : (G.materialesBorrador ? borrador : pend);
     return;
@@ -1079,6 +1087,109 @@ function headerTablaGeneral(titulo, datos){
   </table>`;
 }
 
+function generarDiagnosticoGeneral(){
+  const raw = fv(G.orden, FO.diagnosticoTexto);
+  if(!raw){ alert("Todavía no se ha generado el diagnóstico para esta orden."); return; }
+  let d = {};
+  try{ d = JSON.parse(raw); }catch(e){ alert("Error al leer los datos del diagnóstico."); return; }
+
+  const folio = fv(G.orden, FO.folio) || "—";
+
+  function colorEstado(estado){
+    if(estado === "OK") return "#c0dd97";
+    if(estado === "Revision") return "#fac775";
+    if(estado === "Fuera") return "#f09595";
+    return "#eee";
+  }
+  function filasResistencia(r, numLineas){
+    r = r || {};
+    if(numLineas === "3"){
+      return `
+      <tr><td class="lbl">L1, L2</td><td>${esc(r.l1l2)} Ω</td></tr>
+      <tr><td class="lbl">L2, L3</td><td>${esc(r.l2l3)} Ω</td></tr>
+      <tr><td class="lbl">L3, L1</td><td>${esc(r.l3l1)} Ω</td></tr>`;
+    }
+    if(numLineas === "9"){
+      const r789 = Array.isArray(r.r789) ? r.r789[0] : r.r789;
+      return `
+      <tr><td class="lbl">1, 4</td><td>${esc(r.r14)} Ω</td></tr>
+      <tr><td class="lbl">2, 5</td><td>${esc(r.r25)} Ω</td></tr>
+      <tr><td class="lbl">3, 6</td><td>${esc(r.r36)} Ω</td></tr>
+      <tr><td class="lbl">7, 8, 9</td><td>${esc(r789)} Ω</td></tr>`;
+    }
+    return `
+    <tr><td class="lbl">U1, U2</td><td>${esc(r.u1u2)} Ω</td></tr>
+    <tr><td class="lbl">V1, V2</td><td>${esc(r.v1v2)} Ω</td></tr>
+    <tr><td class="lbl">W1, W2</td><td>${esc(r.w1w2)} Ω</td></tr>`;
+  }
+  function tablaResistenciaTierra(r, t, colorFondo, numLineas){
+    t = t || {};
+    return `
+    <table class="adh-tbl" style="width:48%; display:inline-table; vertical-align:top; margin-right:2%;">
+      <tr><th colspan="2" style="background:${colorFondo}!important; color:#000!important;">RESISTENCIA ENTRE BOBINAS</th></tr>
+      ${filasResistencia(r, numLineas)}
+    </table>
+    <table class="adh-tbl" style="width:48%; display:inline-table; vertical-align:top;">
+      <tr><th colspan="2" style="background:${colorFondo}!important; color:#000!important;">PUESTA A TIERRA</th></tr>
+      <tr><td class="lbl">L1 – Tierra</td><td>${esc(t.l1)} Ω</td></tr>
+      <tr><td class="lbl">L2 – Tierra</td><td>${esc(t.l2)} Ω</td></tr>
+      <tr><td class="lbl">L3 – Tierra</td><td>${esc(t.l3)} Ω</td></tr>
+    </table>`;
+  }
+
+  let pruebasHtml = "";
+  if(d.aplicaElectrico && d.pruebasElectricasIniciales){
+    const p = d.pruebasElectricasIniciales;
+    pruebasHtml = `
+    <div class="serv-section">V. PRUEBAS ELÉCTRICAS INICIALES</div>
+    ${tablaResistenciaTierra(p.resistencia?.valores, p.tierra, colorEstado(p.estado), p.numLineas)}
+    ${p.notas ? `<p style="font-size:8pt;margin:6px 0"><strong>Nota:</strong> ${esc(p.notas)}</p>` : ""}
+    ${p.omitidoCorrienteVoltaje ? `<p style="font-size:8pt;margin-bottom:8px;color:#c62828"><strong>⚠ No se realizaron pruebas de corriente/voltaje</strong> — estado "Fuera de servicio".</p>` : `
+    <table class="adh-tbl">
+      <tr><th></th><th>L1</th><th>L2</th><th>L3</th></tr>
+      <tr><td class="lbl">Corriente (A)</td><td>${esc(p.corriente?.[0])}</td><td>${esc(p.corriente?.[1])}</td><td>${esc(p.corriente?.[2])}</td></tr>
+      <tr><td class="lbl">Voltaje (V)</td><td>${esc(p.voltaje?.[0])}</td><td>${esc(p.voltaje?.[1])}</td><td>${esc(p.voltaje?.[2])}</td></tr>
+    </table>`}`;
+  }
+
+  const serviciosHtml = (d.serviciosPropuestos||[]).length
+    ? `<ul style="margin-left:16px;font-size:8.5pt">${d.serviciosPropuestos.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`
+    : `<p style="font-size:7.5pt;color:#666;">Sin servicios especificados.</p>`;
+
+  const html = `
+  ${logoHtml()}
+  <table class="info-tbl">
+    <tr><td colspan="4" class="rep-title-cell">DIAGNÓSTICO — ${esc(folio)}</td></tr>
+    <tr>
+      <td class="lbl">CLIENTE:</td><td>${esc(d.cliente)}</td>
+      <td class="lbl">EQUIPO:</td><td>${esc(d.tipoEquipo)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">N° SERIE / S/N:</td><td>${esc(d.numSerie)}</td>
+      <td class="lbl">FECHA:</td><td>${esc(fmtFecha(d.fecha))}</td>
+    </tr>
+  </table>
+
+  <div class="serv-section">I. DESCRIPCIÓN DEL PROBLEMA</div>
+  <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(d.descripcionProblema).replace(/\n/g,"<br>") || "—"}</div>
+
+  <div class="serv-section">II. OBSERVACIONES</div>
+  <div style="margin-bottom:8px">${(d.observaciones||[]).length ? `<ul style="margin-left:16px;font-size:8.5pt">${d.observaciones.map(o=>`<li>${esc(o)}</li>`).join("")}</ul>` : "<p style='font-size:7.5pt;color:#666;'>Sin observaciones.</p>"}</div>
+
+  <div class="serv-section">III. DIAGNÓSTICO</div>
+  <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(d.diagnosticoTecnico).replace(/\n/g,"<br>") || "—"}</div>
+
+  <div class="serv-section">IV. SERVICIOS PROPUESTOS</div>
+  ${serviciosHtml}
+
+  ${pruebasHtml}
+
+  <div class="serv-section" style="background:#fff3cd!important;color:#7a5b00!important;">PROPUESTA — AUTORIZACIÓN DEL CLIENTE</div>
+  <div style="font-size:8pt;padding:6px 2px;margin-bottom:8px;">Con base en lo anterior, se propone realizar los servicios listados. Este documento requiere la autorización del cliente para continuar con el servicio.</div>`;
+
+  abrirVentana(html, `Diagnóstico — ${folio}`);
+}
+
 function generarServicioGeneral(){
   if(!G.general){ alert("No hay datos del reporte general."); return; }
   const g = G.general.fields;
@@ -1545,6 +1656,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     actualizarUI();
     document.getElementById("loadingWrap").style.display = "none";
     document.getElementById("mainPanel").style.display   = "block";
+
+    // Si se abrió desde el checkpoint de diagnóstico del formulario general,
+    // genera el reporte automáticamente sin necesitar un clic extra.
+    if(new URLSearchParams(location.search).get("auto") === "diagnostico"){
+      generarDiagnosticoGeneral();
+    }
   } catch(err){
     document.getElementById("loadingWrap").style.display = "none";
     document.getElementById("errorWrap").style.display   = "flex";

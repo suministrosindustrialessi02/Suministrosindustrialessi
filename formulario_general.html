@@ -410,9 +410,17 @@
       </div>
     </div>
 
+    <div class="card">
+      <h2>Diagnóstico</h2>
+      <div class="card-desc">¿Qué determinaste tú como técnico que tiene el equipo? Esto es lo que se le presenta al cliente para autorizar el servicio.</div>
+      <div class="field">
+        <textarea id="diagnosticoTecnico" placeholder="Ej. Rodamiento delantero desgastado, presenta juego excesivo y ruido al girar..."></textarea>
+      </div>
+    </div>
+
     <div class="nav-buttons">
       <button class="btn-nav btn-prev" onclick="mostrarPantalla(2)">← Anterior</button>
-      <button class="btn-nav btn-next" onclick="avanzar(3)">Siguiente →</button>
+      <button class="btn-nav btn-next" id="btnGenerarDiagnostico" onclick="generarDiagnostico()">🖨 Generar diagnóstico y enviar a autorización →</button>
     </div>
   </div>
 
@@ -538,6 +546,18 @@
     <button class="btn-submit-final" id="btnEnviarReporte" onclick="enviarReporteGeneral()">✓ Guardar y enviar reporte</button>
   </div>
 
+  <!-- ============ PANTALLA 7: ESPERANDO AUTORIZACIÓN DEL CLIENTE ============ -->
+  <div class="screen hidden" id="screen7">
+    <div class="card" style="text-align:center;">
+      <div id="esperaIcono" style="font-size:2.4rem;margin-bottom:10px;">⏳</div>
+      <h2 id="esperaTitulo">Diagnóstico enviado</h2>
+      <div class="card-desc" id="esperaTexto">
+        Se generó el diagnóstico y se envió para autorización. El servicio no puede continuar hasta que administración confirme la autorización del cliente.
+      </div>
+      <button type="button" class="btn-line" style="margin-top:16px;" onclick="verificarAutorizacionAhora()">🔄 Verificar autorización</button>
+    </div>
+  </div>
+
 </main>
 
 <script>
@@ -572,6 +592,7 @@ const OF = {
   hp: "fldjyFFAaL0dIFWIE",
   frame: "fldSvMeOGe98aT2e0",
   volts: "fldLxVAorFAGaboOF",
+  diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
 };
 
 const RG = {
@@ -608,12 +629,13 @@ let _dbGeneral = null; // IndexedDB — borrador local completo (incluye fotos)
 
 const STEP_LABELS = [
   "Paso 1 de 7 — Datos generales",
-  "Paso 2 de 7 — Diagnóstico",
+  "Paso 2 de 7 — Descripción del problema",
   "Paso 3 de 7 — Requerimiento",
-  "Paso 4 de 7 — Pruebas eléctricas iniciales",
+  "Paso 4 de 7 — Pruebas eléctricas y diagnóstico",
   "Paso 5 de 7 — Bitácora de servicio",
   "Paso 6 de 7 — Cierre y evidencia final",
-  "Paso 7 de 7 — Vista previa"
+  "Paso 7 de 7 — Vista previa",
+  "Esperando autorización del cliente"
 ];
 
 const PREFIJOS = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
@@ -648,7 +670,7 @@ let estadoIni = "";
 let estadoFin = "";
 
 function mostrarPantalla(n){
-  [0,1,2,3,4,5,6].forEach(i => {
+  [0,1,2,3,4,5,6,7].forEach(i => {
     const el = document.getElementById("screen" + i);
     if(el) el.classList.toggle("hidden", i !== n);
     const dot = document.getElementById("dot" + i);
@@ -659,6 +681,110 @@ function mostrarPantalla(n){
   window.scrollTo({ top: 0, behavior: "smooth" });
   if(n === 6) generarVistaPrevia();
   guardarBorradorGeneral(); // checkpoint: guarda progreso completo al cambiar de pantalla (avanzar o "Anterior")
+}
+
+/* ============================================================
+   CHECKPOINT DE DIAGNÓSTICO (pasos 1-4): antes de continuar con la
+   bitácora, se genera un reporte con lo diagnosticado hasta ahora
+   y la orden queda pausada esperando que administración confirme
+   que el cliente autorizó continuar con el servicio.
+   ============================================================ */
+function construirDatosDiagnostico(){
+  const gv = id => document.getElementById(id).value;
+  const aplicaElectrico = document.getElementById("aplicaElectricoInicial").checked;
+  const serviciosPropuestos = [
+    ...[...serviciosSeleccionados].map(s => `Servicio de ${s.toLowerCase()}`),
+    ...serviciosOtros.filter(s=>s)
+  ];
+
+  return {
+    cliente: gv("cliente"),
+    tipoEquipo: gv("tipoEquipo"),
+    numSerie: gv("numSerie"),
+    fecha: new Date().toISOString(),
+    descripcionProblema: gv("descripcionProblema"),
+    observaciones: observaciones.filter(o=>o),
+    diagnosticoTecnico: gv("diagnosticoTecnico"),
+    serviciosPropuestos,
+    aplicaElectrico,
+    pruebasElectricasIniciales: aplicaElectrico ? {
+      numLineas: gv("numLineas"),
+      resistencia: obtenerResistenciaData("ini"),
+      tierra: obtenerTierraData("ini"),
+      estado: estadoIni,
+      notas: gv("notasElectricasIni"),
+      corriente: [gv("corrL1_ini"), gv("corrL2_ini"), gv("corrL3_ini")],
+      voltaje: [gv("voltL1_ini"), gv("voltL2_ini"), gv("voltL3_ini")],
+      omitidoCorrienteVoltaje: estadoIni === "Fuera",
+    } : null,
+  };
+}
+
+function mostrarEsperaAutorizacion(estado){
+  const icono = document.getElementById("esperaIcono");
+  const titulo = document.getElementById("esperaTitulo");
+  const texto = document.getElementById("esperaTexto");
+  if(estado === "No autorizado"){
+    icono.textContent = "🚫";
+    titulo.textContent = "Servicio no autorizado";
+    texto.textContent = "El cliente no autorizó continuar con el servicio. Contacta a administración para conocer el siguiente paso.";
+  } else {
+    icono.textContent = "⏳";
+    titulo.textContent = "Esperando autorización del cliente";
+    texto.textContent = "El diagnóstico ya se generó y se envió para autorización. El servicio no puede continuar hasta que administración confirme que el cliente autorizó.";
+  }
+  mostrarPantalla(7);
+}
+
+async function generarDiagnostico(){
+  if(!ordenRecordId){
+    alert("No se encontró la orden. Regresa a la pantalla 1 y vuelve a intentar.");
+    return;
+  }
+  const btn = document.getElementById("btnGenerarDiagnostico");
+  btn.disabled = true;
+  btn.textContent = "Generando diagnóstico...";
+
+  // Se reserva la ventana ANTES del await: si se abre después, el navegador
+  // pierde el "gesto del usuario" y bloquea el popup.
+  const w = window.open("", "_blank");
+  const datos = construirDatosDiagnostico();
+
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) } })
+    });
+  } catch(e){}
+
+  const folio = document.getElementById("folio").value || "";
+  if(w) w.location.href = `reportes.html?id=${encodeURIComponent(ordenRecordId)}&serie=${encodeURIComponent(folio)}&auto=diagnostico`;
+  else alert("El navegador bloqueó la ventana del diagnóstico. Permite ventanas emergentes para este sitio; puedes reimprimirlo después desde el dashboard.");
+
+  mostrarEsperaAutorizacion("En diagnóstico");
+  btn.disabled = false;
+  btn.textContent = "🖨 Generar diagnóstico y enviar a autorización →";
+}
+
+async function verificarAutorizacionAhora(){
+  if(!ordenRecordId){ alert("No se encontró la orden."); return; }
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`);
+    const data = await resp.json();
+    const estadoRaw = data.fields ? data.fields[OF.estado] : null;
+    const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+    if(estado === "En proceso"){
+      alert("✓ El cliente autorizó el servicio. Continuando con la bitácora.");
+      mostrarPantalla(4);
+    } else if(estado === "No autorizado"){
+      mostrarEsperaAutorizacion("No autorizado");
+    } else {
+      alert("Aún no hay respuesta. El diagnóstico sigue en espera de autorización.");
+    }
+  } catch(e){
+    alert("No se pudo verificar el estado. Revisa tu conexión.");
+  }
 }
 
 async function avanzar(desde){
@@ -820,6 +946,14 @@ async function buscarEquipoRegistrado(){
     }
 
     ordenRecordId = rec.id;
+
+    if(estado === "En diagnóstico" || estado === "No autorizado"){
+      document.getElementById("folio").value = f[OF.folio] || q;
+      statusEl.className = "orden-status-msg success";
+      statusEl.textContent = `Equipo ${f[OF.folio]||q} encontrado — el servicio está en espera de autorización.`;
+      mostrarEsperaAutorizacion(estado);
+      return;
+    }
 
     // Pre-llenar Pantalla 0
     const setVal = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined && val !== null) el.value = val; };
@@ -1187,6 +1321,7 @@ async function guardarBorradorGeneral(){
     volts:               gv("volts"),
     amperaje:            gv("amperaje"),
     descripcionProblema: gv("descripcionProblema"),
+    diagnosticoTecnico:  gv("diagnosticoTecnico"),
     observaciones:       observaciones.slice(),
     fotosRecibido:       fotosRecibido.slice(),
     serviciosSeleccionados: [...serviciosSeleccionados],
@@ -1250,6 +1385,7 @@ function restaurarBorradorGeneral(datos){
   setVal("amperaje",  datos.amperaje);
 
   setVal("descripcionProblema", datos.descripcionProblema);
+  setVal("diagnosticoTecnico", datos.diagnosticoTecnico);
   observaciones = (datos.observaciones || []).slice();
   renderObservaciones();
   fotosRecibido = (datos.fotosRecibido || []).slice();
@@ -1298,7 +1434,9 @@ function restaurarBorradorGeneral(datos){
   renderizarGrid(fotosFinal, "gridFinal", "final");
   setVal("videoNota", datos.videoNota);
 
-  mostrarPantalla(datos.pantallaActual || 0);
+  // La pantalla 7 (espera de autorización) es un estado transitorio, no un paso editable:
+  // si el borrador quedó guardado ahí y ya se reabre el formulario, se retoma en la bitácora.
+  mostrarPantalla(datos.pantallaActual === 7 ? 4 : (datos.pantallaActual || 0));
 }
 
 function restaurarResistencia(data, sufijo){
@@ -1727,6 +1865,27 @@ mostrarPantalla(0);
 
   const folioUrl = new URLSearchParams(window.location.search).get("folio");
   if(folioUrl){
+    // El estado en Airtable manda sobre el borrador local: si el diagnóstico ya se
+    // generó y la orden está en espera de autorización, no se debe reabrir la edición.
+    try{
+      const formula = encodeURIComponent(`{${OF.folio}}="${folioUrl}"`);
+      const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      const rec = (data.records || [])[0];
+      if(rec){
+        ordenRecordId = rec.id;
+        const estadoRaw = rec.fields[OF.estado];
+        const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+        if(estado === "En diagnóstico" || estado === "No autorizado"){
+          document.getElementById("folio").value = folioUrl;
+          mostrarEsperaAutorizacion(estado);
+          _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
+          return;
+        }
+      }
+    } catch(e){}
+
     let datos = null;
     try{ datos = await buscarEnDBGeneral(folioUrl); } catch(e){}
     if(datos && !datos.reporteEnviado){

@@ -60,7 +60,9 @@ header{
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  height: 64px;
+  min-height: 64px;
+  padding-top: 8px;
+  padding-bottom: 8px;
   border-bottom: none;
   position: sticky;
   top: 0;
@@ -555,6 +557,8 @@ td:last-child{ border-right: none; }
 .chip-terminado { background: var(--verde-bg);   color: var(--verde);       border-color: var(--verde-borde); }
 .chip-entregado { background: var(--blanco); color: var(--gris-chip); border-color: #d1d5db; }
 .chip-default   { background: var(--blanco); color: var(--gris-texto); border-color: var(--gris); }
+.chip-diagnostico  { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
+.chip-noautorizado { background: #fdecea; color: #991b1b; border-color: #f5b5ac; }
 .chip-dot{
   width: 5px; height: 5px;
   border-radius: 50%;
@@ -820,6 +824,8 @@ footer strong{ color: var(--azul); }
 .btn-corr:hover{ background: #0a5e2e; }
 .btn-corr-done{ background: #d0f0e0; color: #0e7a3c; border-color: #a5d6a7; cursor: default; opacity: 0.85; }
 .btn-corr-done:hover{ background: #d0f0e0; }
+.fila-acciones{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center; }
+.fila-acciones .btn-rep, .fila-acciones .btn-corr{ margin-left:0; }
 
 /* ===== MODAL CHECKLIST ===== */
 .ck-modal{
@@ -1407,6 +1413,7 @@ footer strong{ color: var(--azul); }
         <p>Cargando datos del equipo...</p>
       </div>
     </div>
+    <div id="detalleGeneralAcciones"></div>
     <div class="ck-modal-footer">
       <button class="btn-cancelar" onclick="cerrarDetalleGeneral()">Cerrar</button>
     </div>
@@ -1506,7 +1513,8 @@ footer strong{ color: var(--azul); }
 const _sesion = (() => {
   try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
 })();
-if(!_sesion || !_sesion.rol || (_sesion.rol !== "Admin" && _sesion.rol !== "Tecnico")){
+const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
+if(!_sesionValida){
   window.location.href = "login.html";
 }
 
@@ -1645,6 +1653,8 @@ function parsear(rec){
 function normEstado(e){
   const s = (e||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
   if(s.includes("por llegar")||s.includes("porllegar")) return "porllegar";
+  if(s.includes("no autorizado")) return "noautorizado";
+  if(s.includes("diagnostico")) return "endiagnostico";
   if(s.includes("entregado")) return "entregado";
   if(s.includes("terminado")||s.includes("completado")) return "terminado";
   if(s.includes("proceso")||s.includes("progreso")||s.includes("activ")) return "proceso";
@@ -1881,16 +1891,17 @@ function renderTabla(tbodyId, ordenes){
       </td>
       <td class="td-num td-dias ${diasCls}">${diasTxt}</td>
       <td class="td-num">
+        <div class="fila-acciones">
         ${esGeneral ? `
           <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
-          ${!["terminado","entregado"].includes(normEstado(o.estado))
-            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_general.html?folio=${encodeURIComponent(o.folio)}">&#9997; Continuar formulario</a>`
+          ${!["terminado","entregado","endiagnostico","noautorizado"].includes(normEstado(o.estado))
+            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_general.html?folio=${encodeURIComponent(o.folio)}">&#9997; Continuar</a>`
             : ''}
           <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
         ` : `
           <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
           ${!["terminado","entregado"].includes(normEstado(o.estado))
-            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_maestro.html?serie=${encodeURIComponent(o.serie)}">&#9997; Continuar checklist</a>`
+            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_maestro.html?serie=${encodeURIComponent(o.serie)}">&#9997; Continuar</a>`
             : ''}
           <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(o.serie)}')">Reportes</button>
           ${o.checklist && !o.correccionesCompletadas
@@ -1903,6 +1914,7 @@ function renderTabla(tbodyId, ordenes){
             ? `<button class="btn-corr btn-corr-done" disabled title="Proceso completado">&#10003; Completo</button>`
             : ''}
         `}
+        </div>
       </td>
     </tr>`;
   }).join("");
@@ -1921,6 +1933,7 @@ async function verDetalleGeneral(id, identificador){
     estado: "fldRtvzailqq6WbQu", serie: "fldj245KNDJ2B5jxG", spec: "fldkkXFzqKeGSIqJQ",
     hp: "fldjyFFAaL0dIFWIE", frame: "fldSvMeOGe98aT2e0", volts: "fldLxVAorFAGaboOF",
   };
+  document.getElementById("detalleGeneralAcciones").innerHTML = "";
   const T_RG = "tbluHVpYNulSFFvnw";
   const RGD = { ordenServicio:"fldSIaStYemOiievZ", folio:"fldKBCvEigK6R8hOQ", nombreCorto:"fldWoaxMR962Fj2HF", marca:"fldL9OPmEgJ9XkKoq", color:"fldl8PsvBF74TgPir", numParte:"fld9FbgcU4LE2IAe6" };
   const BF_DATOS_JSON = "fldSdxpRwhyvSWEgJ";
@@ -1997,6 +2010,25 @@ async function verDetalleGeneral(id, identificador){
         ${item("N° de parte", extra.numParte)}
       </div>
     `;
+
+    // Checkpoint de diagnóstico: el servicio está pausado esperando (o habiendo recibido)
+    // la autorización del cliente para continuar con la bitácora y pruebas finales.
+    if(estado === "En diagnóstico" || estado === "No autorizado"){
+      const esAdminDetalle = _sesion && _sesion.rol === "Admin";
+      const banner = estado === "En diagnóstico"
+        ? `<div style="background:#fff3cd;color:#7a5b00;padding:10px 14px;border-radius:6px;font-size:0.85rem;margin-top:14px;">⏳ Esperando autorización del cliente para continuar.</div>`
+        : `<div style="background:#fdecea;color:#991b1b;padding:10px 14px;border-radius:6px;font-size:0.85rem;margin-top:14px;">🚫 El cliente no autorizó continuar con el servicio.</div>`;
+      document.getElementById("detalleGeneralAcciones").innerHTML = `
+        ${banner}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button class="btn-line" style="margin:0;flex:1;min-width:140px;" onclick="verDiagnostico('${id}','${esc(folio)}')">🖨 Ver diagnóstico</button>
+          ${esAdminDetalle ? `
+            <button class="btn-line" style="margin:0;flex:1;min-width:140px;background:#e6f4eb;color:#1b7a34;" onclick="autorizarDiagnostico('${id}', true)">✓ Autorizar</button>
+            ${estado === "En diagnóstico" ? `<button class="btn-line" style="margin:0;flex:1;min-width:140px;background:#fdecea;color:#991b1b;" onclick="autorizarDiagnostico('${id}', false)">✗ No autorizar</button>` : ""}
+          ` : `<div style="font-size:0.78rem;color:var(--gris-texto);flex:1;min-width:140px;align-self:center;">Solo un administrador puede autorizar.</div>`}
+        </div>
+      `;
+    }
   } catch(e){
     document.getElementById("detalleGeneralBody").innerHTML = `
       <div style="text-align:center;padding:40px;color:#991b1b">
@@ -2008,6 +2040,30 @@ async function verDetalleGeneral(id, identificador){
 
 function cerrarDetalleGeneral(){ document.getElementById("modalDetalleGeneral").classList.add("hidden"); }
 function cerrarDetalleGeneralSiFuera(e){ if(e.target.id === "modalDetalleGeneral") cerrarDetalleGeneral(); }
+
+function verDiagnostico(ordenId, folio){
+  window.open(`reportes.html?id=${encodeURIComponent(ordenId)}&serie=${encodeURIComponent(folio)}&auto=diagnostico`, '_blank');
+}
+
+async function autorizarDiagnostico(id, autorizado){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  const nuevoEstado = autorizado ? "En proceso" : "No autorizado";
+  const msg = autorizado
+    ? "¿Confirmas que el cliente autorizó continuar con el servicio?"
+    : "¿Confirmas que el cliente NO autorizó el servicio? La orden quedará pausada.";
+  if(!confirm(msg)) return;
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ fields: { fldRtvzailqq6WbQu: nuevoEstado } })
+    });
+    cerrarDetalleGeneral();
+    cargarDatos();
+  } catch(e){
+    alert("No se pudo actualizar el estado. Intenta de nuevo.");
+  }
+}
 
 /* ============================================================
    PRE-REGISTRO DE EQUIPO (Admin) — da de alta un equipo "Por llegar"
@@ -2216,12 +2272,14 @@ async function actualizarCampoOrden(recordId, propLocal, valor, selectEl){
 function chipEstado(estado){
   const k = normEstado(estado);
   const mapa = {
-    porllegar: { cls:"chip-recibido",  lbl: estado||"Por llegar" },
-    recibido:  { cls:"chip-recibido",  lbl: estado||"Recibido" },
-    proceso:   { cls:"chip-proceso",   lbl: estado||"En Proceso" },
-    terminado: { cls:"chip-terminado", lbl: estado||"Terminado" },
-    entregado: { cls:"chip-entregado", lbl: estado||"Entregado" },
-    otro:      { cls:"chip-default",   lbl: estado||"—" },
+    porllegar:     { cls:"chip-recibido",     lbl: estado||"Por llegar" },
+    recibido:      { cls:"chip-recibido",     lbl: estado||"Recibido" },
+    proceso:       { cls:"chip-proceso",      lbl: estado||"En Proceso" },
+    endiagnostico: { cls:"chip-diagnostico",  lbl: estado||"En diagnóstico" },
+    noautorizado:  { cls:"chip-noautorizado", lbl: estado||"No autorizado" },
+    terminado:     { cls:"chip-terminado",    lbl: estado||"Terminado" },
+    entregado:     { cls:"chip-entregado",    lbl: estado||"Entregado" },
+    otro:          { cls:"chip-default",      lbl: estado||"—" },
   };
   const d = mapa[k] || mapa.otro;
   return `<span class="chip ${d.cls}"><span class="chip-dot"></span>${esc(d.lbl)}</span>`;
@@ -2232,12 +2290,14 @@ function chipEstado(estado){
    ============================================================ */
 function renderPie(ordenes){
   const grupos = [
-    { key:"porllegar", label:"Por llegar",  color:"#c99a3a" },
-    { key:"recibido",  label:"Recibido",    color:"#3a6fa8" },
-    { key:"proceso",   label:"En Proceso",  color:"#f59e0b" },
-    { key:"terminado", label:"Terminado",   color:"#1b7a34" },
-    { key:"entregado", label:"Entregado",   color:"#9ca3af" },
-    { key:"otro",      label:"Sin Estado",  color:"#d1d5db" },
+    { key:"porllegar",     label:"Por llegar",     color:"#c99a3a" },
+    { key:"recibido",      label:"Recibido",       color:"#3a6fa8" },
+    { key:"proceso",       label:"En Proceso",     color:"#f59e0b" },
+    { key:"endiagnostico", label:"En diagnóstico", color:"#9333ea" },
+    { key:"noautorizado",  label:"No autorizado",  color:"#dc2626" },
+    { key:"terminado",     label:"Terminado",      color:"#1b7a34" },
+    { key:"entregado",     label:"Entregado",      color:"#9ca3af" },
+    { key:"otro",          label:"Sin Estado",     color:"#d1d5db" },
   ];
   const datos = grupos.map(g => ({
     ...g,
@@ -2880,6 +2940,7 @@ function renderChartSemanal(ordenes){
    INICIO
    ============================================================ */
 window.addEventListener("DOMContentLoaded", () => {
+  if(!_sesionValida) return; // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
   aplicarRestriccionesRol();
   cargarDatos();
   iniciarMonitorNoOk();
