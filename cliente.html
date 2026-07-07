@@ -66,12 +66,14 @@
 <script>
 const TABLE_ORDENES = "tblcyGwDeOORxELJg";
 const OF = {
-  serie:     "fldj245KNDJ2B5jxG",
-  cliente:   "fldUkOvdOHTXMDWX7",
-  estado:    "fldRtvzailqq6WbQu",
-  checklist: "flduerG3x3cKkt07p",
-  pintura:   "fldRDnTfyWt5XmCFr",
-  evidencia: "fldvJAyOkHXUKfiov"
+  serie:        "fldj245KNDJ2B5jxG",
+  folio:        "fldpMUMLpNCGGQcIo",
+  cliente:      "fldUkOvdOHTXMDWX7",
+  estado:       "fldRtvzailqq6WbQu",
+  tipoServicio: "fld0rhBYkk5nAnXcT",
+  checklist:    "flduerG3x3cKkt07p",
+  pintura:      "fldRDnTfyWt5XmCFr",
+  evidencia:    "fldvJAyOkHXUKfiov"
 };
 
 const _sesion = (() => {
@@ -85,29 +87,56 @@ if(!_sesion || _sesion.rol !== "Cliente"){
   cargarOrden();
 }
 
+function normEstadoCliente(e){
+  return (e||"").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+}
+
 async function cargarOrden(){
   const cont = document.getElementById("contenido");
-  const serie = (_sesion.ordenAsociada || "").trim();
+  const valor = (_sesion.ordenAsociada || "").trim();
 
-  if(!serie){
+  if(!valor){
     cont.innerHTML = `<div class="empty-msg">No tienes una orden asociada todavía. Contacta a Suministros Industriales para más información.</div>`;
     return;
   }
 
   try{
-    const formula = encodeURIComponent(`{${OF.serie}}="${serie}"`);
+    const vEsc = valor.replace(/"/g, '\\"');
+    const formula = encodeURIComponent(`OR({${OF.serie}}="${vEsc}", {${OF.folio}}="${vEsc}")`);
     const url = `/.netlify/functions/airtable?table=${TABLE_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
     const resp = await fetch(url);
     const data = await resp.json();
     const rec = (data.records || [])[0];
 
     if(!rec){
-      cont.innerHTML = `<div class="empty-msg">No encontramos tu orden (${serie}). Contacta a Suministros Industriales.</div>`;
+      cont.innerHTML = `<div class="empty-msg">No encontramos tu orden (${valor}). Contacta a Suministros Industriales.</div>`;
       return;
     }
 
     const f = rec.fields;
-    const pasos = [
+    const tipoServicioRaw = f[OF.tipoServicio];
+    const esGeneral = ((tipoServicioRaw && tipoServicioRaw.name) || tipoServicioRaw) === "General";
+    const estadoRaw = f[OF.estado];
+    const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+    const estadoNorm = normEstadoCliente(estado);
+
+    if(estadoNorm === "no autorizado"){
+      cont.innerHTML = `
+        <div class="badge-orden">Orden: ${valor}</div>
+        <div class="card" style="text-align:center">
+          <h3 style="color:var(--c-red)">Servicio no autorizado</h3>
+          <p style="color:var(--muted);font-size:14px">Contacta a Suministros Industriales para conocer el siguiente paso de tu equipo.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const pasos = esGeneral ? [
+      { nombre: "Recibido en Centro de Servicio", hecho: true },
+      { nombre: "Diagnóstico y autorización", hecho: !["recibido","por llegar","en diagnostico"].includes(estadoNorm) },
+      { nombre: "Reparación / servicio en proceso", hecho: ["terminado","entregado"].includes(estadoNorm) },
+      { nombre: "Entrega", hecho: estadoNorm === "entregado" }
+    ] : [
       { nombre: "Recibido en Centro de Servicio", hecho: true },
       { nombre: "Inspección / Checklist", hecho: !!f[OF.checklist] },
       { nombre: "Pintura y acabado", hecho: !!f[OF.pintura] },
@@ -118,7 +147,7 @@ async function cargarOrden(){
     const pct = Math.round((completados / pasos.length) * 100);
 
     cont.innerHTML = `
-      <div class="badge-orden">Orden: ${serie}</div>
+      <div class="badge-orden">Orden: ${valor}</div>
       <div class="ring-wrap">
         <div class="ring" style="--pct:${pct}">
           <div class="ring-inner">

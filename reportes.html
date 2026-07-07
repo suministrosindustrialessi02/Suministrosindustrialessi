@@ -59,6 +59,38 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 .rep-btn-name{ font-size:0.88rem; font-weight:700; color:var(--navy); }
 .rep-btn-desc{ font-size:0.75rem; color:#777; }
 .rep-btn-status{ font-size:0.72rem; font-weight:600; }
+
+/* EDITAR (solo Admin) */
+.rep-card-wrap{ position:relative; }
+.rep-edit-btn{
+  position:absolute; top:8px; right:8px; width:26px; height:26px;
+  background:rgba(255,255,255,0.92); border:1px solid #dde3ec; border-radius:6px;
+  font-size:0.8rem; cursor:pointer; line-height:1;
+}
+.rep-edit-btn:hover{ background:#fff; border-color:var(--azul-med); }
+.rep-edit-btn.hidden{ display:none; }
+
+/* MODAL EDITOR */
+.modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.modal-overlay.hidden{ display:none; }
+.modal-box{ background:#fff; border-radius:10px; max-width:520px; width:100%; max-height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.25); }
+.modal-hdr{ background:var(--navy); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center; }
+.modal-hdr h3{ font-size:0.95rem; }
+.modal-x{ background:transparent; border:none; color:#fff; font-size:1.1rem; cursor:pointer; }
+.modal-body{ padding:16px 18px; overflow-y:auto; }
+.modal-ftr{ padding:12px 18px; border-top:1px solid #eee; display:flex; justify-content:flex-end; gap:10px; }
+.ed-field{ margin-bottom:14px; }
+.ed-field.hidden{ display:none; }
+.ed-field label{ display:block; font-size:0.8rem; font-weight:700; color:var(--navy); margin-bottom:4px; }
+.ed-field textarea{ width:100%; min-height:70px; padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-family:inherit; font-size:0.85rem; resize:vertical; }
+.ed-field input, .ed-field select{ width:100%; padding:8px 10px; border:1px solid #ccc; border-radius:6px; font-family:inherit; font-size:0.85rem; }
+.btn-cancelar-ed{ padding:8px 16px; background:#eee; border:none; border-radius:6px; cursor:pointer; font-size:0.85rem; }
+.btn-guardar-ed{ padding:8px 18px; background:var(--verde); color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:700; font-size:0.85rem; }
+.btn-guardar-ed:disabled{ opacity:0.6; cursor:default; }
+.ed-mat-row{ display:grid; grid-template-columns:15% 20% 1fr 20% 24px; gap:6px; margin-bottom:6px; }
+.ed-mat-row input{ padding:6px 8px; border:1px solid #ccc; border-radius:5px; font-size:0.8rem; font-family:inherit; }
+.ed-mat-del{ background:#fdecea; color:#991b1b; border:1px solid #f5b5ac; border-radius:5px; cursor:pointer; font-size:0.75rem; }
+.btn-add-ed{ margin-top:4px; padding:7px 14px; background:#eef3fa; border:1px solid #cfe0f5; border-radius:6px; cursor:pointer; font-size:0.8rem; color:var(--azul-med); font-weight:600; }
 .status-ok{ color:var(--verde); }
 .status-pend{ color:var(--ambar); }
 .status-gen{ color:var(--azul-med); }
@@ -95,24 +127,47 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 
   <div class="rep-title">Selecciona el reporte a generar</div>
   <div class="rep-grid" id="repGridGeneral" style="display:none">
-    <button class="rep-btn" id="btn-diagnostico-gen" onclick="generarDiagnosticoGeneral()">
-      <span class="rep-btn-icon">🩺</span>
-      <span class="rep-btn-name">Diagnóstico</span>
-      <span class="rep-btn-desc">Diagnóstico y servicios propuestos — para autorización del cliente</span>
-      <span class="rep-btn-status" id="st-diagnostico-gen">—</span>
-    </button>
-    <button class="rep-btn" id="btn-servicio-gen" onclick="generarServicioGeneral()">
-      <span class="rep-btn-icon">📄</span>
-      <span class="rep-btn-name">Reporte de Servicio</span>
-      <span class="rep-btn-desc">Diagnóstico, bitácora y evidencia del servicio</span>
-      <span class="rep-btn-status" id="st-servicio-gen">—</span>
-    </button>
-    <button class="rep-btn" id="btn-materiales-gen" onclick="generarListaMaterialesGeneral()">
-      <span class="rep-btn-icon">🧾</span>
-      <span class="rep-btn-name">Lista de Materiales</span>
-      <span class="rep-btn-desc">Materiales / refacciones para cotización</span>
-      <span class="rep-btn-status" id="st-materiales-gen">—</span>
-    </button>
+    <div class="rep-card-wrap">
+      <button class="rep-btn" id="btn-diagnostico-gen" onclick="generarDiagnosticoGeneral()">
+        <span class="rep-btn-icon">🩺</span>
+        <span class="rep-btn-name">Diagnóstico</span>
+        <span class="rep-btn-desc">Diagnóstico y servicios propuestos — para autorización del cliente</span>
+        <span class="rep-btn-status" id="st-diagnostico-gen">—</span>
+      </button>
+      <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')">✏️</button>
+    </div>
+    <div class="rep-card-wrap">
+      <button class="rep-btn" id="btn-servicio-gen" onclick="generarServicioGeneral()">
+        <span class="rep-btn-icon">📄</span>
+        <span class="rep-btn-name">Reporte de Servicio</span>
+        <span class="rep-btn-desc">Diagnóstico, bitácora y evidencia del servicio</span>
+        <span class="rep-btn-status" id="st-servicio-gen">—</span>
+      </button>
+      <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio')">✏️</button>
+    </div>
+    <div class="rep-card-wrap">
+      <button class="rep-btn" id="btn-materiales-gen" onclick="generarListaMaterialesGeneral()">
+        <span class="rep-btn-icon">🧾</span>
+        <span class="rep-btn-name">Lista de Materiales</span>
+        <span class="rep-btn-desc">Materiales / refacciones para cotización</span>
+        <span class="rep-btn-status" id="st-materiales-gen">—</span>
+      </button>
+      <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('materiales')">✏️</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay hidden" id="modalEditor" onclick="cerrarEditorSiFuera(event)">
+    <div class="modal-box">
+      <div class="modal-hdr">
+        <h3 id="editorTitulo">Editar</h3>
+        <button type="button" class="modal-x" onclick="cerrarEditor()">✕</button>
+      </div>
+      <div class="modal-body" id="editorBody"></div>
+      <div class="modal-ftr">
+        <button type="button" class="btn-cancelar-ed" onclick="cerrarEditor()">Cancelar</button>
+        <button type="button" class="btn-guardar-ed" id="btnGuardarEditor" onclick="guardarEdicion()">Guardar y regenerar</button>
+      </div>
+    </div>
   </div>
   <div class="rep-grid" id="repGridSulzer">
     <button class="rep-btn" id="btn-checklist" onclick="generarChecklist()">
@@ -152,6 +207,74 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
       <span class="rep-btn-status" id="st-correcciones">—</span>
     </button>
   </div>
+
+  <div class="rep-title" style="margin-top:18px;">Entrega del equipo</div>
+  <div class="rep-grid" id="repGridComun">
+    <button class="rep-btn" id="btn-remision" onclick="abrirRemision()">
+      <span class="rep-btn-icon">📦</span>
+      <span class="rep-btn-name">Remisión de Entrega</span>
+      <span class="rep-btn-desc">Genera la remisión y marca la orden como Entregado</span>
+      <span class="rep-btn-status" id="st-remision">—</span>
+    </button>
+  </div>
+
+  <div class="modal-overlay hidden" id="modalRemision" onclick="cerrarRemisionSiFuera(event)">
+    <div class="modal-box">
+      <div class="modal-hdr">
+        <h3>Remisión de entrega</h3>
+        <button type="button" class="modal-x" onclick="cerrarRemision()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="ed-field">
+          <label>Folio de remisión</label>
+          <input type="text" id="remFolio">
+        </div>
+        <div class="ed-field">
+          <label>Tipo de entrega</label>
+          <select id="remTipoEntrega" onchange="actualizarCamposRemision()">
+            <option value="directa">Entrega directa en instalaciones del cliente</option>
+            <option value="paqueteria">Envío por paquetería</option>
+          </select>
+        </div>
+        <div class="ed-field">
+          <label id="remLblEmpresa">Cliente</label>
+          <input type="text" id="remEmpresa">
+        </div>
+        <div class="ed-field">
+          <label id="remLblContacto">Contacto</label>
+          <input type="text" id="remContacto">
+        </div>
+        <div class="ed-field hidden" id="remCampoGuia">
+          <label>Guía / Rastreo</label>
+          <input type="text" id="remGuia">
+        </div>
+        <div class="ed-field">
+          <label>Descripción del equipo (línea de la remisión)</label>
+          <textarea id="remDescripcionEquipo"></textarea>
+        </div>
+        <div class="ed-field">
+          <label>Fecha de entrega</label>
+          <input type="date" id="remFechaEntrega">
+        </div>
+        <div class="ed-field">
+          <label>Servicios realizados (uno por línea)</label>
+          <textarea id="remServicios"></textarea>
+        </div>
+        <div class="ed-field">
+          <label>Nombre de quien recibe</label>
+          <input type="text" id="remNombreRecibe">
+        </div>
+        <div class="ed-field">
+          <label>Fecha de recibido</label>
+          <input type="date" id="remFechaRecibido">
+        </div>
+      </div>
+      <div class="modal-ftr">
+        <button type="button" class="btn-cancelar-ed" onclick="cerrarRemision()">Cancelar</button>
+        <button type="button" class="btn-guardar-ed" id="btnGuardarRemision" onclick="guardarRemision()">Generar remisión y marcar Entregado</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -171,6 +294,14 @@ const FO = {
   descripcionOtro:  "fldo5FXSYcTkhI396",
   folio:            "fldpMUMLpNCGGQcIo",
   diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
+  cliente:          "fldUkOvdOHTXMDWX7",
+  estado:           "fldRtvzailqq6WbQu",
+  serie:            "fldj245KNDJ2B5jxG",
+  spec:             "fldkkXFzqKeGSIqJQ",
+  frame:            "fldSvMeOGe98aT2e0",
+  hp:               "fldjyFFAaL0dIFWIE",
+  volts:            "fldLxVAorFAGaboOF",
+  remisionTexto:    "fldefjJlNZIHGaqZg",
 };
 
 // Field IDs — Reportes General
@@ -336,6 +467,13 @@ const NOTES_AFTER = {
    ============================================================ */
 let G = { orden:null, checklist:null, pintura:null, evidencia:null, general:null, esGeneral:false };
 let imagenPinturaB64 = null; // imagen fija del diagrama de puntos de inspección
+
+const _sesion = (() => {
+  try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
+})();
+if(_sesion && _sesion.rol === "Admin"){
+  document.querySelectorAll(".admin-only").forEach(el => el.classList.remove("hidden"));
+}
 
 /* ============================================================
    FETCH HELPERS
@@ -1085,6 +1223,336 @@ function headerTablaGeneral(titulo, datos){
       <td class="lbl"></td><td></td>
     </tr>
   </table>`;
+}
+
+/* ============================================================
+   EDICIÓN RÁPIDA (solo Admin) — corrige datos ya guardados sin
+   tener que reabrir todo el formulario del técnico.
+   ============================================================ */
+let _editorTipo = null;
+let _edMateriales = [];
+
+function abrirEditor(tipo){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  _editorTipo = tipo;
+  const body = document.getElementById("editorBody");
+  const titulo = document.getElementById("editorTitulo");
+  const lineas = arr => (arr||[]).join("\n");
+
+  if(tipo === "diagnostico"){
+    const raw = fv(G.orden, FO.diagnosticoTexto);
+    if(!raw){ alert("Todavía no se ha generado el diagnóstico para esta orden."); return; }
+    let d = {};
+    try{ d = JSON.parse(raw); }catch(e){ alert("Error al leer los datos del diagnóstico."); return; }
+    titulo.textContent = "Editar diagnóstico";
+    body.innerHTML = `
+      <div class="ed-field"><label>Descripción del problema</label><textarea id="edDescripcion">${esc(d.descripcionProblema||"")}</textarea></div>
+      <div class="ed-field"><label>Observaciones (una por línea)</label><textarea id="edObservaciones">${esc(lineas(d.observaciones))}</textarea></div>
+      <div class="ed-field"><label>Diagnóstico</label><textarea id="edDiagnostico">${esc(d.diagnosticoTecnico||"")}</textarea></div>
+      <div class="ed-field"><label>Servicios propuestos (uno por línea)</label><textarea id="edServicios">${esc(lineas(d.serviciosPropuestos))}</textarea></div>
+    `;
+  } else if(tipo === "servicio"){
+    if(!G.general){ alert("Todavía no hay un reporte de servicio final para editar — el técnico aún no ha terminado el formulario."); return; }
+    const g = G.general.fields;
+    let observaciones = [], serviciosOtros = [];
+    try{ observaciones = JSON.parse(g[RG.observacionesJson] || "[]"); }catch(e){}
+    try{ serviciosOtros = JSON.parse(g[RG.serviciosOtrosJson] || "[]"); }catch(e){}
+    titulo.textContent = "Editar reporte de servicio";
+    body.innerHTML = `
+      <div class="ed-field"><label>Descripción del problema</label><textarea id="edDescripcion">${esc(g[RG.descripcionProblema]||"")}</textarea></div>
+      <div class="ed-field"><label>Observaciones (una por línea)</label><textarea id="edObservaciones">${esc(lineas(observaciones))}</textarea></div>
+      <div class="ed-field"><label>Otros servicios (uno por línea)</label><textarea id="edServiciosOtros">${esc(lineas(serviciosOtros))}</textarea></div>
+      <div class="ed-field"><label>Bitácora de servicio realizado (un punto por línea)</label><textarea id="edBitacora">${esc(g[RG.bitacoraTexto]||"")}</textarea></div>
+    `;
+  } else if(tipo === "materiales"){
+    if(!G.general && !G.materialesBorrador){ alert("No hay materiales registrados todavía para esta orden."); return; }
+    let base = G.general ? (() => { try{ return JSON.parse(G.general.fields[RG.materialesJson] || "[]"); }catch(e){ return []; } })() : (G.materialesBorrador.materiales || []);
+    _edMateriales = base.map(m => (typeof m === "string") ? {cantidad:"",unidad:"",descripcion:m,nota:""} : {cantidad:"",unidad:"",descripcion:"",nota:"",...m});
+    titulo.textContent = "Editar lista de materiales";
+    body.innerHTML = `<div id="edMaterialesList"></div><button type="button" class="btn-add-ed" onclick="edAgregarMaterial()">+ Agregar material</button>`;
+    edRenderMateriales();
+  }
+
+  document.getElementById("modalEditor").classList.remove("hidden");
+}
+
+function edRenderMateriales(){
+  document.getElementById("edMaterialesList").innerHTML = _edMateriales.length ? _edMateriales.map((m,i) => `
+    <div class="ed-mat-row">
+      <input type="text" placeholder="Cant." value="${esc(m.cantidad)}" oninput="_edMateriales[${i}].cantidad=this.value">
+      <input type="text" placeholder="Unidad" value="${esc(m.unidad)}" oninput="_edMateriales[${i}].unidad=this.value">
+      <input type="text" placeholder="Descripción" value="${esc(m.descripcion)}" oninput="_edMateriales[${i}].descripcion=this.value">
+      <input type="text" placeholder="Nota" value="${esc(m.nota)}" oninput="_edMateriales[${i}].nota=this.value">
+      <button type="button" class="ed-mat-del" onclick="edEliminarMaterial(${i})">✕</button>
+    </div>
+  `).join("") : "<p style='font-size:0.8rem;color:#888'>Sin materiales.</p>";
+}
+function edAgregarMaterial(){ _edMateriales.push({cantidad:"",unidad:"",descripcion:"",nota:""}); edRenderMateriales(); }
+function edEliminarMaterial(i){ _edMateriales.splice(i,1); edRenderMateriales(); }
+
+function cerrarEditor(){ document.getElementById("modalEditor").classList.add("hidden"); _editorTipo = null; }
+function cerrarEditorSiFuera(e){ if(e.target.id === "modalEditor") cerrarEditor(); }
+
+function lineasATexto(id){
+  return document.getElementById(id).value.split("\n").map(s=>s.trim()).filter(Boolean);
+}
+
+// Reutiliza una ventana ya reservada (evita que el navegador bloquee el popup
+// por abrirse después de un await, perdiendo el "gesto del usuario").
+function regenerarConVentanaReservada(w, fn){
+  if(!w){ alert("El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio y vuelve a intentar."); return; }
+  const originalOpen = window.open;
+  window.open = () => w;
+  try{ fn(); } finally { window.open = originalOpen; }
+}
+
+async function guardarEdicion(){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  const btn = document.getElementById("btnGuardarEditor");
+  btn.disabled = true; btn.textContent = "Guardando...";
+  const wPre = window.open("", "_blank"); // reservar ANTES del await
+  try{
+    if(_editorTipo === "diagnostico"){
+      const raw = fv(G.orden, FO.diagnosticoTexto);
+      let d = {};
+      try{ d = JSON.parse(raw || "{}"); }catch(e){}
+      d.descripcionProblema = document.getElementById("edDescripcion").value;
+      d.observaciones = lineasATexto("edObservaciones");
+      d.diagnosticoTecnico = document.getElementById("edDiagnostico").value;
+      d.serviciosPropuestos = lineasATexto("edServicios");
+      await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
+        method:"PATCH",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields: { [FO.diagnosticoTexto]: JSON.stringify(d) } })
+      });
+      G.orden.fields[FO.diagnosticoTexto] = JSON.stringify(d);
+      cerrarEditor();
+      regenerarConVentanaReservada(wPre, generarDiagnosticoGeneral);
+    } else if(_editorTipo === "servicio"){
+      const fields = {
+        [RG.descripcionProblema]: document.getElementById("edDescripcion").value,
+        [RG.observacionesJson]: JSON.stringify(lineasATexto("edObservaciones")),
+        [RG.serviciosOtrosJson]: JSON.stringify(lineasATexto("edServiciosOtros")),
+        [RG.bitacoraTexto]: document.getElementById("edBitacora").value,
+      };
+      await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
+        method:"PATCH",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields })
+      });
+      Object.assign(G.general.fields, fields);
+      cerrarEditor();
+      regenerarConVentanaReservada(wPre, generarServicioGeneral);
+    } else if(_editorTipo === "materiales"){
+      const materialesValidos = _edMateriales.filter(m => m.descripcion && m.descripcion.trim());
+      if(G.general){
+        await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
+          method:"PATCH",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ fields: { [RG.materialesJson]: JSON.stringify(materialesValidos) } })
+        });
+        G.general.fields[RG.materialesJson] = JSON.stringify(materialesValidos);
+      } else {
+        // Editar el borrador (BORRADORES) — se fusiona solo "materiales" dentro de datosJson sin perder los demás datos guardados ahí
+        const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
+        const BF_SERIE = "fldegmWGpcWW7Awzn";
+        const BF_DATOS_JSON = "fldSdxpRwhyvSWEgJ";
+        const folio = fv(G.orden, FO.folio) || "";
+        const bfFormula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
+        const bfRecs = await at(TABLA_BORRADORES, `filterByFormula=${bfFormula}`);
+        const bfRec = bfRecs[0];
+        if(bfRec){
+          let datos = {};
+          try{ datos = JSON.parse(bfRec.fields[BF_DATOS_JSON] || "{}"); }catch(e){}
+          datos.materiales = materialesValidos;
+          await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${bfRec.id}`, {
+            method:"PATCH",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ fields: { [BF_DATOS_JSON]: JSON.stringify(datos) } })
+          });
+          G.materialesBorrador.materiales = materialesValidos;
+        }
+      }
+      cerrarEditor();
+      regenerarConVentanaReservada(wPre, generarListaMaterialesGeneral);
+    }
+  } catch(e){
+    alert("No se pudieron guardar los cambios: " + (e.message||""));
+  } finally {
+    btn.disabled = false; btn.textContent = "Guardar y regenerar";
+  }
+}
+
+/* ============================================================
+   REMISIÓN DE ENTREGA — aplica a Sulzer y General. Al generarla,
+   marca la orden como "Entregado" automáticamente.
+   ============================================================ */
+async function abrirRemision(){
+  const cliente = fv(G.orden, FO.cliente) || "";
+  document.getElementById("remTipoEntrega").value = "directa";
+  document.getElementById("remEmpresa").value = cliente;
+  document.getElementById("remContacto").value = "";
+  document.getElementById("remGuia").value = "";
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById("remFechaEntrega").value = hoy;
+  document.getElementById("remFechaRecibido").value = hoy;
+  document.getElementById("remNombreRecibe").value = "";
+
+  const tipoEquipoRaw = fv(G.orden, FO.tipoEquipo);
+  const tipoEquipo = ((tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || (G.esGeneral ? "" : "MOTOR")).toString().toUpperCase();
+  const spec  = fv(G.orden, FO.spec)  || "";
+  const serie = fv(G.orden, FO.serie) || new URLSearchParams(location.search).get("serie") || "";
+  const hp    = fv(G.orden, FO.hp);
+  const volts = fv(G.orden, FO.volts);
+  const partes = [tipoEquipo].filter(Boolean);
+  if(spec) partes.push(spec);
+  if(serie) partes.push(`N° SERIE ${serie}`);
+  if(hp != null && hp !== "") partes.push(`${hp}HP`);
+  if(volts != null && volts !== "") partes.push(`${volts} VOLTS`);
+  document.getElementById("remDescripcionEquipo").value = partes.join(", ");
+
+  let serviciosSugeridos = "";
+  if(G.esGeneral && G.general){
+    const bit = fv(G.general, RG.bitacoraTexto) || "";
+    serviciosSugeridos = bit.split("\n").map(l => l.replace(/^-\s*/,"").trim()).filter(Boolean).join("\n");
+  }
+  document.getElementById("remServicios").value = serviciosSugeridos;
+
+  actualizarCamposRemision();
+  document.getElementById("modalRemision").classList.remove("hidden");
+
+  document.getElementById("remFolio").value = "Calculando...";
+  try{ document.getElementById("remFolio").value = await obtenerSiguienteFolioRemision(); }
+  catch(e){ document.getElementById("remFolio").value = ""; }
+}
+
+function actualizarCamposRemision(){
+  const esPaqueteria = document.getElementById("remTipoEntrega").value === "paqueteria";
+  document.getElementById("remLblEmpresa").textContent  = esPaqueteria ? "Empresa de paquetería" : "Cliente";
+  document.getElementById("remLblContacto").textContent = esPaqueteria ? "Servicio solicitado por" : "Contacto";
+  document.getElementById("remCampoGuia").classList.toggle("hidden", !esPaqueteria);
+}
+
+function cerrarRemision(){ document.getElementById("modalRemision").classList.add("hidden"); }
+function cerrarRemisionSiFuera(e){ if(e.target.id === "modalRemision") cerrarRemision(); }
+
+// Escanea todas las órdenes buscando el folio de remisión más alto ya usado
+// (arranca en 1299 porque las remisiones anteriores a esta función solo existen en Excel, hasta ~REM1208).
+async function obtenerSiguienteFolioRemision(){
+  let all = [], offset = null;
+  do{
+    let url = `/.netlify/functions/airtable?table=${T_ORDENES}&returnFieldsByFieldId=true&pageSize=100`;
+    if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+    const r = await fetch(url);
+    const d = await r.json();
+    all = all.concat(d.records || []);
+    offset = d.offset || null;
+  } while(offset);
+
+  let maxNum = 1299;
+  all.forEach(rec => {
+    const raw = rec.fields?.[FO.remisionTexto];
+    if(!raw) return;
+    try{
+      const datos = JSON.parse(raw);
+      const m = /^REM(\d+)$/.exec(datos.folioRemision || "");
+      if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    } catch(e){}
+  });
+  return `REM${maxNum + 1}`;
+}
+
+function construirHtmlRemision(d){
+  const folioOrden = fv(G.orden, FO.folio) || new URLSearchParams(location.search).get("serie") || "—";
+  const esPaqueteria = d.tipoEntrega === "paqueteria";
+  const filasServicios = (d.serviciosRealizados||[]).map(s => `<li>${esc(s)}</li>`).join("");
+
+  return `
+  ${logoHtml()}
+  <table class="info-tbl">
+    <tr><td colspan="4" class="rep-title-cell">REMISIÓN — ${esc(d.folioRemision)}</td></tr>
+    <tr><td class="lbl">${esPaqueteria ? "EMPRESA DE PAQUETERÍA" : "CLIENTE"}:</td><td colspan="3">${esc(d.empresa)}</td></tr>
+    <tr><td class="lbl">${esPaqueteria ? "SERVICIO SOLICITADO POR" : "CONTACTO"}:</td><td colspan="3">${esc(d.contacto) || "—"}</td></tr>
+    <tr>
+      <td class="lbl">AGENTE DE REFERENCIA:</td><td>JAZMIN PEREZ</td>
+      <td class="lbl">TELÉFONO:</td><td>444 453 80 47</td>
+    </tr>
+    <tr>
+      <td class="lbl">FECHA:</td><td>${esc(fmtFecha(d.fecha))}</td>
+      <td class="lbl">FOLIO ORDEN:</td><td>${esc(folioOrden)}</td>
+    </tr>
+    ${esPaqueteria ? `<tr><td class="lbl">GUÍA / RASTREO:</td><td colspan="3">${esc(d.guiaRastreo) || "—"}</td></tr>` : ""}
+  </table>
+
+  <table class="adh-tbl">
+    <tr><th>CANTIDAD</th><th>UNIDAD</th><th>DESCRIPCIÓN</th><th>FECHA DE ENTREGA</th></tr>
+    <tr>
+      <td style="text-align:center">1</td>
+      <td style="text-align:center">SERV</td>
+      <td>${esc(d.descripcionEquipo)}</td>
+      <td style="text-align:center">${esc(fmtFecha(d.fechaEntrega))}</td>
+    </tr>
+  </table>
+
+  <div class="serv-section">SERVICIOS REALIZADOS</div>
+  <ul style="margin-left:16px;font-size:8.5pt;margin-bottom:10px">${filasServicios || "<li>—</li>"}</ul>
+
+  <div style="margin-top:24px;font-size:9pt;font-weight:bold;">FECHA DE RECIBIDO: ${esc(fmtFecha(d.fechaRecibido))}</div>
+  <div style="margin-top:14px;font-size:9pt;font-weight:bold;">NOMBRE DE LA PERSONA QUE RECIBE: ${esc(d.nombreRecibe) || "_______________________________"}</div>
+  <div style="margin-top:40px;text-align:center;font-size:9pt;font-weight:bold;border-top:1px solid #000;padding-top:6px;max-width:260px;margin-left:auto;margin-right:auto;">FIRMA Y SELLO DE LA EMPRESA</div>`;
+}
+
+async function guardarRemision(){
+  const btn = document.getElementById("btnGuardarRemision");
+  btn.disabled = true;
+  btn.textContent = "Generando...";
+  // Se reserva la ventana ANTES del await: si se abre después, el navegador
+  // pierde el "gesto del usuario" y bloquea el popup.
+  const w = window.open("", "_blank");
+
+  try{
+    const folio = document.getElementById("remFolio").value.trim();
+    if(!folio){ alert("Falta el folio de remisión."); btn.disabled = false; btn.textContent = "Generar remisión y marcar Entregado"; if(w) w.close(); return; }
+
+    const datos = {
+      folioRemision: folio,
+      tipoEntrega: document.getElementById("remTipoEntrega").value,
+      empresa: document.getElementById("remEmpresa").value.trim(),
+      contacto: document.getElementById("remContacto").value.trim(),
+      guiaRastreo: document.getElementById("remGuia").value.trim(),
+      descripcionEquipo: document.getElementById("remDescripcionEquipo").value.trim(),
+      fechaEntrega: document.getElementById("remFechaEntrega").value,
+      serviciosRealizados: document.getElementById("remServicios").value.split("\n").map(s=>s.trim()).filter(Boolean),
+      nombreRecibe: document.getElementById("remNombreRecibe").value.trim(),
+      fechaRecibido: document.getElementById("remFechaRecibido").value,
+      fecha: new Date().toISOString(),
+    };
+
+    await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ fields: { [FO.remisionTexto]: JSON.stringify(datos), [FO.estado]: "Entregado" } })
+    });
+    G.orden.fields[FO.remisionTexto] = JSON.stringify(datos);
+    G.orden.fields[FO.estado] = "Entregado";
+
+    const html = construirHtmlRemision(datos);
+    if(w){
+      w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Remisión ${esc(folio)}</title>${printCSS()}</head><body>
+        <div class="print-bar no-print"><button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button></div>
+        <div class="print-content">${html}</div></body></html>`);
+      w.document.close();
+    } else {
+      alert("El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio — la remisión ya se guardó y la orden ya quedó como Entregado.");
+    }
+
+    cerrarRemision();
+  } catch(e){
+    alert("No se pudo generar la remisión: " + (e.message||""));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generar remisión y marcar Entregado";
+  }
 }
 
 function generarDiagnosticoGeneral(){
