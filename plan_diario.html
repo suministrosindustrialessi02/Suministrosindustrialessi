@@ -94,9 +94,9 @@ main{ max-width:1100px; margin:0 auto; padding:24px 24px 56px; }
 
 .tabla-wrap{
   background:var(--blanco); border-radius:var(--radio); box-shadow:var(--sombra);
-  border:1px solid var(--gris); overflow:hidden; margin-bottom:20px;
+  border:1px solid var(--gris); overflow-x:auto; -webkit-overflow-scrolling:touch; margin-bottom:20px;
 }
-table{ width:100%; border-collapse:collapse; font-size:0.83rem; }
+table{ width:100%; border-collapse:collapse; font-size:0.83rem; min-width:640px; }
 thead th{
   background:var(--navy); color:rgba(255,255,255,0.75); font-weight:600; padding:10px 14px;
   text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.6px; white-space:nowrap;

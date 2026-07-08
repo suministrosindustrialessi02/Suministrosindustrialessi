@@ -658,7 +658,7 @@
       <h2>Fotos de Recepción</h2>
       <p class="card-desc">Fotografía el motor tal como llegó: embalaje, estado general y cualquier daño visible.</p>
       <label class="photo-btn" for="fotosRecepcionInput">📷 Tomar / Subir fotos de recepción</label>
-      <input type="file" accept="image/*" multiple capture="environment" id="fotosRecepcionInput" onchange="manejarFotosRecepcion(this)">
+      <input type="file" accept="image/*" multiple id="fotosRecepcionInput" onchange="manejarFotosRecepcion(this)">
       <div class="photo-counter" id="fotosRecepcionCounter">0 fotos seleccionadas</div>
       <div class="photo-grid" id="fotosRecepcionGrid"></div>
     </div>
@@ -790,7 +790,7 @@
         <label>Fotos de la Prueba de Adherencia <span style="color:var(--rojo)">*</span></label>
         <div class="photo-block">
           <label class="photo-btn" for="fotoAdherenciaInput">📷 Agregar foto</label>
-          <input type="file" id="fotoAdherenciaInput" accept="image/*" capture="environment" multiple onchange="manejarFotosAdherencia(this)">
+          <input type="file" id="fotoAdherenciaInput" accept="image/*" multiple onchange="manejarFotosAdherencia(this)">
         </div>
         <div class="photo-grid" id="fotoAdherenciaGrid"></div>
       </div>
@@ -820,7 +820,7 @@
       <p style="font-size:0.82rem;color:#555;margin-bottom:10px">Fotos del motor con el trabajo concluido.</p>
       <div class="photo-block">
         <label class="photo-btn" for="fotoTrabTermInput">📷 Agregar foto</label>
-        <input type="file" id="fotoTrabTermInput" accept="image/*" capture="environment" multiple onchange="manejarFotosEv('trabajo',this)">
+        <input type="file" id="fotoTrabTermInput" accept="image/*" multiple onchange="manejarFotosEv('trabajo',this)">
       </div>
       <div class="photo-grid" id="gridTrabajoTerminado"></div>
     </div>
@@ -830,7 +830,7 @@
       <p style="font-size:0.82rem;color:#555;margin-bottom:10px">Fotos del motor embalado y listo para entrega.</p>
       <div class="photo-block">
         <label class="photo-btn" for="fotoEmbalajeInput">📷 Agregar foto</label>
-        <input type="file" id="fotoEmbalajeInput" accept="image/*" capture="environment" multiple onchange="manejarFotosEv('embalaje',this)">
+        <input type="file" id="fotoEmbalajeInput" accept="image/*" multiple onchange="manejarFotosEv('embalaje',this)">
       </div>
       <div class="photo-grid" id="gridEmbalajeFinal"></div>
     </div>
@@ -1987,7 +1987,7 @@ function construirBloqueFotoCK(itemId, index, etiqueta){
     <div class="photo-block" id="${itemId}_photoBlock">
       <label class="photo-label">${etiqueta}</label>
       <label class="photo-btn" for="${itemId}_photoInput">📷 Tomar / Subir fotos</label>
-      <input type="file" accept="image/*" multiple capture="environment" id="${itemId}_photoInput"
+      <input type="file" accept="image/*" multiple id="${itemId}_photoInput"
         onchange="manejarFotosCK(${index}, this)">
       <div class="photo-grid" id="${itemId}_photoGrid"></div>
     </div>
@@ -2448,7 +2448,7 @@ function construirEtapas(){
         <h2>${etapa.icono} ${etapa.titulo}</h2>
         <div class="etapa-desc">${etapa.descripcion}</div>
         <label class="photo-btn" for="etapa_${index}_input">📷 Tomar / Subir fotos</label>
-        <input type="file" accept="image/*" multiple capture="environment" id="etapa_${index}_input"
+        <input type="file" accept="image/*" multiple id="etapa_${index}_input"
           onchange="manejarFotosEvidencia(${index}, this)">
         <div class="photo-counter" id="etapa_${index}_counter">0 fotos seleccionadas</div>
         <div class="photo-grid" id="etapa_${index}_grid"></div>
@@ -2884,7 +2884,7 @@ function renderCorreccionesCK(){
           <div class="col-label">📷 Después — Corrección</div>
           <div class="corr-photo-grid" id="despGrid_${pi}">${despHtml}</div>
           <label class="corr-photo-btn" for="despInput_${pi}">+ Subir foto después</label>
-          <input type="file" accept="image/*" capture="environment" multiple id="despInput_${pi}" onchange="manejarFotoCorr(${pi},this)" style="display:none">
+          <input type="file" accept="image/*" multiple id="despInput_${pi}" onchange="manejarFotoCorr(${pi},this)" style="display:none">
           <div class="photo-counter" id="despCnt_${pi}">${p.nuevasFotos.length ? p.nuevasFotos.length+" foto(s)" : "Sin fotos aún"}</div>
         </div>
       </div>

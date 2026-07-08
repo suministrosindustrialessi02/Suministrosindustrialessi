@@ -215,8 +215,8 @@ main{ max-width: 1380px; margin: 0 auto; padding: 22px 24px 56px; }
   gap: 14px;
   margin-bottom: 20px;
 }
-@media(max-width:1100px){ .kpi-grid{ grid-template-columns: repeat(3,1fr); } }
-@media(max-width:640px){ .kpi-grid{ grid-template-columns: 1fr 1fr; } }
+@media(max-width:1100px){ .kpi-grid{ grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media(max-width:640px){ .kpi-grid{ grid-template-columns: repeat(2,minmax(0,1fr)); } }
 
 .kpi-card{
   position: relative;
@@ -988,6 +988,10 @@ footer strong{ color: var(--azul); }
 .kpi-card[data-tooltip]:hover::after,
 .kpi-card[data-tooltip]:hover::before{ opacity: 1; }
 .kpi-card[data-tooltip]:hover::after{ transform: translateX(-50%) translateY(0); }
+@media(max-width:640px){
+  .kpi-card[data-tooltip]::after,
+  .kpi-card[data-tooltip]::before{ display:none; }
+}
 
 /* Chart hover effects */
 .bar-row{ cursor:default; border-radius:4px; padding:3px 4px; margin:-3px -4px; transition:background 0.15s; }
@@ -1042,7 +1046,7 @@ footer strong{ color: var(--azul); }
 .kpi-grid-new{
   grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
 }
-@media(max-width:640px){ .kpi-grid-new{ grid-template-columns: 1fr 1fr; } }
+@media(max-width:640px){ .kpi-grid-new{ grid-template-columns: repeat(2,minmax(0,1fr)); } }
 .charts-grid-new{
   display:grid;
   grid-template-columns: repeat(3,1fr);
