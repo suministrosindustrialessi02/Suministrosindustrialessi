@@ -318,6 +318,9 @@
     color: var(--azul); font-weight: 700; font-size: 0.95rem; cursor: pointer;
   }
   .photo-block input[type="file"]{ display: none; }
+  .foto-btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .foto-btn-row .photo-btn{ flex:1; min-width:130px; }
+  .corr-foto-btn-row{ display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
   .photo-counter{ margin-top: 8px; font-size: 0.85rem; font-weight: 600; color: var(--azul); }
   .photo-grid{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
   .photo-thumb{ position: relative; border: 1px solid var(--gris); border-radius: 8px; overflow: hidden; aspect-ratio: 1/1; background: var(--gris); }
@@ -657,8 +660,11 @@
     <div class="card">
       <h2>Fotos de Recepción</h2>
       <p class="card-desc">Fotografía el motor tal como llegó: embalaje, estado general y cualquier daño visible.</p>
-      <label class="photo-btn" for="fotosRecepcionInput">📷 Tomar / Subir fotos de recepción</label>
-      <input type="file" accept="image/*" multiple id="fotosRecepcionInput" onchange="manejarFotosRecepcion(this)">
+      <div class="foto-btn-row">
+        <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotosRecepcionInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotosRecepcionInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
+      <input type="file" accept="image/*" multiple id="fotosRecepcionInput" onchange="manejarFotosRecepcion(this)" style="display:none">
       <div class="photo-counter" id="fotosRecepcionCounter">0 fotos seleccionadas</div>
       <div class="photo-grid" id="fotosRecepcionGrid"></div>
     </div>
@@ -789,8 +795,11 @@
       <div class="field">
         <label>Fotos de la Prueba de Adherencia <span style="color:var(--rojo)">*</span></label>
         <div class="photo-block">
-          <label class="photo-btn" for="fotoAdherenciaInput">📷 Agregar foto</label>
-          <input type="file" id="fotoAdherenciaInput" accept="image/*" multiple onchange="manejarFotosAdherencia(this)">
+          <div class="foto-btn-row">
+            <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotoAdherenciaInput','camara')">📷 Tomar foto</button>
+            <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotoAdherenciaInput','galeria')">🖼️ Galería</button>
+          </div>
+          <input type="file" id="fotoAdherenciaInput" accept="image/*" multiple onchange="manejarFotosAdherencia(this)" style="display:none">
         </div>
         <div class="photo-grid" id="fotoAdherenciaGrid"></div>
       </div>
@@ -819,8 +828,11 @@
       <h3>✅ Trabajo Terminado</h3>
       <p style="font-size:0.82rem;color:#555;margin-bottom:10px">Fotos del motor con el trabajo concluido.</p>
       <div class="photo-block">
-        <label class="photo-btn" for="fotoTrabTermInput">📷 Agregar foto</label>
-        <input type="file" id="fotoTrabTermInput" accept="image/*" multiple onchange="manejarFotosEv('trabajo',this)">
+        <div class="foto-btn-row">
+          <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotoTrabTermInput','camara')">📷 Tomar foto</button>
+          <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotoTrabTermInput','galeria')">🖼️ Galería</button>
+        </div>
+        <input type="file" id="fotoTrabTermInput" accept="image/*" multiple onchange="manejarFotosEv('trabajo',this)" style="display:none">
       </div>
       <div class="photo-grid" id="gridTrabajoTerminado"></div>
     </div>
@@ -829,8 +841,11 @@
       <h3>📦 Embalaje Final</h3>
       <p style="font-size:0.82rem;color:#555;margin-bottom:10px">Fotos del motor embalado y listo para entrega.</p>
       <div class="photo-block">
-        <label class="photo-btn" for="fotoEmbalajeInput">📷 Agregar foto</label>
-        <input type="file" id="fotoEmbalajeInput" accept="image/*" multiple onchange="manejarFotosEv('embalaje',this)">
+        <div class="foto-btn-row">
+          <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotoEmbalajeInput','camara')">📷 Tomar foto</button>
+          <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotoEmbalajeInput','galeria')">🖼️ Galería</button>
+        </div>
+        <input type="file" id="fotoEmbalajeInput" accept="image/*" multiple onchange="manejarFotosEv('embalaje',this)" style="display:none">
       </div>
       <div class="photo-grid" id="gridEmbalajeFinal"></div>
     </div>
@@ -1986,9 +2001,12 @@ function construirBloqueFotoCK(itemId, index, etiqueta){
   return `
     <div class="photo-block" id="${itemId}_photoBlock">
       <label class="photo-label">${etiqueta}</label>
-      <label class="photo-btn" for="${itemId}_photoInput">📷 Tomar / Subir fotos</label>
+      <div class="foto-btn-row">
+        <button type="button" class="photo-btn" onclick="abrirSelectorFoto('${itemId}_photoInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="photo-btn" onclick="abrirSelectorFoto('${itemId}_photoInput','galeria')">🖼️ Galería</button>
+      </div>
       <input type="file" accept="image/*" multiple id="${itemId}_photoInput"
-        onchange="manejarFotosCK(${index}, this)">
+        onchange="manejarFotosCK(${index}, this)" style="display:none">
       <div class="photo-grid" id="${itemId}_photoGrid"></div>
     </div>
   `;
@@ -2447,9 +2465,12 @@ function construirEtapas(){
       <div class="card etapa-card" id="etapa_${index}">
         <h2>${etapa.icono} ${etapa.titulo}</h2>
         <div class="etapa-desc">${etapa.descripcion}</div>
-        <label class="photo-btn" for="etapa_${index}_input">📷 Tomar / Subir fotos</label>
+        <div class="foto-btn-row">
+          <button type="button" class="photo-btn" onclick="abrirSelectorFoto('etapa_${index}_input','camara')">📷 Tomar foto</button>
+          <button type="button" class="photo-btn" onclick="abrirSelectorFoto('etapa_${index}_input','galeria')">🖼️ Galería</button>
+        </div>
         <input type="file" accept="image/*" multiple id="etapa_${index}_input"
-          onchange="manejarFotosEvidencia(${index}, this)">
+          onchange="manejarFotosEvidencia(${index}, this)" style="display:none">
         <div class="photo-counter" id="etapa_${index}_counter">0 fotos seleccionadas</div>
         <div class="photo-grid" id="etapa_${index}_grid"></div>
         <div class="field" style="margin-top:12px;">
@@ -2527,6 +2548,14 @@ function toggleDanosMotor(){
     wrap.classList.add("hidden");
     document.getElementById("descripcionDanos").value = "";
   }
+}
+
+function abrirSelectorFoto(inputId, modo){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  if(modo === "camara") input.setAttribute("capture", "environment");
+  else input.removeAttribute("capture");
+  input.click();
 }
 
 function manejarFotosRecepcion(inputEl){
@@ -2883,7 +2912,10 @@ function renderCorreccionesCK(){
         <div class="col-desp">
           <div class="col-label">📷 Después — Corrección</div>
           <div class="corr-photo-grid" id="despGrid_${pi}">${despHtml}</div>
-          <label class="corr-photo-btn" for="despInput_${pi}">+ Subir foto después</label>
+          <div class="corr-foto-btn-row">
+            <button type="button" class="corr-photo-btn" onclick="abrirSelectorFoto('despInput_${pi}','camara')">📷 Cámara</button>
+            <button type="button" class="corr-photo-btn" onclick="abrirSelectorFoto('despInput_${pi}','galeria')">🖼️ Galería</button>
+          </div>
           <input type="file" accept="image/*" multiple id="despInput_${pi}" onchange="manejarFotoCorr(${pi},this)" style="display:none">
           <div class="photo-counter" id="despCnt_${pi}">${p.nuevasFotos.length ? p.nuevasFotos.length+" foto(s)" : "Sin fotos aún"}</div>
         </div>

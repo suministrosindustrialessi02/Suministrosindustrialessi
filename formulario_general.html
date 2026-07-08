@@ -103,6 +103,8 @@
   .btn-submit-final{ width: 100%; background: var(--verde); color: var(--blanco); border: none; padding: 16px; border-radius: 8px; font-size: 1.05rem; font-weight: 700; cursor: pointer; margin-top: 6px; }
 
   .btn-line{ display:block; width:100%; text-align:center; padding:12px; border:2px dashed var(--azul-claro); border-radius:8px; background:var(--fondo); color:var(--azul); font-weight:700; font-size:0.9rem; cursor:pointer; margin-top:8px; }
+  .foto-btn-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+  .foto-btn-row .btn-line{ flex:1; min-width:120px; margin-top:0; }
   input[type="file"].hidden-input{ display:none; }
 
   .photo-counter{ margin-top: 8px; font-size: 0.85rem; font-weight: 600; color: var(--azul); }
@@ -301,7 +303,10 @@
 
     <div class="card">
       <h2>Fotografía de recibido</h2>
-      <button type="button" class="btn-line" onclick="document.getElementById('fotosRecibidoInput').click()">📷 Agregar fotos de recibido</button>
+      <div class="foto-btn-row">
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosRecibidoInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosRecibidoInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
       <input type="file" class="hidden-input" id="fotosRecibidoInput" accept="image/*" multiple onchange="manejarFotos(this, fotosRecibido, 'gridRecibido', 'recibido')">
       <div class="photo-counter" id="counterRecibido">0 fotos seleccionadas</div>
       <div class="photo-grid" id="gridRecibido"></div>
@@ -418,7 +423,10 @@
         <textarea id="diagnosticoTecnico" placeholder="Ej. Rodamiento delantero desgastado, presenta juego excesivo y ruido al girar..."></textarea>
       </div>
       <div class="card-desc" style="margin-top:10px;">Fotos que muestran evidencia de la falla (se incluyen en el reporte que ve el cliente).</div>
-      <button type="button" class="btn-line" onclick="document.getElementById('fotosDiagnosticoInput').click()">📷 Agregar fotos del diagnóstico</button>
+      <div class="foto-btn-row">
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
       <input type="file" class="hidden-input" id="fotosDiagnosticoInput" accept="image/*" multiple onchange="manejarFotos(this, fotosDiagnostico, 'gridDiagnostico', 'diagnostico')">
       <div class="photo-counter" id="counterDiagnostico">0 fotos seleccionadas</div>
       <div class="photo-grid" id="gridDiagnostico"></div>
@@ -437,7 +445,10 @@
       <div class="card-desc">Agrega un punto por cada cosa que se hizo. El reporte se genera automático con esta lista.</div>
       <div id="bitacoraList"></div>
       <button type="button" class="btn-add-mini" onclick="agregarBitacoraPunto()">+ Agregar punto</button>
-      <button type="button" class="btn-line" style="margin-top:10px;" onclick="document.getElementById('fotosBitacoraInput').click()">📷 Agregar fotos del servicio</button>
+      <div class="foto-btn-row" style="margin-top:10px;">
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosBitacoraInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosBitacoraInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
       <input type="file" class="hidden-input" id="fotosBitacoraInput" accept="image/*" multiple onchange="manejarFotos(this, fotosBitacora, 'gridBitacora', 'bitacora')">
       <div class="photo-counter" id="counterBitacora">0 fotos seleccionadas</div>
       <div class="photo-grid" id="gridBitacora"></div>
@@ -452,13 +463,19 @@
         <div class="antes-despues">
           <div class="col">
             <h4>Antes</h4>
-            <button type="button" class="btn-line" style="padding:10px;" onclick="document.getElementById('fotosPinturaAntesInput').click()">📷 Foto antes</button>
+            <div class="foto-btn-row">
+              <button type="button" class="btn-line" style="padding:10px;min-width:0;" onclick="abrirSelectorFoto('fotosPinturaAntesInput','camara')">📷 Cámara</button>
+              <button type="button" class="btn-line" style="padding:10px;min-width:0;" onclick="abrirSelectorFoto('fotosPinturaAntesInput','galeria')">🖼️ Galería</button>
+            </div>
             <input type="file" class="hidden-input" id="fotosPinturaAntesInput" accept="image/*" multiple onchange="manejarFotos(this, fotosPinturaAntes, 'gridPinturaAntes', 'pintura_antes')">
             <div class="photo-grid" id="gridPinturaAntes"></div>
           </div>
           <div class="col">
             <h4>Después</h4>
-            <button type="button" class="btn-line" style="padding:10px;" onclick="document.getElementById('fotosPinturaDespuesInput').click()">📷 Foto después</button>
+            <div class="foto-btn-row">
+              <button type="button" class="btn-line" style="padding:10px;min-width:0;" onclick="abrirSelectorFoto('fotosPinturaDespuesInput','camara')">📷 Cámara</button>
+              <button type="button" class="btn-line" style="padding:10px;min-width:0;" onclick="abrirSelectorFoto('fotosPinturaDespuesInput','galeria')">🖼️ Galería</button>
+            </div>
             <input type="file" class="hidden-input" id="fotosPinturaDespuesInput" accept="image/*" multiple onchange="manejarFotos(this, fotosPinturaDespues, 'gridPinturaDespues', 'pintura_despues')">
             <div class="photo-grid" id="gridPinturaDespues"></div>
           </div>
@@ -518,7 +535,10 @@
 
     <div class="card">
       <h2>Evidencia final</h2>
-      <button type="button" class="btn-line" onclick="document.getElementById('fotosFinalInput').click()">📷 Agregar fotos finales</button>
+      <div class="foto-btn-row">
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosFinalInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosFinalInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
       <input type="file" class="hidden-input" id="fotosFinalInput" accept="image/*" multiple onchange="manejarFotos(this, fotosFinal, 'gridFinal', 'final')">
       <div class="photo-counter" id="counterFinal">0 fotos seleccionadas</div>
       <div class="photo-grid" id="gridFinal"></div>
@@ -1060,6 +1080,14 @@ function togglePintura(){
 }
 
 /* ============ FOTOS (genérico) ============ */
+function abrirSelectorFoto(inputId, modo){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  if(modo === "camara") input.setAttribute("capture", "environment");
+  else input.removeAttribute("capture");
+  input.click();
+}
+
 function manejarFotos(inputEl, arr, gridId, prefix){
   const files = Array.from(inputEl.files || []);
   if(files.length === 0) return;
