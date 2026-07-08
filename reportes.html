@@ -294,6 +294,7 @@ const FO = {
   descripcionOtro:  "fldo5FXSYcTkhI396",
   folio:            "fldpMUMLpNCGGQcIo",
   diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
+  fotosDiagnostico: "fld9GdkVjJLhTn0ky",
   cliente:          "fldUkOvdOHTXMDWX7",
   estado:           "fldRtvzailqq6WbQu",
   serie:            "fldj245KNDJ2B5jxG",
@@ -1624,6 +1625,15 @@ function generarDiagnosticoGeneral(){
     ? `<ul style="margin-left:16px;font-size:8.5pt">${d.serviciosPropuestos.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`
     : `<p style="font-size:7.5pt;color:#666;">Sin servicios especificados.</p>`;
 
+  const fotosDiag = fv(G.orden, FO.fotosDiagnostico) || [];
+  const fotosDiagHtml = fotosDiag.length
+    ? `<div class="serv-section">EVIDENCIA FOTOGRÁFICA DE LA FALLA</div><div class="fotos-grid">${fotosDiag.map((a,i)=>`
+      <div class="foto-item">
+        <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
+        <div class="foto-caption">${i+1}</div>
+      </div>`).join("")}</div>`
+    : "";
+
   const html = `
   ${logoHtml()}
   <table class="info-tbl">
@@ -1646,6 +1656,8 @@ function generarDiagnosticoGeneral(){
 
   <div class="serv-section">III. DIAGNÓSTICO</div>
   <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(d.diagnosticoTecnico).replace(/\n/g,"<br>") || "—"}</div>
+
+  ${fotosDiagHtml}
 
   <div class="serv-section">IV. SERVICIOS PROPUESTOS</div>
   ${serviciosHtml}

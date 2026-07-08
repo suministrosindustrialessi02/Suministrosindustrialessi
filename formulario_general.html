@@ -416,6 +416,11 @@
       <div class="field">
         <textarea id="diagnosticoTecnico" placeholder="Ej. Rodamiento delantero desgastado, presenta juego excesivo y ruido al girar..."></textarea>
       </div>
+      <div class="card-desc" style="margin-top:10px;">Fotos que muestran evidencia de la falla (se incluyen en el reporte que ve el cliente).</div>
+      <button type="button" class="btn-line" onclick="document.getElementById('fotosDiagnosticoInput').click()">📷 Agregar fotos del diagnóstico</button>
+      <input type="file" class="hidden-input" id="fotosDiagnosticoInput" accept="image/*" multiple capture="environment" onchange="manejarFotos(this, fotosDiagnostico, 'gridDiagnostico', 'diagnostico')">
+      <div class="photo-counter" id="counterDiagnostico">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridDiagnostico"></div>
     </div>
 
     <div class="nav-buttons">
@@ -593,6 +598,7 @@ const OF = {
   frame: "fldSvMeOGe98aT2e0",
   volts: "fldLxVAorFAGaboOF",
   diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
+  fotosDiagnostico: "fld9GdkVjJLhTn0ky",
 };
 
 const RG = {
@@ -657,6 +663,7 @@ const SERVICIOS_CATALOGO = [
 
 let pantallaActual = 0;
 let fotosRecibido = [];
+let fotosDiagnostico = [];
 let fotosFinal = [];
 let fotosPinturaAntes = [];
 let fotosPinturaDespues = [];
@@ -756,6 +763,7 @@ async function generarDiagnostico(){
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) } })
     });
+    if(fotosDiagnostico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnostico, fotosDiagnostico);
   } catch(e){}
 
   const folio = document.getElementById("folio").value || "";
@@ -1075,7 +1083,7 @@ function renderizarGrid(arr, gridId, prefix){
       <button type="button" class="remove-btn" onclick="eliminarFoto('${prefix}', ${i})">✕</button>
     </div>
   `).join("");
-  const counterMap = { recibido:"counterRecibido", final:"counterFinal", bitacora:"counterBitacora" };
+  const counterMap = { recibido:"counterRecibido", diagnostico:"counterDiagnostico", final:"counterFinal", bitacora:"counterBitacora" };
   const counterId = counterMap[prefix];
   if(counterId) document.getElementById(counterId).textContent = `${arr.length} foto${arr.length===1?"":"s"} seleccionada${arr.length===1?"":"s"}`;
   guardarBorradorGeneral();
@@ -1083,6 +1091,7 @@ function renderizarGrid(arr, gridId, prefix){
 
 function getArrByPrefix(prefix){
   if(prefix === "recibido") return fotosRecibido;
+  if(prefix === "diagnostico") return fotosDiagnostico;
   if(prefix === "final") return fotosFinal;
   if(prefix === "bitacora") return fotosBitacora;
   if(prefix === "pintura_antes") return fotosPinturaAntes;
@@ -1324,6 +1333,7 @@ async function guardarBorradorGeneral(){
     diagnosticoTecnico:  gv("diagnosticoTecnico"),
     observaciones:       observaciones.slice(),
     fotosRecibido:       fotosRecibido.slice(),
+    fotosDiagnostico:    fotosDiagnostico.slice(),
     serviciosSeleccionados: [...serviciosSeleccionados],
     serviciosOtros:      serviciosOtros.slice(),
     materiales:          materiales.map(m => ({...m})),
@@ -1390,6 +1400,8 @@ function restaurarBorradorGeneral(datos){
   renderObservaciones();
   fotosRecibido = (datos.fotosRecibido || []).slice();
   renderizarGrid(fotosRecibido, "gridRecibido", "recibido");
+  fotosDiagnostico = (datos.fotosDiagnostico || []).slice();
+  renderizarGrid(fotosDiagnostico, "gridDiagnostico", "diagnostico");
 
   serviciosSeleccionados = new Set(datos.serviciosSeleccionados || []);
   renderChipsServicios();
