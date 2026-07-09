@@ -125,6 +125,15 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
     </div>
   </div>
 
+  <div id="clienteDiagBox" style="display:none; text-align:center; padding:30px 12px;">
+    <div style="font-size:0.95rem; color:#0c1e35; margin-bottom:16px;">Este es el diagnóstico de tu equipo.</div>
+    <button class="rep-btn" style="max-width:320px; margin:0 auto;" onclick="generarDiagnosticoGeneral()">
+      <span class="rep-btn-icon">🩺</span>
+      <span class="rep-btn-name">Ver diagnóstico completo</span>
+      <span class="rep-btn-desc">Se abrirá en una pestaña nueva, lista para imprimir o guardar como PDF</span>
+    </button>
+  </div>
+
   <div class="rep-title">Selecciona el reporte a generar</div>
   <div class="rep-grid" id="repGridGeneral" style="display:none">
     <div class="rep-card-wrap">
@@ -281,6 +290,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 /* ============================================================
    CONFIGURACIÓN AIRTABLE
    ============================================================ */
+
 const T_ORDENES   = "tblcyGwDeOORxELJg";
 const T_CHECKLIST = "tbl1yAx029Em12QDG";
 const T_PINTURA   = "tbl6fY01T6q69BVN0";
@@ -295,6 +305,10 @@ const FO = {
   folio:            "fldpMUMLpNCGGQcIo",
   diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
   fotosDiagnostico: "fld9GdkVjJLhTn0ky",
+  fotosObservaciones: "fldYP3De5e0PBdoKL",
+  fotosDiagnosticoTecnico: "fldkTCQJVODxJD9Db",
+  fotosPlaca:       "fldNUJRgVWwI6JRjH",
+  usuario:          "fldJmwtkHIJLsveaC",
   cliente:          "fldUkOvdOHTXMDWX7",
   estado:           "fldRtvzailqq6WbQu",
   serie:            "fldj245KNDJ2B5jxG",
@@ -494,6 +508,25 @@ function fmtFecha(s){
   if(isNaN(d)) return s;
   return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
 }
+// Si el tipo de equipo es "Otro", muestra la descripción que el técnico escribió
+// en vez de la palabra genérica "Otro".
+function resolverTipoEquipo(tipoEquipo, descripcionOtro){
+  if(tipoEquipo === "Otro" && descripcionOtro) return descripcionOtro;
+  return tipoEquipo || "—";
+}
+// Sección "Placa del equipo" — usada tanto en el reporte de diagnóstico como en el de
+// servicio. Si no hay fotos, se asume que no aplica (no se guarda un flag aparte).
+function placaHtml(){
+  const fotos = fv(G.orden, FO.fotosPlaca) || [];
+  if(!fotos.length){
+    return `<div class="serv-section">PLACA DEL EQUIPO</div><p style="font-size:7.5pt;color:#666;margin-bottom:8px;">No aplica / sin foto de placa.</p>`;
+  }
+  return `<div class="serv-section">PLACA DEL EQUIPO</div><div class="fotos-grid" style="margin-bottom:8px">${fotos.map((a,i)=>`
+    <div class="foto-item">
+      <img src="${a.thumbnails?.large?.url||a.url}" alt="placa ${i+1}" loading="eager">
+      <div class="foto-caption">${i+1}</div>
+    </div>`).join("")}</div>`;
+}
 
 /* ============================================================
    CARGA DE DATOS
@@ -580,7 +613,7 @@ function actualizarUI(){
     document.getElementById("mc-cliente").textContent  = cliente;
     document.getElementById("mc-inspector").textContent= fv(G.general, RG.nombreCorto) || "—";
     document.getElementById("mc-fecha").textContent    = fmtFecha(G.general?.createdTime);
-    document.getElementById("mc-orden").textContent    = fv(G.orden, FO.tipoEquipo)?.name || fv(G.orden, FO.tipoEquipo) || "—";
+    document.getElementById("mc-orden").textContent    = resolverTipoEquipo(fv(G.orden, FO.tipoEquipo)?.name || fv(G.orden, FO.tipoEquipo), fv(G.orden, FO.descripcionOtro));
     document.getElementById("st-diagnostico-gen").innerHTML = fv(G.orden, FO.diagnosticoTexto) ? ok : pend;
     document.getElementById("st-servicio-gen").innerHTML   = G.general ? ok : pend;
     document.getElementById("st-materiales-gen").innerHTML = G.general ? ok : (G.materialesBorrador ? borrador : pend);
@@ -1194,33 +1227,50 @@ async function generarServicio(){
    ============================================================ */
 function headerTablaGeneral(titulo, datos){
   const d = datos || {};
-  const tipoEquipoRaw = fv(G.orden, FO.tipoEquipo);
-  const cliente     = d.cliente     ?? (fv(G.orden, "fldUkOvdOHTXMDWX7") || "—");
+  const tipoEquipoRaw    = fv(G.orden, FO.tipoEquipo);
+  const descripcionOtro  = d.descripcionOtro ?? fv(G.orden, FO.descripcionOtro);
+  const cliente     = d.cliente     ?? (fv(G.orden, FO.cliente) || "—");
+  const usuario     = d.usuario     ?? (fv(G.orden, FO.usuario) || "—");
   const folio       = d.folio       ?? (fv(G.orden, FO.folio) || fv(G.general, RG.folio) || "—");
-  const tipoEquipo  = d.tipoEquipo  ?? ((tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "—");
+  const tipoEquipo  = resolverTipoEquipo(d.tipoEquipo ?? ((tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw), descripcionOtro);
   const nombreCorto = d.nombreCorto ?? (fv(G.general, RG.nombreCorto) || "—");
-  const modelo      = d.modelo      ?? (fv(G.general, RG.modeloEquipo) || "—");
+  const modelo      = d.spec ?? d.modelo ?? (fv(G.orden, FO.spec) || fv(G.general, RG.modeloEquipo) || "—");
   const marca       = d.marca       ?? (fv(G.general, RG.marca) || "—");
   const color       = d.color       ?? (fv(G.general, RG.color) || "—");
+  const numSerie    = d.numSerie    ?? (fv(G.orden, FO.serie) || "—");
   const numParte    = d.numParte    ?? (fv(G.general, RG.numParte) || "—");
-  const fecha       = d.fecha       ?? fmtFecha(G.general?.createdTime);
+  const potencia    = d.potencia    ?? (fv(G.orden, FO.hp) || "—");
+  const frame       = d.frame       ?? (fv(G.orden, FO.frame) || "—");
+  const volts       = d.volts       ?? (fv(G.orden, FO.volts) || "—");
+  const amperaje    = d.amperaje    ?? "—";
+  const fecha       = fmtFecha(d.fecha || G.general?.createdTime);
 
   return `
   <table class="info-tbl">
     <tr><td colspan="6" class="rep-title-cell">${titulo} — ${esc(folio)}</td></tr>
     <tr>
       <td class="lbl">CLIENTE:</td><td>${esc(cliente)}</td>
-      <td class="lbl">EQUIPO:</td><td>${esc(tipoEquipo)}</td>
+      <td class="lbl">USUARIO:</td><td>${esc(usuario)}</td>
       <td class="lbl">FECHA:</td><td>${esc(fecha)}</td>
     </tr>
     <tr>
+      <td class="lbl">EQUIPO:</td><td>${esc(tipoEquipo)}</td>
       <td class="lbl">NOMBRE / APODO:</td><td>${esc(nombreCorto)}</td>
-      <td class="lbl">MODELO / SPEC:</td><td>${esc(modelo)}</td>
       <td class="lbl">MARCA:</td><td>${esc(marca)}</td>
     </tr>
     <tr>
+      <td class="lbl">MODELO / SPEC:</td><td>${esc(modelo)}</td>
+      <td class="lbl">N° DE SERIE:</td><td>${esc(numSerie)}</td>
       <td class="lbl">COLOR:</td><td>${esc(color)}</td>
+    </tr>
+    <tr>
       <td class="lbl">N° DE PARTE:</td><td>${esc(numParte)}</td>
+      <td class="lbl">POTENCIA (HP/kW):</td><td>${esc(potencia)}</td>
+      <td class="lbl">FRAME:</td><td>${esc(frame)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">VOLTS:</td><td>${esc(volts)}</td>
+      <td class="lbl">AMPERAJE:</td><td>${esc(amperaje)}</td>
       <td class="lbl"></td><td></td>
     </tr>
   </table>`;
@@ -1323,7 +1373,7 @@ async function guardarEdicion(){
       d.serviciosPropuestos = lineasATexto("edServicios");
       await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
         method:"PATCH",
-        headers:{ "Content-Type":"application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: { [FO.diagnosticoTexto]: JSON.stringify(d) } })
       });
       G.orden.fields[FO.diagnosticoTexto] = JSON.stringify(d);
@@ -1338,7 +1388,7 @@ async function guardarEdicion(){
       };
       await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
         method:"PATCH",
-        headers:{ "Content-Type":"application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields })
       });
       Object.assign(G.general.fields, fields);
@@ -1349,7 +1399,7 @@ async function guardarEdicion(){
       if(G.general){
         await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
           method:"PATCH",
-          headers:{ "Content-Type":"application/json" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ fields: { [RG.materialesJson]: JSON.stringify(materialesValidos) } })
         });
         G.general.fields[RG.materialesJson] = JSON.stringify(materialesValidos);
@@ -1368,7 +1418,7 @@ async function guardarEdicion(){
           datos.materiales = materialesValidos;
           await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${bfRec.id}`, {
             method:"PATCH",
-            headers:{ "Content-Type":"application/json" },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ fields: { [BF_DATOS_JSON]: JSON.stringify(datos) } })
           });
           G.materialesBorrador.materiales = materialesValidos;
@@ -1531,7 +1581,7 @@ async function guardarRemision(){
 
     await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { [FO.remisionTexto]: JSON.stringify(datos), [FO.estado]: "Entregado" } })
     });
     G.orden.fields[FO.remisionTexto] = JSON.stringify(datos);
@@ -1627,7 +1677,25 @@ function generarDiagnosticoGeneral(){
 
   const fotosDiag = fv(G.orden, FO.fotosDiagnostico) || [];
   const fotosDiagHtml = fotosDiag.length
-    ? `<div class="serv-section">EVIDENCIA FOTOGRÁFICA DE LA FALLA</div><div class="fotos-grid">${fotosDiag.map((a,i)=>`
+    ? `<div class="fotos-grid" style="margin-bottom:8px">${fotosDiag.map((a,i)=>`
+      <div class="foto-item">
+        <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
+        <div class="foto-caption">${i+1}</div>
+      </div>`).join("")}</div>`
+    : "";
+
+  const fotosObs = fv(G.orden, FO.fotosObservaciones) || [];
+  const fotosObsHtml = fotosObs.length
+    ? `<div class="fotos-grid" style="margin-bottom:8px">${fotosObs.map((a,i)=>`
+      <div class="foto-item">
+        <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
+        <div class="foto-caption">${i+1}</div>
+      </div>`).join("")}</div>`
+    : "";
+
+  const fotosDiagTec = fv(G.orden, FO.fotosDiagnosticoTecnico) || [];
+  const fotosDiagTecHtml = fotosDiagTec.length
+    ? `<div class="fotos-grid" style="margin-bottom:8px">${fotosDiagTec.map((a,i)=>`
       <div class="foto-item">
         <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
         <div class="foto-caption">${i+1}</div>
@@ -1636,28 +1704,20 @@ function generarDiagnosticoGeneral(){
 
   const html = `
   ${logoHtml()}
-  <table class="info-tbl">
-    <tr><td colspan="4" class="rep-title-cell">DIAGNÓSTICO — ${esc(folio)}</td></tr>
-    <tr>
-      <td class="lbl">CLIENTE:</td><td>${esc(d.cliente)}</td>
-      <td class="lbl">EQUIPO:</td><td>${esc(d.tipoEquipo)}</td>
-    </tr>
-    <tr>
-      <td class="lbl">N° SERIE / S/N:</td><td>${esc(d.numSerie)}</td>
-      <td class="lbl">FECHA:</td><td>${esc(fmtFecha(d.fecha))}</td>
-    </tr>
-  </table>
+  ${headerTablaGeneral("DIAGNÓSTICO", d)}
+  ${placaHtml()}
 
   <div class="serv-section">I. DESCRIPCIÓN DEL PROBLEMA</div>
   <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(d.descripcionProblema).replace(/\n/g,"<br>") || "—"}</div>
+  ${fotosDiagHtml}
 
   <div class="serv-section">II. OBSERVACIONES</div>
   <div style="margin-bottom:8px">${(d.observaciones||[]).length ? `<ul style="margin-left:16px;font-size:8.5pt">${d.observaciones.map(o=>`<li>${esc(o)}</li>`).join("")}</ul>` : "<p style='font-size:7.5pt;color:#666;'>Sin observaciones.</p>"}</div>
+  ${fotosObsHtml}
 
   <div class="serv-section">III. DIAGNÓSTICO</div>
   <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(d.diagnosticoTecnico).replace(/\n/g,"<br>") || "—"}</div>
-
-  ${fotosDiagHtml}
+  ${fotosDiagTecHtml}
 
   <div class="serv-section">IV. SERVICIOS PROPUESTOS</div>
   ${serviciosHtml}
@@ -1800,6 +1860,7 @@ function generarServicioGeneral(){
   const html = `
   ${logoHtml()}
   ${headerTablaGeneral("REPORTE DE SERVICIO")}
+  ${placaHtml()}
 
   <div class="serv-section">I. DESCRIPCIÓN DEL PROBLEMA</div>
   <div style="border:1px solid #ccc;min-height:30px;padding:6px 8px;font-size:7.5pt;margin-bottom:8px;">${esc(descripcionProblema).replace(/\n/g,"<br>") || "—"}</div>
@@ -2137,10 +2198,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("loadingWrap").style.display = "none";
     document.getElementById("mainPanel").style.display   = "block";
 
-    // Si se abrió desde el checkpoint de diagnóstico del formulario general,
-    // genera el reporte automáticamente sin necesitar un clic extra.
+    // Si se abrió desde el checkpoint de diagnóstico (cliente o técnico), oculta
+    // el menú completo de reportes y deja solo el botón de diagnóstico. No se
+    // auto-genera: abrir la ventana necesita un clic real del usuario, si no el
+    // navegador bloquea el popup (no hay "gesto de usuario" al cargar la página).
     if(new URLSearchParams(location.search).get("auto") === "diagnostico"){
-      generarDiagnosticoGeneral();
+      document.querySelectorAll(".rep-title").forEach(el => el.style.display = "none");
+      document.getElementById("repGridGeneral").style.display = "none";
+      document.getElementById("repGridSulzer").style.display = "none";
+      document.getElementById("repGridComun").style.display = "none";
+      document.getElementById("clienteDiagBox").style.display = "block";
     }
   } catch(err){
     document.getElementById("loadingWrap").style.display = "none";

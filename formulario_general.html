@@ -284,6 +284,21 @@
           </div>
         </div>
       </div>
+
+      <div class="toggle-row" style="margin-top:14px;">
+        <label class="toggle-text">¿Aplica foto de la placa del equipo?</label>
+        <label class="switch"><input type="checkbox" id="aplicaPlaca" checked onchange="togglePlaca()"><span class="slider"></span></label>
+      </div>
+      <div id="bloquePlaca">
+        <div class="card-desc">Foto de la placa de datos del equipo (se incluye en el reporte de diagnóstico y en el de servicio).</div>
+        <div class="foto-btn-row">
+          <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosPlacaInput','camara')">📷 Tomar foto</button>
+          <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosPlacaInput','galeria')">🖼️ Elegir de galería</button>
+        </div>
+        <input type="file" class="hidden-input" id="fotosPlacaInput" accept="image/*" multiple onchange="manejarFotos(this, fotosPlaca, 'gridPlaca', 'placa')">
+        <div class="photo-counter" id="counterPlaca">0 fotos seleccionadas</div>
+        <div class="photo-grid" id="gridPlaca"></div>
+      </div>
     </div>
 
     <div class="nav-buttons">
@@ -299,6 +314,14 @@
         <label>¿Qué reporta el cliente / usuario?</label>
         <textarea id="descripcionProblema" placeholder="Se recibe equipo, reportan que..."></textarea>
       </div>
+      <div class="card-desc" style="margin-top:10px;">Fotos relacionadas con el problema reportado (se incluyen en el reporte de diagnóstico).</div>
+      <div class="foto-btn-row">
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
+      <input type="file" class="hidden-input" id="fotosDiagnosticoInput" accept="image/*" multiple onchange="manejarFotos(this, fotosDiagnostico, 'gridDiagnostico', 'diagnostico')">
+      <div class="photo-counter" id="counterDiagnostico">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridDiagnostico"></div>
     </div>
 
     <div class="card">
@@ -317,6 +340,14 @@
       <div class="card-desc">Ej. "llegó roto", "empaque en buenas condiciones", "cables sueltos"...</div>
       <div id="observacionesList"></div>
       <button type="button" class="btn-add-mini" onclick="agregarObservacion()">+ Agregar observación</button>
+      <div class="card-desc" style="margin-top:10px;">Fotos relacionadas con las observaciones (se incluyen en el reporte de diagnóstico).</div>
+      <div class="foto-btn-row">
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosObservacionesInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosObservacionesInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
+      <input type="file" class="hidden-input" id="fotosObservacionesInput" accept="image/*" multiple onchange="manejarFotos(this, fotosObservaciones, 'gridObservaciones', 'observaciones')">
+      <div class="photo-counter" id="counterObservaciones">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridObservaciones"></div>
     </div>
 
     <div class="nav-buttons">
@@ -422,14 +453,14 @@
       <div class="field">
         <textarea id="diagnosticoTecnico" placeholder="Ej. Rodamiento delantero desgastado, presenta juego excesivo y ruido al girar..."></textarea>
       </div>
-      <div class="card-desc" style="margin-top:10px;">Fotos que muestran evidencia de la falla (se incluyen en el reporte que ve el cliente).</div>
+      <div class="card-desc" style="margin-top:10px;">Fotos que respaldan el diagnóstico técnico (se incluyen en el reporte que ve el cliente).</div>
       <div class="foto-btn-row">
-        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoInput','camara')">📷 Tomar foto</button>
-        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoInput','galeria')">🖼️ Elegir de galería</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoTecnicoInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-line" onclick="abrirSelectorFoto('fotosDiagnosticoTecnicoInput','galeria')">🖼️ Elegir de galería</button>
       </div>
-      <input type="file" class="hidden-input" id="fotosDiagnosticoInput" accept="image/*" multiple onchange="manejarFotos(this, fotosDiagnostico, 'gridDiagnostico', 'diagnostico')">
-      <div class="photo-counter" id="counterDiagnostico">0 fotos seleccionadas</div>
-      <div class="photo-grid" id="gridDiagnostico"></div>
+      <input type="file" class="hidden-input" id="fotosDiagnosticoTecnicoInput" accept="image/*" multiple onchange="manejarFotos(this, fotosDiagnosticoTecnico, 'gridDiagnosticoTecnico', 'diagnostico_tecnico')">
+      <div class="photo-counter" id="counterDiagnosticoTecnico">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="gridDiagnosticoTecnico"></div>
     </div>
 
     <div class="nav-buttons">
@@ -620,6 +651,10 @@ const OF = {
   volts: "fldLxVAorFAGaboOF",
   diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
   fotosDiagnostico: "fld9GdkVjJLhTn0ky",
+  fotosObservaciones: "fldYP3De5e0PBdoKL",
+  fotosDiagnosticoTecnico: "fldkTCQJVODxJD9Db",
+  fotosPlaca: "fldNUJRgVWwI6JRjH",
+  usuario: "fldJmwtkHIJLsveaC",
 };
 
 const RG = {
@@ -685,6 +720,9 @@ const SERVICIOS_CATALOGO = [
 let pantallaActual = 0;
 let fotosRecibido = [];
 let fotosDiagnostico = [];
+let fotosObservaciones = [];
+let fotosDiagnosticoTecnico = [];
+let fotosPlaca = [];
 let fotosFinal = [];
 let fotosPinturaAntes = [];
 let fotosPinturaDespues = [];
@@ -727,8 +765,20 @@ function construirDatosDiagnostico(){
 
   return {
     cliente: gv("cliente"),
+    usuario: gv("usuario"),
+    folio: gv("folio"),
     tipoEquipo: gv("tipoEquipo"),
+    descripcionOtro: gv("descripcionOtro"),
+    nombreCorto: gv("nombreCorto"),
+    marca: gv("marca"),
+    color: gv("color"),
+    spec: gv("spec"),
     numSerie: gv("numSerie"),
+    numParte: gv("numParte"),
+    potencia: gv("potencia"),
+    frame: gv("frame"),
+    volts: gv("volts"),
+    amperaje: gv("amperaje"),
     fecha: new Date().toISOString(),
     descripcionProblema: gv("descripcionProblema"),
     observaciones: observaciones.filter(o=>o),
@@ -785,6 +835,9 @@ async function generarDiagnostico(){
       body: JSON.stringify({ fields: { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) } })
     });
     if(fotosDiagnostico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnostico, fotosDiagnostico);
+    if(fotosObservaciones.length > 0) await subirFotosA(ordenRecordId, OF.fotosObservaciones, fotosObservaciones);
+    if(fotosDiagnosticoTecnico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnosticoTecnico, fotosDiagnosticoTecnico);
+    if(fotosPlaca.length > 0) await subirFotosA(ordenRecordId, OF.fotosPlaca, fotosPlaca);
   } catch(e){}
 
   const folio = document.getElementById("folio").value || "";
@@ -851,9 +904,10 @@ async function confirmarDatosGenerales(){
   // campos que usa Sulzer: N° de serie, SPEC, Frame, Volts, HP) para que "Ver detalle"
   // en el dashboard los pueda mostrar desde que se crea la orden.
   const datosEquipo = {
-    [OF.serie]:  document.getElementById("numSerie").value.trim(),
-    [OF.spec]:   document.getElementById("spec").value.trim(),
-    [OF.frame]:  document.getElementById("frame").value.trim(),
+    [OF.serie]:   document.getElementById("numSerie").value.trim(),
+    [OF.spec]:    document.getElementById("spec").value.trim(),
+    [OF.frame]:   document.getElementById("frame").value.trim(),
+    [OF.usuario]: document.getElementById("usuario").value.trim(),
   };
   const potenciaNum = parseFloat(document.getElementById("potencia").value);
   if(!isNaN(potenciaNum)) datosEquipo[OF.hp] = potenciaNum;
@@ -1012,6 +1066,7 @@ async function buscarEquipoRegistrado(){
           setVal("marca", datos.marca);
           setVal("color", datos.color);
           setVal("numParte", datos.numParte);
+          setVal("descripcionProblema", datos.descripcionProblema);
         }
       }
     } catch(e){}
@@ -1079,6 +1134,11 @@ function togglePintura(){
   guardarBorradorGeneral();
 }
 
+function togglePlaca(){
+  document.getElementById("bloquePlaca").classList.toggle("hidden", !document.getElementById("aplicaPlaca").checked);
+  guardarBorradorGeneral();
+}
+
 /* ============ FOTOS (genérico) ============ */
 function abrirSelectorFoto(inputId, modo){
   const input = document.getElementById(inputId);
@@ -1112,7 +1172,7 @@ function renderizarGrid(arr, gridId, prefix){
       <button type="button" class="remove-btn" onclick="eliminarFoto('${prefix}', ${i})">✕</button>
     </div>
   `).join("");
-  const counterMap = { recibido:"counterRecibido", diagnostico:"counterDiagnostico", final:"counterFinal", bitacora:"counterBitacora" };
+  const counterMap = { recibido:"counterRecibido", diagnostico:"counterDiagnostico", observaciones:"counterObservaciones", diagnostico_tecnico:"counterDiagnosticoTecnico", placa:"counterPlaca", final:"counterFinal", bitacora:"counterBitacora" };
   const counterId = counterMap[prefix];
   if(counterId) document.getElementById(counterId).textContent = `${arr.length} foto${arr.length===1?"":"s"} seleccionada${arr.length===1?"":"s"}`;
   guardarBorradorGeneral();
@@ -1121,6 +1181,9 @@ function renderizarGrid(arr, gridId, prefix){
 function getArrByPrefix(prefix){
   if(prefix === "recibido") return fotosRecibido;
   if(prefix === "diagnostico") return fotosDiagnostico;
+  if(prefix === "observaciones") return fotosObservaciones;
+  if(prefix === "diagnostico_tecnico") return fotosDiagnosticoTecnico;
+  if(prefix === "placa") return fotosPlaca;
   if(prefix === "final") return fotosFinal;
   if(prefix === "bitacora") return fotosBitacora;
   if(prefix === "pintura_antes") return fotosPinturaAntes;
@@ -1131,7 +1194,7 @@ function getArrByPrefix(prefix){
 function eliminarFoto(prefix, i){
   const arr = getArrByPrefix(prefix);
   arr.splice(i, 1);
-  const gridMap = { recibido:"gridRecibido", final:"gridFinal", bitacora:"gridBitacora", pintura_antes:"gridPinturaAntes", pintura_despues:"gridPinturaDespues" };
+  const gridMap = { recibido:"gridRecibido", diagnostico:"gridDiagnostico", observaciones:"gridObservaciones", diagnostico_tecnico:"gridDiagnosticoTecnico", placa:"gridPlaca", final:"gridFinal", bitacora:"gridBitacora", pintura_antes:"gridPinturaAntes", pintura_despues:"gridPinturaDespues" };
   renderizarGrid(arr, gridMap[prefix], prefix);
 }
 
@@ -1363,6 +1426,10 @@ async function guardarBorradorGeneral(){
     observaciones:       observaciones.slice(),
     fotosRecibido:       fotosRecibido.slice(),
     fotosDiagnostico:    fotosDiagnostico.slice(),
+    fotosObservaciones:  fotosObservaciones.slice(),
+    fotosDiagnosticoTecnico: fotosDiagnosticoTecnico.slice(),
+    fotosPlaca:          fotosPlaca.slice(),
+    aplicaPlaca:         document.getElementById("aplicaPlaca").checked,
     serviciosSeleccionados: [...serviciosSeleccionados],
     serviciosOtros:      serviciosOtros.slice(),
     materiales:          materiales.map(m => ({...m})),
@@ -1431,6 +1498,14 @@ function restaurarBorradorGeneral(datos){
   renderizarGrid(fotosRecibido, "gridRecibido", "recibido");
   fotosDiagnostico = (datos.fotosDiagnostico || []).slice();
   renderizarGrid(fotosDiagnostico, "gridDiagnostico", "diagnostico");
+  fotosObservaciones = (datos.fotosObservaciones || []).slice();
+  renderizarGrid(fotosObservaciones, "gridObservaciones", "observaciones");
+  fotosDiagnosticoTecnico = (datos.fotosDiagnosticoTecnico || []).slice();
+  renderizarGrid(fotosDiagnosticoTecnico, "gridDiagnosticoTecnico", "diagnostico_tecnico");
+  fotosPlaca = (datos.fotosPlaca || []).slice();
+  renderizarGrid(fotosPlaca, "gridPlaca", "placa");
+  document.getElementById("aplicaPlaca").checked = datos.aplicaPlaca !== false;
+  document.getElementById("bloquePlaca").classList.toggle("hidden", datos.aplicaPlaca === false);
 
   serviciosSeleccionados = new Set(datos.serviciosSeleccionados || []);
   renderChipsServicios();
@@ -1545,13 +1620,13 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     if(_bfRecordIdGeneral){
       await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
         method: "PATCH",
-        headers:{ "Content-Type":"application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: campos })
       });
     } else {
       const crea = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
         method: "POST",
-        headers:{ "Content-Type":"application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ records:[{ fields: campos }] })
       });
       const cd = await crea.json();
