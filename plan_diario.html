@@ -85,7 +85,7 @@ main{ max-width:1100px; margin:0 auto; padding:24px 24px 56px; }
 .titulo-plan h2{ font-size:1.15rem; font-weight:800; color:var(--navy); letter-spacing:0.5px; }
 .titulo-plan p{ font-size:0.8rem; color:var(--azul-claro); margin-top:2px; text-transform:capitalize; }
 
-.toolbar{ display:flex; justify-content:flex-end; margin-bottom:12px; }
+.toolbar{ display:flex; justify-content:flex-end; gap:10px; margin-bottom:12px; }
 .btn-add{
   background:var(--azul); color:#fff; border:1px solid var(--azul-claro); padding:9px 18px;
   border-radius:var(--radio-sm); font-size:0.82rem; font-weight:700; cursor:pointer;
@@ -117,6 +117,21 @@ tbody tr.orden-row.mio{ background:var(--verde-bg); }
 .orden-badge{ display:inline-block; font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:10px; }
 .orden-badge.proc{ background:#fdf3db; color:#976010; }
 .orden-badge.rec{ background:var(--azul-bg); color:var(--azul-claro); }
+.orden-badge.diag{ background:#f5e3f2; color:#a0228e; }
+.btn-ocultos{
+  background:var(--fondo); color:var(--gris-texto); border:1px solid var(--gris);
+  padding:9px 18px; border-radius:var(--radio-sm); font-size:0.84rem; font-weight:600; cursor:pointer;
+}
+.btn-ocultos:hover{ background:#e4e8ef; }
+.fila-oculta{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-bottom:1px solid var(--fondo); }
+.fila-oculta:last-child{ border-bottom:none; }
+.fila-oculta .info{ font-size:0.83rem; color:var(--gris-oscuro); }
+.fila-oculta .info small{ display:block; color:var(--gris-texto); font-size:0.72rem; margin-top:2px; }
+.btn-mostrar{
+  padding:6px 14px; background:var(--azul-bg); color:var(--azul-claro); border:1px solid #b8d0ee;
+  border-radius:var(--radio-sm); font-size:0.78rem; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.btn-mostrar:hover{ background:#d9e8fa; }
 td{ padding:11px 14px; vertical-align:middle; }
 .td-actividad{ font-weight:600; color:var(--gris-oscuro); max-width:280px; }
 .td-proceso{ color:var(--gris-texto); font-size:0.78rem; max-width:220px; }
@@ -193,6 +208,7 @@ td{ padding:11px 14px; vertical-align:middle; }
   </div>
 
   <div class="toolbar hidden" id="toolbarAdmin">
+    <button class="btn-ocultos hidden" id="btnVerOcultos" onclick="abrirModalOcultos()">🙈 Equipos ocultos (<span id="cntOcultos">0</span>)</button>
     <button class="btn-add" onclick="abrirModal()">+ Agregar tarea</button>
   </div>
 
@@ -267,6 +283,17 @@ td{ padding:11px 14px; vertical-align:middle; }
   </div>
 </div>
 
+<!-- MODAL EQUIPOS OCULTOS (solo Admin) -->
+<div class="modal-overlay hidden" id="modalOcultosOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>Equipos ocultos del Plan Diario</h3>
+      <button class="modal-close" onclick="cerrarModalOcultos()">×</button>
+    </div>
+    <div class="modal-body" id="listaOcultos"></div>
+  </div>
+</div>
+
 <script>
 /* ============================================================
    SESIÓN
@@ -301,7 +328,10 @@ const OF = {
   serie:"fldj245KNDJ2B5jxG", cliente:"fldUkOvdOHTXMDWX7", estado:"fldRtvzailqq6WbQu",
   tipoServicio:"fld0rhBYkk5nAnXcT", tipoEquipo:"fldBhqLRYDHl2L2tJ", folio:"fldpMUMLpNCGGQcIo",
   prioridad:"fldLskZ89jqrWxuGy", tecnicoAsignado:"fldyyr9YbJCPGUWmE", fechaEntregaProgramada:"fldcWlXUh65ftgFs9",
+  ocultoPlanDiario:"fldnU31OTxfSlnQgG",
 };
+// Estados que se muestran automáticamente en el Plan Diario (normalizados: minúsculas, sin acentos)
+const ESTADOS_EN_PLAN = ["recibido", "en proceso", "en diagnostico"];
 
 function esc(s){ const d = document.createElement("div"); d.textContent = String(s||""); return d.innerHTML; }
 function hoyISO(){ return new Date().toISOString().slice(0,10); }
@@ -393,8 +423,9 @@ async function fetchOrdenesActivas(){
         prioridad: (f[OF.prioridad] !== undefined && f[OF.prioridad] !== null) ? Number(f[OF.prioridad]) : null,
         tecnico: f[OF.tecnicoAsignado] || "",
         fechaEntrega: f[OF.fechaEntregaProgramada] || "",
+        oculto: !!f[OF.ocultoPlanDiario],
       };
-    }).filter(o => o.estadoNorm === "recibido" || o.estadoNorm === "en proceso" || o.estadoNorm.includes("proceso"));
+    }).filter(o => ESTADOS_EN_PLAN.includes(o.estadoNorm));
   } catch(e){ return []; }
 }
 
@@ -434,10 +465,14 @@ function renderTodo(){
   document.getElementById("toolbarAdmin").classList.toggle("hidden", !esAdmin);
   document.getElementById("thAccionesAdmin").classList.toggle("hidden", !esAdmin);
 
-  // Ítems combinados: tareas manuales + (solo en HOY) órdenes de servicio activas
+  const ocultosCount = ordenesActivas.filter(o => o.oculto).length;
+  document.getElementById("btnVerOcultos").classList.toggle("hidden", ocultosCount === 0);
+  document.getElementById("cntOcultos").textContent = ocultosCount;
+
+  // Ítems combinados: tareas manuales + (solo en HOY) órdenes de servicio activas y no ocultas
   const items = tareasParaFecha(fechaSeleccionada).map(t => ({ ...t, _tipo: "tarea" }));
   if(fechaSeleccionada === hoyISO()){
-    ordenesActivas.forEach(o => items.push({ ...o, _tipo: "orden" }));
+    ordenesActivas.filter(o => !o.oculto).forEach(o => items.push({ ...o, _tipo: "orden" }));
   }
   items.sort((a,b) => {
     const pa = a.prioridad ?? 999, pb = b.prioridad ?? 999;
@@ -483,9 +518,11 @@ function filaOrden(o){
   const link = esGeneral
     ? `formulario_general.html?folio=${encodeURIComponent(o.folio)}`
     : `formulario_maestro.html?serie=${encodeURIComponent(o.serie)}`;
-  const estadoChip = o.estadoNorm.includes("proceso")
-    ? `<span class="orden-badge proc">En proceso</span>`
-    : `<span class="orden-badge rec">Recibido</span>`;
+  const estadoChip = o.estadoNorm === "en diagnostico"
+    ? `<span class="orden-badge diag">En diagnóstico</span>`
+    : o.estadoNorm.includes("proceso")
+      ? `<span class="orden-badge proc">En proceso</span>`
+      : `<span class="orden-badge rec">Recibido</span>`;
   const entrega = o.fechaEntrega ? o.fechaEntrega.split("-").reverse().join("/") : "—";
   return `<tr class="orden-row ${esMio ? "mio" : ""}">
     <td style="text-align:center">${chipPrioridadHtml(o.prioridad)}</td>
@@ -498,8 +535,67 @@ function filaOrden(o){
     <td>${esc(entrega)}</td>
     <td class="td-proceso">${estadoChip}</td>
     <td style="text-align:center" title="Se completa al terminar el servicio">—</td>
-    ${esAdmin ? `<td></td>` : ""}
+    ${esAdmin ? `<td style="text-align:center"><button class="btn-fila" onclick="ocultarOrden('${o.id}')" title="Ocultar del plan diario">🙈</button></td>` : ""}
   </tr>`;
+}
+
+/* ============================================================
+   OCULTAR / MOSTRAR EQUIPOS EN EL PLAN DIARIO (solo Admin)
+   ============================================================ */
+async function patchOcultoOrden(id, valor){
+  await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${id}`, {
+    method: "PATCH",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ fields: { [OF.ocultoPlanDiario]: valor } })
+  });
+}
+
+async function ocultarOrden(id){
+  if(!esAdmin) return;
+  if(!confirm("¿Ocultar este equipo del Plan Diario? Podrás volver a mostrarlo desde \"Equipos ocultos\".")) return;
+  try{
+    await patchOcultoOrden(id, true);
+    await cargarPlan();
+  } catch(e){
+    alert("No se pudo ocultar el equipo.");
+  }
+}
+
+async function mostrarOrden(id){
+  if(!esAdmin) return;
+  try{
+    await patchOcultoOrden(id, false);
+    await cargarPlan();
+    abrirModalOcultos();
+  } catch(e){
+    alert("No se pudo mostrar el equipo.");
+  }
+}
+
+function filaOculta(o){
+  const id = o.folio || o.serie || "—";
+  const esGeneral = o.tipoServicio === "General";
+  const equipo = esGeneral ? (o.tipoEquipo || "Equipo") : "Motor Sulzer";
+  return `<div class="fila-oculta">
+    <div class="info">
+      ${esc(id)} · ${esc(equipo)}
+      <small>${esc(o.cliente) || "Sin cliente"} — ${esc(o.estado) || "—"}</small>
+    </div>
+    <button class="btn-mostrar" onclick="mostrarOrden('${o.id}')">👁 Mostrar</button>
+  </div>`;
+}
+
+function abrirModalOcultos(){
+  if(!esAdmin) return;
+  const ocultas = ordenesActivas.filter(o => o.oculto);
+  const cont = document.getElementById("listaOcultos");
+  cont.innerHTML = ocultas.length
+    ? ocultas.map(filaOculta).join("")
+    : `<p style="text-align:center;color:var(--gris-texto);font-style:italic;padding:10px 0;">No hay equipos ocultos.</p>`;
+  document.getElementById("modalOcultosOverlay").classList.remove("hidden");
+}
+function cerrarModalOcultos(){
+  document.getElementById("modalOcultosOverlay").classList.add("hidden");
 }
 
 function cambiarDia(delta){
