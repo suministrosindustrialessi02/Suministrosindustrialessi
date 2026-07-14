@@ -84,6 +84,14 @@
   .orden-status-msg.error{ color: var(--rojo); }
   .orden-status-msg.success{ color: var(--verde); }
 
+  .banner-correccion{
+    max-width: 640px; margin: 12px auto 0; padding: 12px 14px;
+    background: #fff0e0; border: 1px solid #fdba8c; color: #9a3412;
+    border-radius: 8px; font-size: 0.85rem; line-height: 1.4;
+  }
+  .banner-correccion strong{ display:block; margin-bottom: 2px; }
+  .banner-correccion.hidden{ display: none; }
+
   .toggle-row{
     display: flex; align-items: center; gap: 10px;
     background: var(--fondo); border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
@@ -174,6 +182,11 @@
 </header>
 
 <main>
+
+  <div class="banner-correccion hidden" id="bannerCorreccion">
+    <strong>🔧 Corrigiendo un servicio ya entregado</strong>
+    <span id="bannerCorreccionMotivo"></span>
+  </div>
 
   <!-- ============ PANTALLA 0: DATOS GENERALES ============ -->
   <div class="screen" id="screen0">
@@ -466,6 +479,7 @@
     <div class="nav-buttons">
       <button class="btn-nav btn-prev" onclick="mostrarPantalla(2)">← Anterior</button>
       <button class="btn-nav btn-next" id="btnGenerarDiagnostico" onclick="generarDiagnostico()">🖨 Generar diagnóstico y enviar a autorización →</button>
+      <button class="btn-nav btn-next hidden" id="btnSiguienteCorreccion" onclick="mostrarPantalla(4)">Siguiente →</button>
     </div>
   </div>
 
@@ -623,6 +637,8 @@ function esc(s){ const d = document.createElement("div"); d.textContent = String
 /* ============================================================
    AIRTABLE CONFIG
    ============================================================ */
+
+
 const TABLA_ORDENES = "tblcyGwDeOORxELJg";
 const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
 const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
@@ -655,6 +671,7 @@ const OF = {
   fotosDiagnosticoTecnico: "fldkTCQJVODxJD9Db",
   fotosPlaca: "fldNUJRgVWwI6JRjH",
   usuario: "fldJmwtkHIJLsveaC",
+  notasCorreccion: "fldP5uFmrDGcsxy9f",
 };
 
 const RG = {
@@ -684,6 +701,8 @@ const RG = {
 
 let ordenRecordId = null;
 let reporteEnviado = false;
+let reporteRecordId = null; // ID del registro YA EXISTENTE en REPORTES_GENERAL cuando se reabre en modo corrección (si es null, enviarReporteGeneral() crea uno nuevo como siempre)
+let modoCorreccion = false; // true cuando se reabrió por "↩ Ajustes" — salta el checkpoint de diagnóstico (pantalla 3), ya se autorizó la primera vez
 let _bfRecordIdGeneral = null; // ID del registro en TABLA_BORRADORES de Airtable
 let _bfSyncTimerGeneral = null;
 let _autoSaveIntervalGeneral = null;
@@ -852,7 +871,7 @@ async function generarDiagnostico(){
 async function verificarAutorizacionAhora(){
   if(!ordenRecordId){ alert("No se encontró la orden."); return; }
   try{
-    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`);
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`, {});
     const data = await resp.json();
     const estadoRaw = data.fields ? data.fields[OF.estado] : null;
     const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
@@ -917,7 +936,7 @@ async function confirmarDatosGenerales(){
   try{
     const formula = encodeURIComponent(`{${OF.folio}}="${folio}"`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url);
+    const resp = await fetch(url, {});
     const data = await resp.json();
     const existente = (data.records || [])[0];
 
@@ -1009,7 +1028,7 @@ async function buscarEquipoRegistrado(){
     const qEsc = q.replace(/"/g, '\\"');
     const formula = encodeURIComponent(`AND({${OF.tipoServicio}}="General", OR({${OF.folio}}="${qEsc}", {${OF.serie}}="${qEsc}"))`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url);
+    const resp = await fetch(url, {});
     const data = await resp.json();
     const rec = (data.records || [])[0];
 
@@ -1056,7 +1075,7 @@ async function buscarEquipoRegistrado(){
     try{
       const folioVal = f[OF.folio] || "";
       const bfFormula = encodeURIComponent(`{${BF.serie}}="${folioVal}"`);
-      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`);
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, {});
       if(bfRes.ok){
         const bfData = await bfRes.json();
         const bf = (bfData.records||[])[0];
@@ -1083,7 +1102,7 @@ async function generarFolioAutomatico(prefijo){
   try{
     const formula = encodeURIComponent(`FIND("${prefijo}-", {${OF.folio}}) = 1`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true&fields[]=${OF.folio}`;
-    const resp = await fetch(url);
+    const resp = await fetch(url, {});
     const data = await resp.json();
     let maxNum = 0;
     (data.records || []).forEach(r => {
@@ -1577,6 +1596,102 @@ function restaurarChipEstado(sufijo, valor){
 }
 
 /* ============================================================
+   MODO CORRECCIÓN — el equipo ya se había entregado y el cliente
+   pidió ajustes (ej. "esa pintura no era", "faltó esto"). En vez de
+   restaurar un borrador de IndexedDB (ya se borró al terminar la
+   primera vez), se arma el mismo objeto "datos" que usa
+   restaurarBorradorGeneral() a partir del reporte YA GUARDADO en
+   REPORTES_GENERAL + los datos de ORDENES, para editar sobre el
+   mismo reporte en vez de empezar de cero.
+
+   Las fotos se dejan vacías A PROPÓSITO: las que ya existen viven
+   en Airtable y no hace falta traerlas de vuelta; el técnico solo
+   agrega las fotos nuevas de esta corrección, que se apilan sobre
+   las anteriores al reenviar (subirFotosA() con el mismo record ID
+   AGREGA adjuntos, no los reemplaza — ver enviarReporteGeneral()).
+   ============================================================ */
+function jparseObj(raw){ try{ const v = JSON.parse(raw || "null"); return (v && typeof v === "object") ? v : {}; } catch(e){ return {}; } }
+function jparseArr(raw){ try{ const v = JSON.parse(raw || "null"); return Array.isArray(v) ? v : []; } catch(e){ return []; } }
+
+function restaurarDesdeReporteFinal(ordenRec, reporteRec, motivo){
+  const of = ordenRec.fields, rg = reporteRec.fields;
+  const nom = v => (v && typeof v === "object" && "name" in v) ? v.name : v;
+
+  reporteRecordId = reporteRec.id;
+  modoCorreccion = true;
+  document.getElementById("btnGenerarDiagnostico").classList.add("hidden");
+  document.getElementById("btnSiguienteCorreccion").classList.remove("hidden");
+
+  const diag = jparseObj(of[OF.diagnosticoTexto]);
+  const pruebas = jparseObj(rg[RG.pruebasElectricasJson]);
+  const numLineas = pruebas.numLineas || "6";
+
+  const datos = {
+    ordenRecordId: ordenRec.id,
+    reporteEnviado: false,
+    pantallaActual: 1,
+
+    tipoEquipo: nom(of[OF.tipoEquipo]) || "",
+    descripcionOtro: of[OF.descripcionOtro] || "",
+    folio: of[OF.folio] || "",
+    cliente: of[OF.cliente] || "",
+    usuario: of[OF.usuario] || "",
+    nombreCorto: rg[RG.nombreCorto] || "",
+    marca: rg[RG.marca] || "",
+    color: rg[RG.color] || "",
+    spec: rg[RG.modeloEquipo] || of[OF.spec] || "",
+    numSerie: of[OF.serie] || "",
+    numParte: rg[RG.numParte] || "",
+    potencia: of[OF.hp] != null ? of[OF.hp] : "",
+    frame: of[OF.frame] || "",
+    volts: of[OF.volts] != null ? of[OF.volts] : "",
+    amperaje: diag.amperaje || "",
+
+    descripcionProblema: rg[RG.descripcionProblema] || "",
+    diagnosticoTecnico: diag.diagnosticoTecnico || "",
+    observaciones: jparseArr(rg[RG.observacionesJson]),
+
+    fotosRecibido: [], fotosDiagnostico: [], fotosObservaciones: [],
+    fotosDiagnosticoTecnico: [], fotosPlaca: [],
+    aplicaPlaca: true,
+
+    serviciosSeleccionados: jparseArr(rg[RG.serviciosJson]),
+    serviciosOtros: jparseArr(rg[RG.serviciosOtrosJson]),
+    materiales: jparseArr(rg[RG.materialesJson]),
+
+    numLineas,
+    resistenciaIni: { valores: (pruebas.inicial && pruebas.inicial.resistencia) || {}, numLineas },
+    resistenciaFin: { valores: (pruebas.final && pruebas.final.resistencia) || {}, numLineas },
+    tierraIni: (pruebas.inicial && pruebas.inicial.tierra) || {},
+    tierraFin: (pruebas.final && pruebas.final.tierra) || {},
+    aplicaElectrico: !!rg[RG.aplicaElectrico],
+    estadoIni: (pruebas.inicial && pruebas.inicial.estado) || "",
+    estadoFin: (pruebas.final && pruebas.final.estado) || "",
+    notasIni: (pruebas.inicial && pruebas.inicial.notas) || "",
+    notasFin: (pruebas.final && pruebas.final.notas) || "",
+    corrienteIni: (pruebas.inicial && pruebas.inicial.corriente) || ["","",""],
+    voltajeIni: (pruebas.inicial && pruebas.inicial.voltaje) || ["","",""],
+    corrienteFin: (pruebas.final && pruebas.final.corriente) || ["","",""],
+    voltajeFin: (pruebas.final && pruebas.final.voltaje) || ["","",""],
+
+    bitacoraPuntos: (rg[RG.bitacoraTexto] || "").split("\n").map(l => l.replace(/^-\s*/,"").trim()).filter(Boolean),
+    fotosBitacora: [],
+    aplicaPintura: !!rg[RG.aplicaPintura],
+    fotosPinturaAntes: [], fotosPinturaDespues: [],
+    fotosFinal: [],
+    videoNota: rg[RG.videoNota] || "",
+  };
+
+  restaurarBorradorGeneral(datos);
+
+  const banner = document.getElementById("bannerCorreccion");
+  document.getElementById("bannerCorreccionMotivo").textContent = motivo
+    ? `Motivo: ${motivo}`
+    : "Revisa y corrige lo que haga falta; al final, guarda y envía de nuevo.";
+  banner.classList.remove("hidden");
+}
+
+/* ============================================================
    SINCRONIZAR PROGRESO CON AIRTABLE (TABLA_BORRADORES)
    Alimenta el dashboard: % de avance, pantalla actual, y los
    datos que necesita el botón "Lista de Materiales" para estar
@@ -1611,7 +1726,8 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     if(!_bfRecordIdGeneral){
       const formula = encodeURIComponent(`{${BF.serie}}="${folio}"`);
       const busca = await fetch(
-        `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`
+        `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
+        {}
       );
       const bd = await busca.json();
       if(bd.records?.length) _bfRecordIdGeneral = bd.records[0].id;
@@ -1620,13 +1736,13 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     if(_bfRecordIdGeneral){
       await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields: campos })
       });
     } else {
       const crea = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ records:[{ fields: campos }] })
       });
       const cd = await crea.json();
@@ -1924,38 +2040,57 @@ async function enviarReporteGeneral(){
       [RG.videoNota]: document.getElementById("videoNota").value
     };
 
-    statusEl.textContent = "Guardando datos del reporte...";
-    const createResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ records: [{ fields }] })
-    });
-    const createData = await createResp.json();
-    if(!createResp.ok) throw new Error(createData?.error?.message || "Error al guardar el reporte");
-    const reporteRecordId = createData.records[0].id;
+    // Modo corrección: reporteRecordId YA viene lleno (ver restaurarDesdeReporteFinal())
+    // porque el reporte ya existía — se ACTUALIZA en vez de crear uno nuevo, para no
+    // duplicar el registro en REPORTES_GENERAL.
+    const esCorreccion = !!reporteRecordId;
+    let recId;
+    if(esCorreccion){
+      statusEl.textContent = "Actualizando el reporte...";
+      const patchResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&recordId=${reporteRecordId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields })
+      });
+      const patchData = await patchResp.json();
+      if(!patchResp.ok) throw new Error(patchData?.error?.message || "Error al actualizar el reporte");
+      recId = patchData.id;
+    } else {
+      statusEl.textContent = "Guardando datos del reporte...";
+      const createResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records: [{ fields }] })
+      });
+      const createData = await createResp.json();
+      if(!createResp.ok) throw new Error(createData?.error?.message || "Error al guardar el reporte");
+      recId = createData.records[0].id;
+    }
 
     statusEl.textContent = "Subiendo fotos de recibido...";
-    await subirFotosA(reporteRecordId, RG.fotosRecibido, fotosRecibido);
+    await subirFotosA(recId, RG.fotosRecibido, fotosRecibido);
     statusEl.textContent = "Subiendo fotos de la bitácora...";
-    await subirFotosA(reporteRecordId, RG.fotosBitacora, fotosBitacora);
+    await subirFotosA(recId, RG.fotosBitacora, fotosBitacora);
     if(document.getElementById("aplicaPintura").checked){
       statusEl.textContent = "Subiendo fotos de pintura...";
-      await subirFotosA(reporteRecordId, RG.fotosPinturaAntes, fotosPinturaAntes);
-      await subirFotosA(reporteRecordId, RG.fotosPinturaDespues, fotosPinturaDespues);
+      await subirFotosA(recId, RG.fotosPinturaAntes, fotosPinturaAntes);
+      await subirFotosA(recId, RG.fotosPinturaDespues, fotosPinturaDespues);
     }
     statusEl.textContent = "Subiendo evidencia final...";
-    await subirFotosA(reporteRecordId, RG.fotosFinal, fotosFinal);
+    await subirFotosA(recId, RG.fotosFinal, fotosFinal);
 
     statusEl.textContent = "Marcando orden como terminada...";
     await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true } })
+      body: JSON.stringify({ fields: { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true, [OF.notasCorreccion]: "" } })
     });
 
     reporteEnviado = true;
     statusEl.classList.add("success");
-    statusEl.textContent = "✓ Reporte guardado y orden marcada como Terminado.";
+    statusEl.textContent = esCorreccion
+      ? "✓ Corrección guardada. Genera una nueva remisión desde Reportes cuando el equipo esté listo para reentregarse."
+      : "✓ Reporte guardado y orden marcada como Terminado.";
     btn.textContent = "✓ Reporte enviado";
     if(_autoSaveIntervalGeneral){ clearInterval(_autoSaveIntervalGeneral); _autoSaveIntervalGeneral = null; }
     eliminarBorradorGeneralAirtable(); // el reporte final ya existe en REPORTES_GENERAL, se quita del monitor en vivo
@@ -1983,24 +2118,46 @@ mostrarPantalla(0);
   if(folioUrl){
     // El estado en Airtable manda sobre el borrador local: si el diagnóstico ya se
     // generó y la orden está en espera de autorización, no se debe reabrir la edición.
+    let ordenRec = null, estadoOrden = "";
     try{
       const formula = encodeURIComponent(`{${OF.folio}}="${folioUrl}"`);
       const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-      const resp = await fetch(url);
+      const resp = await fetch(url, {});
       const data = await resp.json();
-      const rec = (data.records || [])[0];
-      if(rec){
-        ordenRecordId = rec.id;
-        const estadoRaw = rec.fields[OF.estado];
-        const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
-        if(estado === "En diagnóstico" || estado === "No autorizado"){
-          document.getElementById("folio").value = folioUrl;
-          mostrarEsperaAutorizacion(estado);
+      ordenRec = (data.records || [])[0] || null;
+      if(ordenRec){
+        ordenRecordId = ordenRec.id;
+        const estadoRaw = ordenRec.fields[OF.estado];
+        estadoOrden = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+      }
+    } catch(e){}
+
+    if(estadoOrden === "En diagnóstico" || estadoOrden === "No autorizado"){
+      document.getElementById("folio").value = folioUrl;
+      mostrarEsperaAutorizacion(estadoOrden);
+      _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
+      return;
+    }
+
+    // El servicio ya se había entregado y el cliente pidió ajustes: se carga el
+    // reporte YA GUARDADO en REPORTES_GENERAL (el borrador local ya no existe,
+    // se borró cuando se envió el reporte la primera vez) para corregir sobre el
+    // mismo reporte en vez de empezar de cero o duplicarlo.
+    if(estadoOrden === "En corrección" && ordenRec){
+      try{
+        const formulaRG = encodeURIComponent(`OR(FIND("${ordenRecordId}",ARRAYJOIN({${RG.ordenServicio}})),{${RG.folio}}="${folioUrl}")`);
+        const urlRG = `/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formulaRG}&returnFieldsByFieldId=true`;
+        const respRG = await fetch(urlRG, {});
+        const dataRG = await respRG.json();
+        const reporteRec = (dataRG.records || [])[0];
+        if(reporteRec){
+          restaurarDesdeReporteFinal(ordenRec, reporteRec, ordenRec.fields[OF.notasCorreccion] || "");
           _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
           return;
         }
-      }
-    } catch(e){}
+      } catch(e){}
+      // Si por alguna razón no se encuentra el reporte final, cae al flujo normal de abajo.
+    }
 
     let datos = null;
     try{ datos = await buscarEnDBGeneral(folioUrl); } catch(e){}

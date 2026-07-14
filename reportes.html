@@ -94,6 +94,13 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 .status-ok{ color:var(--verde); }
 .status-pend{ color:var(--ambar); }
 .status-gen{ color:var(--azul-med); }
+.rem-historial{ background:#f4f6fa; border:1px solid #dde3ec; border-radius:8px; padding:10px 12px; margin-bottom:16px; }
+.rem-historial-titulo{ font-size:0.78rem; font-weight:700; color:var(--navy); margin-bottom:6px; }
+.rem-historial-item{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px solid #e3e8f0; font-size:0.8rem; }
+.rem-historial-item:first-of-type{ border-top:none; }
+.rem-historial-info{ color:var(--navy); }
+.rem-historial-info small{ display:block; color:#6b7280; font-weight:400; }
+.rem-historial-ver{ padding:4px 10px; background:#eef3fa; border:1px solid #cfe0f5; border-radius:6px; cursor:pointer; font-size:0.75rem; color:var(--azul-med); font-weight:600; white-space:nowrap; }
 </style>
 </head>
 <body>
@@ -134,6 +141,15 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
     </button>
   </div>
 
+  <div id="clienteCotizacionBox" style="display:none; text-align:center; padding:30px 12px;">
+    <div style="font-size:0.95rem; color:#0c1e35; margin-bottom:16px;">Esta es la cotización de tu servicio.</div>
+    <button class="rep-btn" style="max-width:320px; margin:0 auto;" onclick="generarCotizacionGeneral()">
+      <span class="rep-btn-icon">💰</span>
+      <span class="rep-btn-name">Ver cotización completa</span>
+      <span class="rep-btn-desc">Se abrirá en una pestaña nueva, lista para imprimir o guardar como PDF</span>
+    </button>
+  </div>
+
   <div class="rep-title">Selecciona el reporte a generar</div>
   <div class="rep-grid" id="repGridGeneral" style="display:none">
     <div class="rep-card-wrap">
@@ -162,6 +178,14 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
         <span class="rep-btn-status" id="st-materiales-gen">—</span>
       </button>
       <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('materiales')">✏️</button>
+    </div>
+    <div class="rep-card-wrap admin-only hidden">
+      <button class="rep-btn" id="btn-cotizacion-gen" onclick="generarCotizacionGeneral()">
+        <span class="rep-btn-icon">💰</span>
+        <span class="rep-btn-name">Cotización</span>
+        <span class="rep-btn-desc">Documento con precios — se arma desde el dashboard</span>
+        <span class="rep-btn-status" id="st-cotizacion-gen">—</span>
+      </button>
     </div>
   </div>
 
@@ -222,8 +246,14 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
     <button class="rep-btn" id="btn-remision" onclick="abrirRemision()">
       <span class="rep-btn-icon">📦</span>
       <span class="rep-btn-name">Remisión de Entrega</span>
-      <span class="rep-btn-desc">Genera la remisión y marca la orden como Entregado</span>
+      <span class="rep-btn-desc">Genera el documento de remisión de entrega</span>
       <span class="rep-btn-status" id="st-remision">—</span>
+    </button>
+    <button class="rep-btn" id="btn-evidencia-entrega" onclick="verEvidenciaEntrega()">
+      <span class="rep-btn-icon">🖼️</span>
+      <span class="rep-btn-name">Evidencia de Entrega</span>
+      <span class="rep-btn-desc">Fotos del equipo y de la remisión firmada</span>
+      <span class="rep-btn-status" id="st-evidencia-entrega">—</span>
     </button>
   </div>
 
@@ -234,6 +264,10 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
         <button type="button" class="modal-x" onclick="cerrarRemision()">✕</button>
       </div>
       <div class="modal-body">
+        <div class="rem-historial hidden" id="remHistorialWrap">
+          <div class="rem-historial-titulo">Remisiones anteriores de esta orden</div>
+          <div id="remHistorialLista"></div>
+        </div>
         <div class="ed-field">
           <label>Folio de remisión</label>
           <input type="text" id="remFolio">
@@ -280,7 +314,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
       </div>
       <div class="modal-ftr">
         <button type="button" class="btn-cancelar-ed" onclick="cerrarRemision()">Cancelar</button>
-        <button type="button" class="btn-guardar-ed" id="btnGuardarRemision" onclick="guardarRemision()">Generar remisión y marcar Entregado</button>
+        <button type="button" class="btn-guardar-ed" id="btnGuardarRemision" onclick="guardarRemision()">Generar remisión</button>
       </div>
     </div>
   </div>
@@ -290,6 +324,8 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 /* ============================================================
    CONFIGURACIÓN AIRTABLE
    ============================================================ */
+
+
 
 const T_ORDENES   = "tblcyGwDeOORxELJg";
 const T_CHECKLIST = "tbl1yAx029Em12QDG";
@@ -309,6 +345,8 @@ const FO = {
   fotosDiagnosticoTecnico: "fldkTCQJVODxJD9Db",
   fotosPlaca:       "fldNUJRgVWwI6JRjH",
   usuario:          "fldJmwtkHIJLsveaC",
+  fotosEntregaEquipo:   "fldk4rbHtR3zslHJB",
+  fotosEntregaRemision: "fldV9nvYJWCZ28fAo",
   cliente:          "fldUkOvdOHTXMDWX7",
   estado:           "fldRtvzailqq6WbQu",
   serie:            "fldj245KNDJ2B5jxG",
@@ -317,6 +355,16 @@ const FO = {
   hp:               "fldjyFFAaL0dIFWIE",
   volts:            "fldLxVAorFAGaboOF",
   remisionTexto:    "fldefjJlNZIHGaqZg",
+  detalleServicios:        "fldNRxyyyhyZn9qhI",
+  subtotal:                "fldI0EhIItl3f6oQv",
+  iva:                     "fldmt0sEHNWPDdIdm",
+  precioTotal:             "fldFlHOBWCEC0SLZn",
+  fechaEntregaEstimada:    "fldL6KTrxsH5mIhob",
+  condicionesPago:         "fldZo5xFPZ2f2rpoM",
+  vigenciaDias:            "fldH6pal3gqsuCGBw",
+  cotizacionSolicitadaPor: "fldUKC1AFtlqb4X1B",
+  agenteReferencia:        "fldnOqhkJIIgQrVWs",
+  estadoCotizacion:        "fldjUqpqdCRQ8rdCU",
 };
 
 // Field IDs — Reportes General
@@ -495,7 +543,7 @@ if(_sesion && _sesion.rol === "Admin"){
    ============================================================ */
 async function at(tabla, params){
   const url = `/.netlify/functions/airtable?table=${tabla}&returnFieldsByFieldId=true&${params}`;
-  const r = await fetch(url);
+  const r = await fetch(url, {});
   if(!r.ok) throw new Error(`Airtable ${r.status}`);
   return (await r.json()).records || [];
 }
@@ -540,7 +588,8 @@ async function cargarDatos(){
 
   // 1) Orden
   const ordenRec = await fetch(
-    `/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${ordenId}&returnFieldsByFieldId=true`
+    `/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${ordenId}&returnFieldsByFieldId=true`,
+    {}
   );
   if(!ordenRec.ok) throw new Error("No se encontró la orden");
   G.orden = await ordenRec.json();
@@ -605,6 +654,21 @@ function actualizarUI(){
   document.getElementById("repGridGeneral").style.display = G.esGeneral ? "" : "none";
   document.getElementById("repGridSulzer").style.display  = G.esGeneral ? "none" : "";
 
+  const stRemEl = document.getElementById("st-remision");
+  if(stRemEl){
+    const nRem = parseRemisiones(fv(G.orden, FO.remisionTexto)).length;
+    stRemEl.innerHTML = nRem > 0
+      ? `<span class="status-ok">✓ ${nRem} generada${nRem!==1?"s":""}</span>`
+      : '<span class="status-pend">⚠ Sin generar</span>';
+  }
+  const stEvEntEl = document.getElementById("st-evidencia-entrega");
+  if(stEvEntEl){
+    const nFotosEnt = (fv(G.orden, FO.fotosEntregaEquipo)||[]).length + (fv(G.orden, FO.fotosEntregaRemision)||[]).length;
+    stEvEntEl.innerHTML = nFotosEnt > 0
+      ? '<span class="status-ok">✓ Datos disponibles</span>'
+      : '<span class="status-pend">⚠ Sin fotos</span>';
+  }
+
   if(G.esGeneral){
     const ok       = '<span class="status-ok">✓ Datos disponibles</span>';
     const borrador = '<span class="status-pend" style="color:#976010">🕓 Borrador disponible</span>';
@@ -617,6 +681,18 @@ function actualizarUI(){
     document.getElementById("st-diagnostico-gen").innerHTML = fv(G.orden, FO.diagnosticoTexto) ? ok : pend;
     document.getElementById("st-servicio-gen").innerHTML   = G.general ? ok : pend;
     document.getElementById("st-materiales-gen").innerHTML = G.general ? ok : (G.materialesBorrador ? borrador : pend);
+    const estCotRaw = fv(G.orden, FO.estadoCotizacion);
+    const estCot = (estCotRaw && estCotRaw.name) || estCotRaw || null;
+    const stCotEl = document.getElementById("st-cotizacion-gen");
+    if(stCotEl){
+      const mapaCot = {
+        "Borrador":   '<span class="status-pend" style="color:#976010">✎ Borrador sin enviar</span>',
+        "Enviada":    borrador.replace("Borrador disponible", "Enviada, esperando cliente"),
+        "Autorizada": ok.replace("Datos disponibles", "Autorizada por el cliente"),
+        "Rechazada":  '<span class="status-pend" style="color:#c62828">🚫 No autorizada por el cliente</span>',
+      };
+      stCotEl.innerHTML = mapaCot[estCot] || pend;
+    }
     return;
   }
 
@@ -823,20 +899,26 @@ function printCSS(){
 
 function abrirVentana(htmlContent, titulo){
   const w = window.open("","_blank","width=900,height=700");
-  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${titulo}</title>${printCSS()}</head><body>
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${titulo}</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"><\/script>
+    ${printCSS()}</head><body>
     <div class="print-bar no-print">
       <button class="print-btn" id="btnImprimir" onclick="window.print()" disabled>⏳ Cargando fotos...</button>
-      <span class="print-info">En Chrome: Imprimir → Guardar como PDF | Destino → Guardar como PDF</span>
+      <button class="print-btn" id="btnDescargarPdf" style="background:#1d5496" onclick="descargarPDF()" disabled>⏳ Cargando fotos...</button>
+      <span class="print-info">"Descargar PDF" genera el archivo directo. "Imprimir" usa el diálogo del navegador.</span>
     </div>
     <div class="print-content">${htmlContent}</div>
     <script>
       (function(){
-        var btn = document.getElementById("btnImprimir");
+        var btnImp = document.getElementById("btnImprimir");
+        var btnPdf = document.getElementById("btnDescargarPdf");
         var imgs = Array.prototype.slice.call(document.images);
         var pendientes = imgs.filter(function(img){ return !img.complete; }).length;
         function listo(){
-          btn.disabled = false;
-          btn.textContent = "⬇ Imprimir / Guardar PDF";
+          btnImp.disabled = false;
+          btnImp.textContent = "🖨️ Imprimir";
+          btnPdf.disabled = false;
+          btnPdf.textContent = "⬇ Descargar PDF";
         }
         if(pendientes === 0){ listo(); return; }
         var restantes = pendientes;
@@ -852,6 +934,44 @@ function abrirVentana(htmlContent, titulo){
         // Salvaguarda: si alguna imagen nunca dispara load/error, habilitar de todas formas a los 8s
         setTimeout(listo, 8000);
       })();
+      function descargarPDF(){
+        var btn = document.getElementById("btnDescargarPdf");
+        var textoOriginal = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = "⏳ Generando PDF...";
+        var nombreArchivo = ${JSON.stringify(titulo)}.replace(/[^a-zA-Z0-9_\\-]+/g,"_") + ".pdf";
+        // html2canvas no maneja bien elementos position:fixed (la barra azul) ni el
+        // margin-top que existe solo para no taparse con ella en pantalla — se ocultan
+        // ambos justo antes de capturar y se restauran después, para que no dejen un
+        // hueco en blanco en el PDF.
+        var bar = document.querySelector(".print-bar");
+        var content = document.querySelector(".print-content");
+        var barDisplayOriginal = bar.style.display;
+        var contentMarginOriginal = content.style.marginTop;
+        bar.style.display = "none";
+        content.style.marginTop = "0";
+        function restaurar(){
+          bar.style.display = barDisplayOriginal;
+          content.style.marginTop = contentMarginOriginal;
+        }
+        html2pdf().set({
+          margin: 6,
+          filename: nombreArchivo,
+          image: { type:"jpeg", quality:0.92 },
+          html2canvas: { scale:2, useCORS:true },
+          jsPDF: { unit:"mm", format:"letter", orientation:"portrait" },
+          pagebreak: { mode:["css","legacy"] }
+        }).from(content).save().then(function(){
+          restaurar();
+          btn.disabled = false;
+          btn.textContent = textoOriginal;
+        }).catch(function(err){
+          restaurar();
+          alert("No se pudo generar el PDF: " + (err && err.message || err));
+          btn.disabled = false;
+          btn.textContent = textoOriginal;
+        });
+      }
     <\/script>
   </body></html>`);
   w.document.close();
@@ -1373,7 +1493,7 @@ async function guardarEdicion(){
       d.serviciosPropuestos = lineasATexto("edServicios");
       await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
         method:"PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields: { [FO.diagnosticoTexto]: JSON.stringify(d) } })
       });
       G.orden.fields[FO.diagnosticoTexto] = JSON.stringify(d);
@@ -1388,7 +1508,7 @@ async function guardarEdicion(){
       };
       await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
         method:"PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields })
       });
       Object.assign(G.general.fields, fields);
@@ -1399,7 +1519,7 @@ async function guardarEdicion(){
       if(G.general){
         await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
           method:"PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({ fields: { [RG.materialesJson]: JSON.stringify(materialesValidos) } })
         });
         G.general.fields[RG.materialesJson] = JSON.stringify(materialesValidos);
@@ -1418,7 +1538,7 @@ async function guardarEdicion(){
           datos.materiales = materialesValidos;
           await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${bfRec.id}`, {
             method:"PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ fields: { [BF_DATOS_JSON]: JSON.stringify(datos) } })
           });
           G.materialesBorrador.materiales = materialesValidos;
@@ -1435,11 +1555,50 @@ async function guardarEdicion(){
 }
 
 /* ============================================================
-   REMISIÓN DE ENTREGA — aplica a Sulzer y General. Al generarla,
-   marca la orden como "Entregado" automáticamente.
+   REMISIÓN DE ENTREGA — aplica a Sulzer y General. Genera el documento
+   de entrega; marcar la orden como "Entregado" es una acción MANUAL
+   aparte (botón en dashboard.html, solo Admin) — no se hace automático
+   aquí porque generar la remisión no siempre significa que ya se
+   entregó de verdad (ej. corrección/reimpresión).
    ============================================================ */
+// remisionTexto guarda un ARRAY de remisiones (historial completo — si una entrega se
+// rechaza y se genera otra, no se pierde el rastro de la primera). Compatible hacia atrás
+// con órdenes viejas donde el campo guardaba un solo objeto (formato anterior).
+function parseRemisiones(raw){
+  if(!raw) return [];
+  try{
+    const v = JSON.parse(raw);
+    if(Array.isArray(v)) return v;
+    if(v && typeof v === "object") return [v];
+    return [];
+  } catch(e){ return []; }
+}
+
+function renderHistorialRemisiones(){
+  const remisiones = parseRemisiones(fv(G.orden, FO.remisionTexto));
+  const wrap = document.getElementById("remHistorialWrap");
+  const lista = document.getElementById("remHistorialLista");
+  if(remisiones.length === 0){ wrap.classList.add("hidden"); lista.innerHTML = ""; return; }
+  wrap.classList.remove("hidden");
+  lista.innerHTML = remisiones.slice().reverse().map((r, iRev) => {
+    const i = remisiones.length - 1 - iRev; // índice real dentro del array original
+    return `<div class="rem-historial-item">
+      <span class="rem-historial-info">${esc(r.folioRemision || "—")}<small>${esc(fmtFecha(r.fecha))} · ${esc(r.tipoEntrega === "paqueteria" ? "Paquetería" : "Entrega directa")}</small></span>
+      <button type="button" class="rem-historial-ver" onclick="verRemisionHistorial(${i})">🖨 Ver</button>
+    </div>`;
+  }).join("");
+}
+
+function verRemisionHistorial(indice){
+  const remisiones = parseRemisiones(fv(G.orden, FO.remisionTexto));
+  const r = remisiones[indice];
+  if(!r) return;
+  abrirVentana(construirHtmlRemision(r), `Remisión ${r.folioRemision || ""}`);
+}
+
 async function abrirRemision(){
   const cliente = fv(G.orden, FO.cliente) || "";
+  renderHistorialRemisiones();
   document.getElementById("remTipoEntrega").value = "directa";
   document.getElementById("remEmpresa").value = cliente;
   document.getElementById("remContacto").value = "";
@@ -1494,7 +1653,7 @@ async function obtenerSiguienteFolioRemision(){
   do{
     let url = `/.netlify/functions/airtable?table=${T_ORDENES}&returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
-    const r = await fetch(url);
+    const r = await fetch(url, {});
     const d = await r.json();
     all = all.concat(d.records || []);
     offset = d.offset || null;
@@ -1502,13 +1661,10 @@ async function obtenerSiguienteFolioRemision(){
 
   let maxNum = 1299;
   all.forEach(rec => {
-    const raw = rec.fields?.[FO.remisionTexto];
-    if(!raw) return;
-    try{
-      const datos = JSON.parse(raw);
+    parseRemisiones(rec.fields?.[FO.remisionTexto]).forEach(datos => {
       const m = /^REM(\d+)$/.exec(datos.folioRemision || "");
       if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
-    } catch(e){}
+    });
   });
   return `REM${maxNum + 1}`;
 }
@@ -1563,7 +1719,7 @@ async function guardarRemision(){
 
   try{
     const folio = document.getElementById("remFolio").value.trim();
-    if(!folio){ alert("Falta el folio de remisión."); btn.disabled = false; btn.textContent = "Generar remisión y marcar Entregado"; if(w) w.close(); return; }
+    if(!folio){ alert("Falta el folio de remisión."); btn.disabled = false; btn.textContent = "Generar remisión"; if(w) w.close(); return; }
 
     const datos = {
       folioRemision: folio,
@@ -1579,31 +1735,66 @@ async function guardarRemision(){
       fecha: new Date().toISOString(),
     };
 
+    // Se agrega al historial existente en vez de sobreescribirlo — así no se pierde el
+    // rastro de una entrega anterior rechazada si se genera otra remisión después.
+    const historial = parseRemisiones(fv(G.orden, FO.remisionTexto));
+    historial.push(datos);
+
     await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [FO.remisionTexto]: JSON.stringify(datos), [FO.estado]: "Entregado" } })
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ fields: { [FO.remisionTexto]: JSON.stringify(historial) } })
     });
-    G.orden.fields[FO.remisionTexto] = JSON.stringify(datos);
-    G.orden.fields[FO.estado] = "Entregado";
+    G.orden.fields[FO.remisionTexto] = JSON.stringify(historial);
 
     const html = construirHtmlRemision(datos);
     if(w){
-      w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Remisión ${esc(folio)}</title>${printCSS()}</head><body>
-        <div class="print-bar no-print"><button class="print-btn" onclick="window.print()">Imprimir / Guardar PDF</button></div>
-        <div class="print-content">${html}</div></body></html>`);
-      w.document.close();
+      regenerarConVentanaReservada(w, () => abrirVentana(html, `Remisión ${folio}`));
     } else {
-      alert("El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio — la remisión ya se guardó y la orden ya quedó como Entregado.");
+      alert("El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para este sitio — la remisión ya se guardó.");
     }
 
+    renderHistorialRemisiones();
     cerrarRemision();
   } catch(e){
     alert("No se pudo generar la remisión: " + (e.message||""));
   } finally {
     btn.disabled = false;
-    btn.textContent = "Generar remisión y marcar Entregado";
+    btn.textContent = "Generar remisión";
   }
+}
+
+// Fotos subidas desde el modal "Confirmar entrega" del dashboard (fotos del equipo +
+// remisión firmada) — aplica a Sulzer y General por igual, mismo campo compartido en ORDENES.
+function verEvidenciaEntrega(){
+  const fotosEquipo = fv(G.orden, FO.fotosEntregaEquipo) || [];
+  const fotosRemision = fv(G.orden, FO.fotosEntregaRemision) || [];
+  if(fotosEquipo.length === 0 && fotosRemision.length === 0){
+    alert("Todavía no hay fotos de evidencia de entrega para esta orden.");
+    return;
+  }
+  // folio: para General es OF.folio (ej "MOT-005"); para Sulzer no existe ese campo,
+  // usa OF.serie — misma precedencia que el resto del sistema (dashboard, kanban, etc.)
+  const folio = fv(G.orden, FO.folio) || fv(G.orden, FO.serie) || new URLSearchParams(location.search).get("serie") || "—";
+  const gridHtml = fotos => fotos.length
+    ? `<div class="fotos-grid" style="margin-bottom:8px">${fotos.map((a,i) => `
+      <div class="foto-item">
+        <img src="${a.thumbnails?.large?.url || a.url}" alt="foto ${i+1}" loading="eager">
+        <div class="foto-caption">${i+1}</div>
+      </div>`).join("")}</div>`
+    : `<p style="font-size:7.5pt;color:#666;">Sin fotos.</p>`;
+
+  const html = `
+  ${logoHtml()}
+  ${headerTablaGeneral("EVIDENCIA DE ENTREGA", { folio })}
+
+  <div class="serv-section">FOTOS DEL EQUIPO ENTREGADO</div>
+  ${gridHtml(fotosEquipo)}
+
+  <div class="serv-section">REMISIÓN FIRMADA</div>
+  ${gridHtml(fotosRemision)}`;
+
+  abrirVentana(html, `Evidencia de Entrega ${folio}`);
 }
 
 function generarDiagnosticoGeneral(){
@@ -1728,6 +1919,91 @@ function generarDiagnosticoGeneral(){
   <div style="font-size:8pt;padding:6px 2px;margin-bottom:8px;">Con base en lo anterior, se propone realizar los servicios listados. Este documento requiere la autorización del cliente para continuar con el servicio.</div>`;
 
   abrirVentana(html, `Diagnóstico — ${folio}`);
+}
+
+function generarCotizacionGeneral(){
+  const estadoRaw = fv(G.orden, FO.estadoCotizacion);
+  const estadoCotizacion = (estadoRaw && estadoRaw.name) || estadoRaw || null;
+  const raw = fv(G.orden, FO.detalleServicios);
+  if(!estadoCotizacion || !raw){ alert("Todavía no se ha generado una cotización para esta orden."); return; }
+  let renglones = [];
+  try{ renglones = JSON.parse(raw); }catch(e){}
+
+  const folio          = fv(G.orden, FO.folio) || "—";
+  const cliente         = fv(G.orden, FO.cliente) || "—";
+  const solicitadaPor   = fv(G.orden, FO.cotizacionSolicitadaPor) || "—";
+  const agente          = fv(G.orden, FO.agenteReferencia) || "—";
+  const fechaEntrega    = fv(G.orden, FO.fechaEntregaEstimada) || "—";
+  const condPagoRaw     = fv(G.orden, FO.condicionesPago);
+  const condicionesPago = (condPagoRaw && condPagoRaw.name) || condPagoRaw || "—";
+  const vigencia        = fv(G.orden, FO.vigenciaDias) || 15;
+  const subtotal        = fv(G.orden, FO.subtotal) || 0;
+  const iva             = fv(G.orden, FO.iva) || 0;
+  const total           = fv(G.orden, FO.precioTotal) || 0;
+
+  const tipoEquipoRaw = fv(G.orden, FO.tipoEquipo);
+  const tipoEquipo = resolverTipoEquipo((tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw, fv(G.orden, FO.descripcionOtro));
+  const spec     = fv(G.orden, FO.spec) || "";
+  const numSerie = fv(G.orden, FO.serie) || "";
+  const partesEquipo = [tipoEquipo].filter(Boolean);
+  if(spec) partesEquipo.push(spec);
+  if(numSerie) partesEquipo.push(`N° SERIE ${numSerie}`);
+  const descripcionEquipo = partesEquipo.join(", ");
+
+  const fmtMon = n => "$" + (parseFloat(n)||0).toLocaleString("es-MX", { minimumFractionDigits:2, maximumFractionDigits:2 });
+
+  const filasRenglones = renglones.map(r => `
+    <tr>
+      <td style="text-align:center">${esc(String(r.cant))}</td>
+      <td style="text-align:center">${esc(r.unidad)}</td>
+      <td>${esc(r.descripcion)}</td>
+      <td style="text-align:right">${fmtMon(r.precioUnitario)}</td>
+      <td style="text-align:right">${fmtMon(r.total)}</td>
+    </tr>`).join("");
+
+  const coloresEstado = { "Borrador":"#eee", "Enviada":"#fff3cd", "Autorizada":"#c0dd97", "Rechazada":"#f09595" };
+
+  const html = `
+  ${logoHtml()}
+  <table class="info-tbl">
+    <tr><td colspan="4" class="rep-title-cell">COTIZACIÓN — ${esc(folio)}</td></tr>
+    <tr><td class="lbl">CLIENTE:</td><td colspan="3">${esc(cliente)}</td></tr>
+    <tr>
+      <td class="lbl">COTIZACIÓN SOLICITADA POR:</td><td>${esc(solicitadaPor)}</td>
+      <td class="lbl">AGENTE DE REFERENCIA:</td><td>${esc(agente)}</td>
+    </tr>
+    <tr>
+      <td class="lbl">FECHA DE ENTREGA:</td><td>${esc(fechaEntrega)}</td>
+      <td class="lbl">CONDICIONES DE PAGO:</td><td>${esc(condicionesPago)}</td>
+    </tr>
+  </table>
+
+  <div class="serv-section">EQUIPO RELACIONADO A LA COTIZACIÓN</div>
+  <p style="font-size:8.5pt;margin-bottom:8px;">${esc(descripcionEquipo) || "—"}</p>
+
+  <table class="adh-tbl">
+    <tr><th>CANT</th><th>UNIDAD</th><th>DESCRIPCIÓN</th><th>P.U.</th><th>TOTAL</th></tr>
+    ${filasRenglones || `<tr><td colspan="5" style="text-align:center;color:#666">Sin renglones</td></tr>`}
+  </table>
+
+  <table class="adh-tbl" style="width:44%;margin-left:auto;">
+    <tr><td class="lbl">SUBTOTAL:</td><td style="text-align:right">${fmtMon(subtotal)}</td></tr>
+    <tr><td class="lbl">I.V.A. 16%:</td><td style="text-align:right">${fmtMon(iva)}</td></tr>
+    <tr><td class="lbl">TOTAL:</td><td style="text-align:right;font-weight:bold">${fmtMon(total)}</td></tr>
+  </table>
+
+  <div class="serv-section">TÉRMINOS Y CONDICIONES</div>
+  <ul style="margin-left:16px;font-size:8pt;margin-bottom:10px">
+    <li>Precios en Moneda Nacional (MXN).</li>
+    <li>El 16% de I.V.A. será agregado a los precios indicados al facturar.</li>
+    <li>Vigencia de esta cotización: ${esc(String(vigencia))} días.</li>
+    <li>Condiciones de pago: ${esc(condicionesPago)}.</li>
+    <li>Por cancelación de Orden de Compra, S.I. cargará un 15% del total del pedido.</li>
+  </ul>
+
+  <div style="font-size:9.5pt;font-weight:bold;background:${coloresEstado[estadoCotizacion]||'#eee'};color:#000;margin:12px 0 5px;padding:6px 10px;">ESTADO: ${esc(estadoCotizacion.toUpperCase())}</div>`;
+
+  abrirVentana(html, `Cotización — ${folio}`);
 }
 
 function generarServicioGeneral(){
@@ -2202,12 +2478,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     // el menú completo de reportes y deja solo el botón de diagnóstico. No se
     // auto-genera: abrir la ventana necesita un clic real del usuario, si no el
     // navegador bloquea el popup (no hay "gesto de usuario" al cargar la página).
-    if(new URLSearchParams(location.search).get("auto") === "diagnostico"){
+    const _autoParam = new URLSearchParams(location.search).get("auto");
+    if(_autoParam === "diagnostico" || _autoParam === "cotizacion"){
       document.querySelectorAll(".rep-title").forEach(el => el.style.display = "none");
       document.getElementById("repGridGeneral").style.display = "none";
       document.getElementById("repGridSulzer").style.display = "none";
       document.getElementById("repGridComun").style.display = "none";
-      document.getElementById("clienteDiagBox").style.display = "block";
+      document.getElementById(_autoParam === "diagnostico" ? "clienteDiagBox" : "clienteCotizacionBox").style.display = "block";
     }
   } catch(err){
     document.getElementById("loadingWrap").style.display = "none";

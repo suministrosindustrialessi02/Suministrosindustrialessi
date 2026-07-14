@@ -559,6 +559,7 @@ td:last-child{ border-right: none; }
 .chip-default   { background: var(--blanco); color: var(--gris-texto); border-color: var(--gris); }
 .chip-diagnostico  { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
 .chip-noautorizado { background: #fdecea; color: #991b1b; border-color: #f5b5ac; }
+.chip-correccion   { background: #fff0e0; color: #c2410c; border-color: #fdba8c; }
 .chip-dot{
   width: 5px; height: 5px;
   border-radius: 50%;
@@ -827,6 +828,87 @@ footer strong{ color: var(--azul); }
 .fila-acciones{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center; }
 .fila-acciones .btn-rep, .fila-acciones .btn-corr{ margin-left:0; }
 
+/* ===== TOGGLE VISTA TABLA / KANBAN ===== */
+.vista-toggle{
+  display: flex;
+  border: 1px solid var(--gris);
+  border-radius: var(--radio-sm);
+  overflow: hidden;
+}
+.vista-btn{
+  padding: 7px 14px;
+  background: var(--blanco);
+  color: var(--gris-texto);
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.vista-btn + .vista-btn{ border-left: 1px solid var(--gris); }
+.vista-btn.active{ background: var(--azul); color: #fff; }
+.vista-btn:hover:not(.active){ background: var(--fondo); }
+
+/* ===== KANBAN ===== */
+.kanban-board{
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  padding: 4px 2px 14px;
+  margin-bottom: 16px;
+}
+.kanban-col{ min-width: 240px; flex: 1; }
+.kanban-col-hdr{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 10px;
+}
+.kanban-col-title{
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--gris-texto);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.kanban-col-dot{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.kanban-cards{ display: flex; flex-direction: column; gap: 10px; }
+.kanban-card{
+  background: var(--blanco);
+  border: 1px solid var(--gris);
+  border-left: 4px solid var(--azul-claro);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: var(--sombra);
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.kanban-card:hover{ box-shadow: var(--sombra-hover); transform: translateY(-1px); }
+.kanban-card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+.kanban-card-id{ font-weight: 700; color: var(--azul); font-size: 0.86rem; letter-spacing: 0.3px; }
+.kanban-card-equipo{ font-size: 0.8rem; color: var(--gris-oscuro); font-weight: 500; margin-bottom: 2px; }
+.kanban-card-cliente{ font-size: 0.76rem; color: var(--gris-texto); margin-bottom: 10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.kanban-card-meta{ display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+.kanban-card-meta .sel-fila{ width: 100%; min-width: 0; }
+.kanban-card-dias{ font-size: 0.72rem; font-weight: 700; }
+.kanban-card .mini-prog{ margin-bottom: 10px; }
+.kanban-card .fila-acciones{ justify-content: flex-start; }
+.kanban-empty{
+  text-align: center;
+  color: var(--gris-texto);
+  font-size: 0.78rem;
+  padding: 22px 10px;
+  border: 1.5px dashed var(--gris);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.5);
+}
+@media(max-width:640px){
+  .kanban-col{ min-width: 210px; }
+}
+
 /* ===== MODAL CHECKLIST ===== */
 .ck-modal{
   background: var(--blanco);
@@ -891,7 +973,22 @@ footer strong{ color: var(--azul); }
 .detalle-seccion:first-child{ margin-top:0; }
 .prereg-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; }
 .prereg-campo label{ display:block; font-size:0.68rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:4px; }
-.prereg-campo input, .prereg-campo select{ width:100%; padding:8px 10px; border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.85rem; font-family:inherit; }
+.prereg-campo input, .prereg-campo select, .prereg-campo textarea{ width:100%; padding:8px 10px; border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.85rem; font-family:inherit; }
+.tecnico-checks{ display:flex; flex-wrap:wrap; gap:6px 14px; border:1px solid var(--gris); border-radius:var(--radio-sm); padding:9px 10px; }
+.tecnico-checks label{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:400; text-transform:none; letter-spacing:normal; margin:0; cursor:pointer; }
+.tecnico-checks input{ width:15px; height:15px; }
+
+/* ===== COTIZACIÓN (Admin) ===== */
+.cot-estado-badge{ display:inline-block; padding:4px 12px; border-radius:20px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; }
+.cot-tbl{ width:100%; border-collapse:collapse; margin-bottom:10px; }
+.cot-tbl th{ background:var(--azul-bg); color:var(--azul); font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; padding:7px 6px; border:1px solid var(--gris); text-align:left; }
+.cot-tbl td{ border:1px solid var(--gris); padding:4px; }
+.cot-tbl input, .cot-tbl select{ width:100%; padding:6px 7px; border:1px solid transparent; border-radius:4px; font-size:0.82rem; font-family:inherit; background:transparent; }
+.cot-tbl input:focus, .cot-tbl select:focus{ border-color:var(--azul-medio); background:var(--blanco); outline:none; }
+.cot-tbl input[readonly]{ color:var(--gris-texto); }
+.cot-tbl .cot-del{ background:none; border:none; color:var(--rojo); cursor:pointer; font-size:0.95rem; font-weight:700; padding:4px; }
+.cot-totales{ display:flex; justify-content:flex-end; gap:22px; flex-wrap:wrap; margin:6px 2px 4px; padding:10px 14px; background:var(--fondo); border-radius:var(--radio-sm); font-size:0.85rem; }
+.cot-totales strong{ color:var(--azul); font-size:0.95rem; }
 .ck-seccion{ margin-bottom: 16px; }
 .ck-seccion-titulo{
   font-size: 0.72rem;
@@ -945,6 +1042,27 @@ footer strong{ color: var(--azul); }
   transition: background 0.15s;
 }
 .btn-imprimir:hover{ background: var(--azul-claro); }
+.btn-confirmar-entrega{
+  padding: 8px 18px; background: var(--verde); color: #fff; border: 1px solid var(--verde);
+  border-radius: var(--radio-sm); font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: opacity 0.15s;
+}
+.btn-confirmar-entrega:disabled{ opacity: 0.6; cursor: default; }
+.entrega-seccion{ margin-bottom: 18px; }
+.entrega-seccion label{ display: block; font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+.foto-btn-row{ display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.btn-foto{
+  padding: 8px 14px; background: var(--azul-bg); color: var(--azul-claro); border: 1px solid #b8d0ee;
+  border-radius: var(--radio-sm); font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+.photo-grid{ display: flex; flex-wrap: wrap; gap: 8px; }
+.photo-thumb{ position: relative; width: 74px; height: 74px; border-radius: 8px; overflow: hidden; border: 1px solid var(--gris); }
+.photo-thumb img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-thumb .remove-btn{
+  position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); color: #fff; border: none; font-size: 0.7rem; cursor: pointer; line-height: 1;
+}
+.photo-counter{ font-size: 0.72rem; color: var(--gris-texto); margin-top: 6px; }
 
 /* ===== UTILS ===== */
 
@@ -1281,6 +1399,10 @@ footer strong{ color: var(--azul); }
       </select>
       <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
       <span class="filtro-resultado" id="filtroResultado"></span>
+      <div class="vista-toggle">
+        <button class="vista-btn active" id="vistaBtnTabla" onclick="cambiarVistaOrdenes('tabla')">☰ Tabla</button>
+        <button class="vista-btn" id="vistaBtnKanban" onclick="cambiarVistaOrdenes('kanban')">▦ Kanban</button>
+      </div>
     </div>
 
     <!-- TABLA EQUIPOS POR LLEGAR (pre-registrados, aún no llegan al taller) -->
@@ -1308,8 +1430,11 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
+    <!-- TABLERO KANBAN (vista alterna a las 2 tablas de abajo) -->
+    <div class="kanban-board hidden" id="kanbanBoard"></div>
+
     <!-- TABLA ÓRDENES ACTIVAS -->
-    <div class="table-section">
+    <div class="table-section" id="seccionActivasTabla">
       <div class="section-header" id="hdrActivas" onclick="toggleSec('activas')">
         <h2><span class="sh-indicator activo"></span>Órdenes en Centro de Servicio <span class="badge" id="badgeActivas">0</span></h2>
         <span class="toggle-icon" id="iconActivas">▼</span>
@@ -1337,7 +1462,7 @@ footer strong{ color: var(--azul); }
     </div>
 
     <!-- TABLA TERMINADAS -->
-    <div class="table-section">
+    <div class="table-section" id="seccionTerminadasTabla">
       <div class="section-header" id="hdrTerminadas" onclick="toggleSec('terminadas')">
         <h2><span class="sh-indicator cerrado"></span>Terminadas / Entregadas <span class="badge" id="badgeTerminadas">0</span></h2>
         <span class="toggle-icon" id="iconTerminadas">▼</span>
@@ -1402,6 +1527,46 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL CONFIRMAR ENTREGA — cualquiera (Técnico o Admin) documenta la entrega con
+     fotos del equipo y de la remisión firmada; al confirmar, la orden pasa a Entregado. -->
+<div class="modal-overlay hidden" id="modalEntrega" onclick="cerrarEntregaSiFuera(event)">
+  <div class="ck-modal" style="max-width:480px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Confirmar entrega — <span id="entregaIdentificador"></span></h2>
+        <button class="modal-close" onclick="cerrarModalEntrega()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body">
+      <div class="entrega-seccion">
+        <label>Fotos del equipo entregado</label>
+        <div class="foto-btn-row">
+          <button type="button" class="btn-foto" onclick="abrirSelectorFotoEntrega('equipo','camara')">📷 Tomar foto</button>
+          <button type="button" class="btn-foto" onclick="abrirSelectorFotoEntrega('equipo','galeria')">🖼️ Elegir de galería</button>
+        </div>
+        <input type="file" id="entregaInputEquipo" accept="image/*" multiple class="hidden" onchange="manejarFotosEntrega(this,'equipo')">
+        <div class="photo-grid" id="entregaGridEquipo"></div>
+        <div class="photo-counter" id="entregaCounterEquipo">0 fotos seleccionadas</div>
+      </div>
+      <div class="entrega-seccion">
+        <label>Foto de la remisión ya firmada</label>
+        <div class="foto-btn-row">
+          <button type="button" class="btn-foto" onclick="abrirSelectorFotoEntrega('remision','camara')">📷 Tomar foto</button>
+          <button type="button" class="btn-foto" onclick="abrirSelectorFotoEntrega('remision','galeria')">🖼️ Elegir de galería</button>
+        </div>
+        <input type="file" id="entregaInputRemision" accept="image/*" multiple class="hidden" onchange="manejarFotosEntrega(this,'remision')">
+        <div class="photo-grid" id="entregaGridRemision"></div>
+        <div class="photo-counter" id="entregaCounterRemision">0 fotos seleccionadas</div>
+      </div>
+      <div id="entregaError" class="hidden" style="color:var(--rojo);font-size:0.8rem;margin-top:2px"></div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarModalEntrega()">Cancelar</button>
+      <button class="btn-confirmar-entrega" id="btnConfirmarEntrega" onclick="confirmarEntregaConEvidencia()">✓ Confirmar entrega</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL DETALLE — Servicios Generales -->
 <div class="modal-overlay hidden" id="modalDetalleGeneral" onclick="cerrarDetalleGeneralSiFuera(event)">
   <div class="ck-modal" style="max-width:560px">
@@ -1459,6 +1624,10 @@ footer strong{ color: var(--azul); }
           <label>Cliente *</label>
           <input type="text" id="preCliente" placeholder="Ej. ABB">
         </div>
+        <div class="prereg-campo" style="grid-column:1 / -1">
+          <label>Descripción del problema (lo que reporta el cliente/usuario)</label>
+          <textarea id="preDescripcionProblema" placeholder="Ej. Se recibirá equipo, reportan que hace ruido excesivo al arrancar..." style="min-height:60px;resize:vertical"></textarea>
+        </div>
         <div class="prereg-campo">
           <label>Nombre / apodo del equipo</label>
           <input type="text" id="preNombreCorto" placeholder="Ej. Motor de la línea 3">
@@ -1483,9 +1652,9 @@ footer strong{ color: var(--azul); }
           <label>N° de parte</label>
           <input type="text" id="preNumParte" placeholder="Ej. 247161">
         </div>
-        <div class="prereg-campo">
-          <label>Técnico asignado</label>
-          <select id="preTecnico"><option value="">— Sin asignar —</option></select>
+        <div class="prereg-campo" style="grid-column:1 / -1">
+          <label>Técnico(s) asignado(s)</label>
+          <div class="tecnico-checks" id="preTecnicoChecks"></div>
         </div>
         <div class="prereg-campo">
           <label>Potencia (HP / kW)</label>
@@ -1509,6 +1678,91 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL ASIGNAR TÉCNICOS A UNA ORDEN (solo Admin) -->
+<div class="modal-overlay hidden" id="modalAsignarTecnicos" onclick="cerrarAsignarTecnicosSiFuera(event)">
+  <div class="ck-modal" style="max-width:420px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Asignar técnico(s) — <span id="asigTecTitulo">—</span></h2>
+        <button class="modal-close" onclick="cerrarAsignarTecnicos()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body">
+      <div class="tecnico-checks" id="asigTecnicoChecks"></div>
+      <div class="tecnico-otro-texto hidden" id="wrapAsigTecnicoOtro" style="margin-top:8px">
+        <input type="text" id="asigTecnicoOtroTexto" placeholder="Nombre de quien no está en la lista" style="width:100%;padding:8px 10px;border:1px solid var(--gris);border-radius:var(--radio-sm);font-size:0.85rem;font-family:inherit">
+      </div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarAsignarTecnicos()">Cancelar</button>
+      <button class="btn-imprimir" onclick="guardarAsignacionTecnicos()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL COTIZACIÓN (solo Admin) -->
+<div class="modal-overlay hidden" id="modalCotizacion" onclick="cerrarCotizacionSiFuera(event)">
+  <div class="ck-modal" style="max-width:840px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Cotización — <span id="cotFolioTitulo">—</span></h2>
+        <button class="modal-close" onclick="cerrarCotizacion()">✕</button>
+      </div>
+      <div id="cotEstadoBadge" style="margin-top:8px"></div>
+    </div>
+    <div class="ck-modal-body" id="cotBody">
+      <div style="text-align:center;padding:40px;color:var(--gris-texto)" id="cotCargando">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <p>Cargando cotización...</p>
+      </div>
+      <div id="cotForm" class="hidden">
+        <div class="prereg-grid" style="margin-bottom:16px">
+          <div class="prereg-campo">
+            <label>Cotización solicitada por</label>
+            <input type="text" id="cotSolicitadaPor" placeholder="Nombre del contacto">
+          </div>
+          <div class="prereg-campo">
+            <label>Agente de referencia (SI)</label>
+            <input type="text" id="cotAgente" placeholder="Ej. Jazmin Perez">
+          </div>
+          <div class="prereg-campo">
+            <label>Fecha de entrega estimada</label>
+            <input type="text" id="cotFechaEntrega" placeholder="Ej. 2 días hábiles">
+          </div>
+          <div class="prereg-campo">
+            <label>Condiciones de pago</label>
+            <select id="cotCondicionesPago">
+              <option value="Crédito">Crédito</option>
+              <option value="Contado">Contado</option>
+              <option value="Anticipo 50%">Anticipo 50%</option>
+            </select>
+          </div>
+          <div class="prereg-campo">
+            <label>Vigencia (días)</label>
+            <input type="number" id="cotVigencia" value="15" min="1">
+          </div>
+        </div>
+
+        <table class="cot-tbl">
+          <thead>
+            <tr><th style="width:64px">Cant.</th><th style="width:80px">Unidad</th><th>Descripción</th><th style="width:110px">P.U.</th><th style="width:110px">Total</th><th style="width:34px"></th></tr>
+          </thead>
+          <tbody id="cotRenglonesBody"></tbody>
+        </table>
+        <button type="button" class="btn-cancelar" id="cotBtnAgregar" onclick="cotAgregarRenglon()">+ Agregar renglón</button>
+
+        <div class="cot-totales">
+          <div>Subtotal: <strong id="cotSubtotalTxt">$0.00</strong></div>
+          <div>IVA (16%): <strong id="cotIvaTxt">$0.00</strong></div>
+          <div>Total: <strong id="cotTotalTxt">$0.00</strong></div>
+        </div>
+        <div id="cotStatus" style="margin-top:8px;font-size:0.83rem;font-weight:600"></div>
+      </div>
+    </div>
+    <div class="ck-modal-footer" id="cotFooter"></div>
+  </div>
+</div>
+
 
 <script>
 /* ============================================================
@@ -1525,6 +1779,7 @@ if(!_sesionValida){
 /* ============================================================
    CONFIGURACIÓN
    ============================================================ */
+
 const TABLE_ID = "tblcyGwDeOORxELJg";
 const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
 const BF_SERIE = "fldegmWGpcWW7Awzn";
@@ -1553,6 +1808,9 @@ const F = {
   prioridad:               "fldLskZ89jqrWxuGy",
   tecnicoAsignado:         "fldyyr9YbJCPGUWmE",
   fechaEntregaProgramada:  "fldcWlXUh65ftgFs9",
+  notasCorreccion:         "fldP5uFmrDGcsxy9f",
+  fotosEntregaEquipo:      "fldk4rbHtR3zslHJB",
+  fotosEntregaRemision:    "fldV9nvYJWCZ28fAo",
 };
 
 /* ============================================================
@@ -1589,7 +1847,7 @@ async function fetchAll(){
 async function fetchTecnicos(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url);
+    const res = await fetch(url, {});
     if(!res.ok) return [];
     const d = await res.json();
     return (d.records || [])
@@ -1607,7 +1865,7 @@ async function fetchTecnicos(){
 async function fetchBorradores(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url);
+    const res = await fetch(url, {});
     if(!res.ok) return {};
     const d = await res.json();
     const lookup = {};
@@ -1647,6 +1905,7 @@ function parsear(rec){
     prioridad:       (f[F.prioridad] !== undefined && f[F.prioridad] !== null) ? Number(f[F.prioridad]) : null,
     tecnicoAsignado: f[F.tecnicoAsignado] || "",
     fechaEntregaProgramada: f[F.fechaEntregaProgramada] || "",
+    notasCorreccion: f[F.notasCorreccion] || "",
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -1658,6 +1917,7 @@ function normEstado(e){
   const s = (e||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
   if(s.includes("por llegar")||s.includes("porllegar")) return "porllegar";
   if(s.includes("no autorizado")) return "noautorizado";
+  if(s.includes("correccion")) return "encorreccion";
   if(s.includes("diagnostico")) return "endiagnostico";
   if(s.includes("entregado")) return "entregado";
   if(s.includes("terminado")||s.includes("completado")) return "terminado";
@@ -1787,11 +2047,13 @@ function renderDashboard(ordenes){
   // Tablas — enTaller incluye TODAS las no terminadas/entregadas (incluso sin estado)
   const activas   = enTaller.slice().sort(byPrioridadYDias);
   const cerradas  = [...terminadas, ...entregadas].sort(byDiasDesc);
+  const esAdmin   = _sesion && _sesion.rol === "Admin";
 
   document.getElementById("badgeActivas").textContent   = activas.length;
   document.getElementById("badgeTerminadas").textContent = cerradas.length;
   renderTabla("tbodyActivas",   activas);
   renderTabla("tbodyTerminadas", cerradas);
+  renderKanban([...activas, ...cerradas], esAdmin);
 
   // Equipos por llegar (pre-registrados) — sección propia, solo si hay
   document.getElementById("seccionPorLlegar").classList.toggle("hidden", porLlegar.length === 0);
@@ -1849,6 +2111,69 @@ function cambiarTab(tab){
 /* ============================================================
    TABLA
    ============================================================ */
+function datosFila(o, esAdmin){
+  const esGeneral = o.tipoServicio === "General";
+  let p;
+  if(esGeneral){
+    const bp = borradorLookup[o.folio?.toUpperCase()];
+    p = o.reporteGeneralCompletado ? 100 : (bp != null ? bp : (normEstado(o.estado) === "proceso" ? 40 : 0));
+  } else {
+    const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
+    p = prog > 0 ? Math.round((prog/3)*100) : (borradorLookup[o.serie?.toUpperCase()] ?? 0);
+  }
+  const fillCls = p>=100 ? "full" : p>=60 ? "p67" : p>=20 ? "p33" : "";
+  const lblCls  = p>=100 ? "pct-full" : p>=20 ? "pct-mid" : "pct-low";
+  let diasTxt = "—", diasCls = "";
+  if(o.dias !== null){
+    diasTxt = o.dias;
+    diasCls = o.dias > 30 ? "dias-alto" : o.dias > 4 ? "dias-medio" : "dias-bajo";
+  }
+  const identificador = o.serie || o.folio || "—";
+  const servicioBadge = esGeneral
+    ? `<span class="chip" style="background:#fff3e0;color:#e65100">General</span>`
+    : `<span class="chip" style="background:#e3f2fd;color:#1565c0">Sulzer</span>`;
+  const equipoTxt = esGeneral ? (o.tipoEquipo || "—") : "Motor";
+  const accionesHtml = esGeneral ? `
+      <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
+      ${!o.reporteGeneralCompletado && !["endiagnostico","noautorizado"].includes(normEstado(o.estado))
+        ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_general.html?folio=${encodeURIComponent(o.folio)}">&#9997; Continuar</a>`
+        : ''}
+      ${normEstado(o.estado)==="terminado"
+        ? `<button class="btn-corr" style="background:#1b7a34" onclick="abrirModalEntrega('${o.id}','${esc(identificador)}')">&#128230; Entregar</button>`
+        : ''}
+      ${esAdmin && normEstado(o.estado)==="entregado"
+        ? `<button class="btn-corr" style="background:#6b7280" onclick="cambiarEntregado('${o.id}','${esc(identificador)}',false)">&#8617; Revertir a Terminado</button>`
+        : ''}
+      ${["terminado","entregado"].includes(normEstado(o.estado))
+        ? `<button class="btn-corr" style="background:#c2410c" onclick="abrirAjustesGeneral('${o.id}','${esc(o.folio)}')">&#8617; Ajustes</button>`
+        : ''}
+      <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
+      ${esAdmin ? `<button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(identificador)}')">&#128176; Cotizar</button>` : ''}
+    ` : `
+      <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
+      ${!["terminado","entregado"].includes(normEstado(o.estado))
+        ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_maestro.html?serie=${encodeURIComponent(o.serie)}">&#9997; Continuar</a>`
+        : ''}
+      ${normEstado(o.estado)==="terminado"
+        ? `<button class="btn-corr" style="background:#1b7a34" onclick="abrirModalEntrega('${o.id}','${esc(o.serie)}')">&#128230; Entregar</button>`
+        : ''}
+      ${esAdmin && normEstado(o.estado)==="entregado"
+        ? `<button class="btn-corr" style="background:#6b7280" onclick="cambiarEntregado('${o.id}','${esc(o.serie)}',false)">&#8617; Revertir a Terminado</button>`
+        : ''}
+      <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(o.serie)}')">Reportes</button>
+      ${o.checklist && !o.correccionesCompletadas
+        ? `<button class="btn-corr" onclick="abrirCorrecciones('${o.id}','${esc(o.serie)}')">&#9998; Correcciones</button>`
+        : ''}
+      ${o.checklist && o.correccionesCompletadas && !o.pintura
+        ? `<button class="btn-corr" style="background:#1d5496" onclick="abrirPintura('${o.id}','${esc(o.serie)}')">&#128396; Pintura</button>`
+        : ''}
+      ${o.pintura
+        ? `<button class="btn-corr btn-corr-done" disabled title="Proceso completado">&#10003; Completo</button>`
+        : ''}
+    `;
+  return { esGeneral, p, fillCls, lblCls, diasTxt, diasCls, identificador, servicioBadge, equipoTxt, accionesHtml };
+}
+
 function renderTabla(tbodyId, ordenes){
   const tbody = document.getElementById(tbodyId);
   if(ordenes.length === 0){
@@ -1857,31 +2182,11 @@ function renderTabla(tbodyId, ordenes){
   }
   const esAdmin = _sesion && _sesion.rol === "Admin";
   tbody.innerHTML = ordenes.map(o => {
-    const esGeneral = o.tipoServicio === "General";
-    let p;
-    if(esGeneral){
-      const bp = borradorLookup[o.folio?.toUpperCase()];
-      p = o.reporteGeneralCompletado ? 100 : (bp != null ? bp : (normEstado(o.estado) === "proceso" ? 40 : 0));
-    } else {
-      const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
-      p = prog > 0 ? Math.round((prog/3)*100) : (borradorLookup[o.serie?.toUpperCase()] ?? 0);
-    }
-    const fillCls = p>=100 ? "full" : p>=60 ? "p67" : p>=20 ? "p33" : "";
-    const lblCls  = p>=100 ? "pct-full" : p>=20 ? "pct-mid" : "pct-low";
-    let diasTxt = "—", diasCls = "";
-    if(o.dias !== null){
-      diasTxt = o.dias;
-      diasCls = o.dias > 30 ? "dias-alto" : o.dias > 4 ? "dias-medio" : "dias-bajo";
-    }
-    const identificador = o.serie || o.folio || "—";
-    const servicioBadge = esGeneral
-      ? `<span class="chip" style="background:#fff3e0;color:#e65100">General</span>`
-      : `<span class="chip" style="background:#e3f2fd;color:#1565c0">Sulzer</span>`;
-    const equipoTxt = esGeneral ? (o.tipoEquipo || "—") : "Motor";
+    const d = datosFila(o, esAdmin);
     return `<tr>
-      <td class="td-serie">${esc(identificador)}</td>
-      <td>${servicioBadge}</td>
-      <td>${esc(equipoTxt)}</td>
+      <td class="td-serie">${esc(d.identificador)}</td>
+      <td>${d.servicioBadge}</td>
+      <td>${esc(d.equipoTxt)}</td>
       <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
       <td class="td-num">${celdaPrioridad(o, esAdmin)}</td>
       <td>${celdaTecnico(o, esAdmin)}</td>
@@ -1889,39 +2194,95 @@ function renderTabla(tbodyId, ordenes){
       <td>${chipEstado(o.estado)}</td>
       <td>
         <div class="mini-prog">
-          <div class="mini-track"><div class="mini-fill ${fillCls}" style="width:${p}%"></div></div>
-          <span class="mini-lbl ${lblCls}">${p}%</span>
+          <div class="mini-track"><div class="mini-fill ${d.fillCls}" style="width:${d.p}%"></div></div>
+          <span class="mini-lbl ${d.lblCls}">${d.p}%</span>
         </div>
       </td>
-      <td class="td-num td-dias ${diasCls}">${diasTxt}</td>
+      <td class="td-num td-dias ${d.diasCls}">${d.diasTxt}</td>
       <td class="td-num">
-        <div class="fila-acciones">
-        ${esGeneral ? `
-          <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
-          ${!["terminado","entregado","endiagnostico","noautorizado"].includes(normEstado(o.estado))
-            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_general.html?folio=${encodeURIComponent(o.folio)}">&#9997; Continuar</a>`
-            : ''}
-          <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
-        ` : `
-          <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
-          ${!["terminado","entregado"].includes(normEstado(o.estado))
-            ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_maestro.html?serie=${encodeURIComponent(o.serie)}">&#9997; Continuar</a>`
-            : ''}
-          <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(o.serie)}')">Reportes</button>
-          ${o.checklist && !o.correccionesCompletadas
-            ? `<button class="btn-corr" onclick="abrirCorrecciones('${o.id}','${esc(o.serie)}')">&#9998; Correcciones</button>`
-            : ''}
-          ${o.checklist && o.correccionesCompletadas && !o.pintura
-            ? `<button class="btn-corr" style="background:#1d5496" onclick="abrirPintura('${o.id}','${esc(o.serie)}')">&#128396; Pintura</button>`
-            : ''}
-          ${o.pintura
-            ? `<button class="btn-corr btn-corr-done" disabled title="Proceso completado">&#10003; Completo</button>`
-            : ''}
-        `}
-        </div>
+        <div class="fila-acciones">${d.accionesHtml}</div>
       </td>
     </tr>`;
   }).join("");
+}
+
+/* ============================================================
+   KANBAN
+   ============================================================ */
+const KANBAN_COLS = [
+  { key:"recibido",      label:"Recibido",       dot:"#1d5496" },
+  { key:"endiagnostico", label:"En diagnóstico", dot:"#6b21a8" },
+  { key:"proceso",       label:"En proceso",     dot:"#976010" },
+  { key:"terminado",     label:"Terminado",      dot:"#0e7a3c" },
+  { key:"entregado",     label:"Entregado",      dot:"#6b7280" },
+];
+
+function kanbanBucket(estado){
+  const k = normEstado(estado);
+  if(k === "noautorizado") return "endiagnostico";
+  if(k === "encorreccion") return "proceso";
+  if(k === "otro") return "recibido";
+  return k;
+}
+
+function renderKanban(ordenes, esAdmin){
+  const board = document.getElementById("kanbanBoard");
+  const ordenPorPrioridad = ["recibido","endiagnostico","proceso"];
+  board.innerHTML = KANBAN_COLS.map(col => {
+    const items = ordenes
+      .filter(o => kanbanBucket(o.estado) === col.key)
+      .sort(ordenPorPrioridad.includes(col.key) ? byPrioridadYDias : byDiasDesc);
+    const cardsHtml = items.length
+      ? items.map(o => tarjetaKanban(o, esAdmin, col)).join("")
+      : `<div class="kanban-empty">Sin órdenes</div>`;
+    return `<div class="kanban-col">
+      <div class="kanban-col-hdr">
+        <span class="kanban-col-title"><span class="kanban-col-dot" style="background:${col.dot}"></span>${col.label}</span>
+        <span class="badge">${items.length}</span>
+      </div>
+      <div class="kanban-cards">${cardsHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+function tarjetaKanban(o, esAdmin, col){
+  const d = datosFila(o, esAdmin);
+  const noAutorizado = normEstado(o.estado) === "noautorizado";
+  const enCorreccion = normEstado(o.estado) === "encorreccion";
+  const acento = noAutorizado ? "#991b1b" : enCorreccion ? "#c2410c" : col.dot;
+  return `<div class="kanban-card" style="border-left-color:${acento}">
+    <div class="kanban-card-top">
+      <span class="kanban-card-id">${esc(d.identificador)}</span>
+      ${d.servicioBadge}
+    </div>
+    <div class="kanban-card-equipo">${esc(d.equipoTxt)}</div>
+    <div class="kanban-card-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</div>
+    ${noAutorizado ? `<div class="chip chip-noautorizado" style="margin-bottom:10px">No autorizado</div>` : ""}
+    ${enCorreccion ? `<div class="chip chip-correccion" style="margin-bottom:10px" title="${esc(o.notasCorreccion)}">En corrección</div>` : ""}
+    <div class="kanban-card-meta">
+      ${celdaPrioridad(o, esAdmin)}
+      ${celdaTecnico(o, esAdmin)}
+      ${celdaEntregaProgramada(o, esAdmin)}
+    </div>
+    <div class="mini-prog">
+      <div class="mini-track"><div class="mini-fill ${d.fillCls}" style="width:${d.p}%"></div></div>
+      <span class="mini-lbl ${d.lblCls}">${d.p}%</span>
+    </div>
+    <div class="kanban-card-dias ${d.diasCls}" style="margin-bottom:8px">${d.diasTxt === "—" ? "—" : d.diasTxt + " días en C.S"}</div>
+    <div class="fila-acciones">${d.accionesHtml}</div>
+  </div>`;
+}
+
+let vistaOrdenes = localStorage.getItem("si_vista_ordenes") || "tabla";
+
+function cambiarVistaOrdenes(v){
+  vistaOrdenes = v;
+  localStorage.setItem("si_vista_ordenes", v);
+  document.getElementById("seccionActivasTabla").classList.toggle("hidden", v !== "tabla");
+  document.getElementById("seccionTerminadasTabla").classList.toggle("hidden", v !== "tabla");
+  document.getElementById("kanbanBoard").classList.toggle("hidden", v !== "kanban");
+  document.getElementById("vistaBtnTabla").classList.toggle("active", v === "tabla");
+  document.getElementById("vistaBtnKanban").classList.toggle("active", v === "kanban");
 }
 
 async function verDetalleGeneral(id, identificador){
@@ -1943,7 +2304,7 @@ async function verDetalleGeneral(id, identificador){
   const BF_DATOS_JSON = "fldSdxpRwhyvSWEgJ";
 
   try{
-    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`);
+    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, {});
     if(!ordenRes.ok) throw new Error("No se pudo cargar la orden.");
     const orden = await ordenRes.json();
     const of = orden.fields || {};
@@ -1953,7 +2314,7 @@ async function verDetalleGeneral(id, identificador){
     // o si no, del borrador en progreso (misma tabla que alimenta "Lista de Materiales").
     let extra = { nombreCorto:"", marca:"", color:"", numParte:"" };
     const rgFormula = encodeURIComponent(`OR(FIND("${id}",ARRAYJOIN({${RGD.ordenServicio}})),{${RGD.folio}}="${folio}")`);
-    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`);
+    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`, {});
     if(rgRes.ok){
       const rgData = await rgRes.json();
       const rg = (rgData.records||[])[0];
@@ -1968,7 +2329,7 @@ async function verDetalleGeneral(id, identificador){
     }
     if(!extra.nombreCorto && !extra.marca && !extra.color && !extra.numParte){
       const bfFormula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
-      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`);
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, {});
       if(bfRes.ok){
         const bfData = await bfRes.json();
         const bf = (bfData.records||[])[0];
@@ -2049,6 +2410,155 @@ function verDiagnostico(ordenId, folio){
   window.open(`reportes.html?id=${encodeURIComponent(ordenId)}&serie=${encodeURIComponent(folio)}&auto=diagnostico`, '_blank');
 }
 
+// Revertir "Entregado" es la única transición manual que se quedó con confirm() simple
+// (Admin, por seguridad) — el camino de ida (marcar Entregado) ahora pasa por
+// abrirModalEntrega()/confirmarEntregaConEvidencia(), que exige fotos de evidencia.
+async function cambiarEntregado(id, identificador, marcar){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  const nuevoEstado = marcar ? "Entregado" : "Terminado";
+  const msg = marcar
+    ? `¿Confirmas que "${identificador}" ya se entregó al cliente?`
+    : `¿Revertir "${identificador}" a "Terminado"? Se quita la marca de Entregado.`;
+  if(!confirm(msg)) return;
+  try{
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ fields: { [F.estado]: nuevoEstado } })
+    });
+    if(!res.ok){
+      const d = await res.json().catch(() => ({}));
+      throw new Error((d.error && d.error.message) || `Error HTTP ${res.status}`);
+    }
+    [allOrdenes, filtradas].forEach(lista => {
+      const o = lista.find(x => x.id === id);
+      if(o) o.estado = nuevoEstado;
+    });
+    renderDashboard(filtradas);
+  } catch(e){
+    alert("No se pudo actualizar el estado: " + (e.message||""));
+  }
+}
+
+/* ============================================================
+   CONFIRMAR ENTREGA — cualquiera (Técnico o Admin) documenta la
+   entrega con fotos del equipo y de la remisión firmada. Al
+   confirmar, la orden pasa a "Entregado" automáticamente (no hace
+   falta un botón/paso aparte para marcarlo).
+   ============================================================ */
+let _entregaOrdenId = null;
+let _entregaFotosEquipo = [];
+let _entregaFotosRemision = [];
+
+function abrirModalEntrega(id, identificador){
+  _entregaOrdenId = id;
+  _entregaFotosEquipo = [];
+  _entregaFotosRemision = [];
+  document.getElementById("entregaIdentificador").textContent = identificador;
+  document.getElementById("entregaGridEquipo").innerHTML = "";
+  document.getElementById("entregaGridRemision").innerHTML = "";
+  document.getElementById("entregaCounterEquipo").textContent = "0 fotos seleccionadas";
+  document.getElementById("entregaCounterRemision").textContent = "0 fotos seleccionadas";
+  document.getElementById("entregaError").classList.add("hidden");
+  const btn = document.getElementById("btnConfirmarEntrega");
+  btn.disabled = false;
+  btn.textContent = "✓ Confirmar entrega";
+  document.getElementById("modalEntrega").classList.remove("hidden");
+}
+
+function cerrarModalEntrega(){ document.getElementById("modalEntrega").classList.add("hidden"); }
+function cerrarEntregaSiFuera(e){ if(e.target.id === "modalEntrega") cerrarModalEntrega(); }
+
+function abrirSelectorFotoEntrega(tipo, modo){
+  const input = document.getElementById(tipo === "equipo" ? "entregaInputEquipo" : "entregaInputRemision");
+  if(modo === "camara") input.setAttribute("capture", "environment");
+  else input.removeAttribute("capture");
+  input.click();
+}
+
+function manejarFotosEntrega(inputEl, tipo){
+  const files = Array.from(inputEl.files || []);
+  if(files.length === 0) return;
+  const arr = tipo === "equipo" ? _entregaFotosEquipo : _entregaFotosRemision;
+  let pendientes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      arr.push({ dataUrl: e.target.result, filename: `entrega_${tipo}_${arr.length+1}.jpg` });
+      pendientes--;
+      if(pendientes === 0) renderizarGridEntrega(tipo);
+    };
+    reader.readAsDataURL(file);
+  });
+  inputEl.value = "";
+}
+
+function renderizarGridEntrega(tipo){
+  const arr = tipo === "equipo" ? _entregaFotosEquipo : _entregaFotosRemision;
+  const grid = document.getElementById(tipo === "equipo" ? "entregaGridEquipo" : "entregaGridRemision");
+  grid.innerHTML = arr.map((foto,i) => `
+    <div class="photo-thumb">
+      <img src="${foto.dataUrl}" alt="Foto ${i+1}">
+      <button type="button" class="remove-btn" onclick="eliminarFotoEntrega('${tipo}',${i})">✕</button>
+    </div>
+  `).join("");
+  document.getElementById(tipo === "equipo" ? "entregaCounterEquipo" : "entregaCounterRemision").textContent =
+    `${arr.length} foto${arr.length===1?"":"s"} seleccionada${arr.length===1?"":"s"}`;
+}
+
+function eliminarFotoEntrega(tipo, i){
+  const arr = tipo === "equipo" ? _entregaFotosEquipo : _entregaFotosRemision;
+  arr.splice(i, 1);
+  renderizarGridEntrega(tipo);
+}
+
+async function subirFotosEntregaA(recordId, fieldId, fotos){
+  for(const f of fotos){
+    await fetch(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contentType: "image/jpeg", filename: f.filename, file: f.dataUrl.split(",")[1] })
+    });
+  }
+}
+
+async function confirmarEntregaConEvidencia(){
+  const errEl = document.getElementById("entregaError");
+  errEl.classList.add("hidden");
+  if(_entregaFotosEquipo.length === 0 || _entregaFotosRemision.length === 0){
+    errEl.textContent = "Agrega al menos una foto del equipo y una de la remisión firmada antes de confirmar.";
+    errEl.classList.remove("hidden");
+    return;
+  }
+  const btn = document.getElementById("btnConfirmarEntrega");
+  btn.disabled = true;
+  btn.textContent = "Guardando...";
+  try{
+    await subirFotosEntregaA(_entregaOrdenId, F.fotosEntregaEquipo, _entregaFotosEquipo);
+    await subirFotosEntregaA(_entregaOrdenId, F.fotosEntregaRemision, _entregaFotosRemision);
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_entregaOrdenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [F.estado]: "Entregado" } })
+    });
+    if(!res.ok){
+      const d = await res.json().catch(() => ({}));
+      throw new Error((d.error && d.error.message) || `Error HTTP ${res.status}`);
+    }
+    [allOrdenes, filtradas].forEach(lista => {
+      const o = lista.find(x => x.id === _entregaOrdenId);
+      if(o) o.estado = "Entregado";
+    });
+    cerrarModalEntrega();
+    renderDashboard(filtradas);
+  } catch(e){
+    errEl.textContent = "No se pudo guardar: " + (e.message || "");
+    errEl.classList.remove("hidden");
+    btn.disabled = false;
+    btn.textContent = "✓ Confirmar entrega";
+  }
+}
+
 async function autorizarDiagnostico(id, autorizado){
   if(!_sesion || _sesion.rol !== "Admin") return;
   const nuevoEstado = autorizado ? "En proceso" : "No autorizado";
@@ -2070,19 +2580,243 @@ async function autorizarDiagnostico(id, autorizado){
 }
 
 /* ============================================================
+   COTIZACIÓN (solo Admin) — el técnico nunca ve precios.
+   Admin arma renglones con precios → Borrador/Enviada; el cliente
+   autoriza o rechaza desde cliente.html (estadoCotizacion).
+   ============================================================ */
+const COT = {
+  detalleServicios:        "fldNRxyyyhyZn9qhI",
+  subtotal:                "fldI0EhIItl3f6oQv",
+  iva:                     "fldmt0sEHNWPDdIdm",
+  precioTotal:             "fldFlHOBWCEC0SLZn",
+  fechaEntregaEstimada:    "fldL6KTrxsH5mIhob",
+  condicionesPago:         "fldZo5xFPZ2f2rpoM",
+  vigenciaDias:            "fldH6pal3gqsuCGBw",
+  cotizacionSolicitadaPor: "fldUKC1AFtlqb4X1B",
+  agenteReferencia:        "fldnOqhkJIIgQrVWs",
+  estadoCotizacion:        "fldjUqpqdCRQ8rdCU",
+  clienteAutorizo:         "fld0YRjkHOdspFNHe",
+  fechaAutorizacion:       "fldmizB5GKLZfVOYM",
+};
+let cotOrdenId      = null;
+let cotFolio        = "";
+let cotRenglones    = [];
+let cotEstadoActual = null;
+
+function fmtMoneda(n){
+  n = parseFloat(n) || 0;
+  return "$" + n.toLocaleString("es-MX", { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+function fmtFechaHoraCot(s){
+  if(!s) return "";
+  const d = new Date(s);
+  if(isNaN(d)) return s;
+  return d.toLocaleString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit" });
+}
+
+async function abrirCotizacion(id, identificador){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  cotOrdenId = id;
+  cotFolio = identificador;
+  document.getElementById("cotFolioTitulo").textContent = identificador;
+  document.getElementById("cotForm").classList.add("hidden");
+  document.getElementById("cotCargando").classList.remove("hidden");
+  document.getElementById("cotCargando").innerHTML = `<div class="spinner" style="margin:0 auto 16px"></div><p>Cargando cotización...</p>`;
+  document.getElementById("cotEstadoBadge").innerHTML = "";
+  document.getElementById("cotFooter").innerHTML = "";
+  document.getElementById("cotStatus").textContent = "";
+  document.getElementById("modalCotizacion").classList.remove("hidden");
+
+  try{
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, {});
+    if(!res.ok) throw new Error("No se pudo cargar la orden.");
+    const orden = await res.json();
+    const f = orden.fields || {};
+
+    let renglones = [];
+    try{ renglones = JSON.parse(f[COT.detalleServicios] || "[]"); }catch(e){}
+    cotRenglones = renglones.length ? renglones : [{ cant:1, unidad:"SERV", descripcion:"", precioUnitario:0, total:0 }];
+
+    document.getElementById("cotSolicitadaPor").value   = f[COT.cotizacionSolicitadaPor] || "";
+    document.getElementById("cotAgente").value          = f[COT.agenteReferencia] || "";
+    document.getElementById("cotFechaEntrega").value    = f[COT.fechaEntregaEstimada] || "";
+    document.getElementById("cotCondicionesPago").value = (f[COT.condicionesPago] && f[COT.condicionesPago].name) || f[COT.condicionesPago] || "Crédito";
+    document.getElementById("cotVigencia").value        = f[COT.vigenciaDias] || 15;
+
+    const estadoRaw = f[COT.estadoCotizacion];
+    cotEstadoActual = (estadoRaw && estadoRaw.name) || estadoRaw || null;
+
+    cotRenderRenglones();
+    cotRecalcular();
+    cotActualizarBadgeYFooter(f[COT.fechaAutorizacion]);
+
+    document.getElementById("cotCargando").classList.add("hidden");
+    document.getElementById("cotForm").classList.remove("hidden");
+  } catch(e){
+    document.getElementById("cotCargando").innerHTML = `<p style="color:var(--rojo)">Error al cargar la cotización: ${esc(e.message)}</p>`;
+  }
+}
+
+function cotActualizarBadgeYFooter(fechaAutorizacion){
+  const bloqueada = cotEstadoActual === "Autorizada";
+  const colores = {
+    "Borrador":   "background:var(--fondo);color:var(--gris-texto)",
+    "Enviada":    "background:#fff3cd;color:#7a5b00",
+    "Autorizada": "background:#e6f4eb;color:#1b7a34",
+    "Rechazada":  "background:#fdecea;color:#991b1b",
+  };
+  const estiloBadge = colores[cotEstadoActual] || "background:var(--fondo);color:var(--gris-texto)";
+  const fechaTxt = fechaAutorizacion ? ` <span style="font-size:0.75rem;color:var(--gris-texto)">el ${esc(fmtFechaHoraCot(fechaAutorizacion))}</span>` : "";
+  document.getElementById("cotEstadoBadge").innerHTML =
+    `<span class="cot-estado-badge" style="${estiloBadge}">${esc(cotEstadoActual || "Sin cotizar")}</span>${(cotEstadoActual === "Autorizada" || cotEstadoActual === "Rechazada") ? fechaTxt : ""}`;
+
+  document.querySelectorAll("#cotForm input, #cotForm select, #cotForm button").forEach(el => el.disabled = bloqueada);
+
+  document.getElementById("cotFooter").innerHTML = `
+    <button class="btn-cancelar" onclick="cerrarCotizacion()">Cerrar</button>
+    <button class="btn-rep" style="margin:0;padding:9px 16px;font-size:0.84rem" onclick="cotVistaPrevia()">👁 Vista previa</button>
+    ${!bloqueada ? `
+      <button class="btn-cancelar" onclick="cotGuardar('Borrador')">Guardar borrador</button>
+      <button class="btn-imprimir" onclick="cotEnviar()">Enviar cotización al cliente</button>
+    ` : ''}
+  `;
+}
+
+function cotRenderRenglones(){
+  document.getElementById("cotRenglonesBody").innerHTML = cotRenglones.map((r,i) => `
+    <tr>
+      <td><input type="number" step="any" value="${esc(String(r.cant ?? ""))}" oninput="cotRenglones[${i}].cant=this.value;cotRecalcularFila(${i})"></td>
+      <td><input type="text" value="${esc(r.unidad || "")}" placeholder="SERV" oninput="cotRenglones[${i}].unidad=this.value"></td>
+      <td><input type="text" value="${esc(r.descripcion || "")}" placeholder="Descripción del servicio" oninput="cotRenglones[${i}].descripcion=this.value"></td>
+      <td><input type="number" step="0.01" value="${esc(String(r.precioUnitario ?? ""))}" oninput="cotRenglones[${i}].precioUnitario=this.value;cotRecalcularFila(${i})"></td>
+      <td><input type="text" readonly class="cot-total-cell" value="${esc(fmtMoneda(r.total))}"></td>
+      <td><button type="button" class="cot-del" onclick="cotQuitarRenglon(${i})" title="Quitar renglón">✕</button></td>
+    </tr>
+  `).join("");
+}
+
+function cotRecalcularFila(i){
+  const r = cotRenglones[i];
+  const cant = parseFloat(r.cant) || 0;
+  const pu   = parseFloat(r.precioUnitario) || 0;
+  r.total = cant * pu;
+  const fila = document.querySelectorAll("#cotRenglonesBody tr")[i];
+  if(fila) fila.querySelector(".cot-total-cell").value = fmtMoneda(r.total);
+  cotRecalcular();
+}
+
+function cotAgregarRenglon(){
+  cotRenglones.push({ cant:1, unidad:"SERV", descripcion:"", precioUnitario:0, total:0 });
+  cotRenderRenglones();
+}
+function cotQuitarRenglon(i){
+  cotRenglones.splice(i, 1);
+  cotRenderRenglones();
+  cotRecalcular();
+}
+
+function cotRecalcular(){
+  const subtotal = cotRenglones.reduce((s,r) => s + (parseFloat(r.total) || 0), 0);
+  const iva   = subtotal * 0.16;
+  const total = subtotal + iva;
+  document.getElementById("cotSubtotalTxt").textContent = fmtMoneda(subtotal);
+  document.getElementById("cotIvaTxt").textContent      = fmtMoneda(iva);
+  document.getElementById("cotTotalTxt").textContent    = fmtMoneda(total);
+  return { subtotal, iva, total };
+}
+
+function cotRecolectarDatos(){
+  const renglonesValidos = cotRenglones
+    .map(r => ({
+      cant: parseFloat(r.cant) || 0,
+      unidad: (r.unidad || "").trim(),
+      descripcion: (r.descripcion || "").trim(),
+      precioUnitario: parseFloat(r.precioUnitario) || 0,
+      total: parseFloat(r.total) || 0,
+    }))
+    .filter(r => r.descripcion);
+  const { subtotal, iva, total } = cotRecalcular();
+  return {
+    renglonesValidos,
+    fields: {
+      [COT.detalleServicios]:        JSON.stringify(renglonesValidos),
+      [COT.subtotal]:                Math.round(subtotal * 100) / 100,
+      [COT.iva]:                     Math.round(iva * 100) / 100,
+      [COT.precioTotal]:             Math.round(total * 100) / 100,
+      [COT.fechaEntregaEstimada]:    document.getElementById("cotFechaEntrega").value.trim(),
+      [COT.condicionesPago]:         document.getElementById("cotCondicionesPago").value,
+      [COT.vigenciaDias]:            parseInt(document.getElementById("cotVigencia").value, 10) || 15,
+      [COT.cotizacionSolicitadaPor]: document.getElementById("cotSolicitadaPor").value.trim(),
+      [COT.agenteReferencia]:        document.getElementById("cotAgente").value.trim(),
+    },
+  };
+}
+
+async function cotGuardar(estadoDestino){
+  const statusEl = document.getElementById("cotStatus");
+  const { renglonesValidos, fields } = cotRecolectarDatos();
+  if(!renglonesValidos.length){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Agrega al menos un renglón con descripción antes de guardar.";
+    return false;
+  }
+  if(estadoDestino) fields[COT.estadoCotizacion] = estadoDestino;
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando...";
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${cotOrdenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({ fields })
+    });
+    if(estadoDestino) cotEstadoActual = estadoDestino;
+    statusEl.style.color = "var(--verde)";
+    statusEl.textContent = estadoDestino === "Enviada" ? "✓ Cotización enviada al cliente." : "✓ Guardado.";
+    cotActualizarBadgeYFooter(null);
+    return true;
+  } catch(e){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Error al guardar: " + (e.message || "");
+    return false;
+  }
+}
+
+async function cotEnviar(){
+  if(!confirm(`¿Enviar esta cotización a ${cotFolio}? El cliente podrá verla y autorizar o rechazar desde su portal.`)) return;
+  await cotGuardar("Enviada");
+}
+
+// Guarda el estado actual (silencioso) y abre la vista previa imprimible en reportes.html.
+// La ventana se reserva ANTES del await para que el navegador no bloquee el popup
+// (mismo gotcha ya documentado en reportes.html: abrir window.open después de un await pierde el gesto del usuario).
+async function cotVistaPrevia(){
+  const w = window.open("", "_blank");
+  const ok = await cotGuardar(cotEstadoActual || "Borrador");
+  if(!ok){ if(w) w.close(); return; }
+  if(w){
+    w.location.href = `reportes.html?id=${encodeURIComponent(cotOrdenId)}&serie=${encodeURIComponent(cotFolio)}&auto=cotizacion`;
+  } else {
+    alert("El navegador bloqueó la ventana de vista previa. Permite ventanas emergentes para este sitio e intenta de nuevo.");
+  }
+}
+
+function cerrarCotizacion(){ document.getElementById("modalCotizacion").classList.add("hidden"); }
+function cerrarCotizacionSiFuera(e){ if(e.target.id === "modalCotizacion") cerrarCotizacion(); }
+
+/* ============================================================
    PRE-REGISTRO DE EQUIPO (Admin) — da de alta un equipo "Por llegar"
    ============================================================ */
 const PREFIJOS_PREREG = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
 
 function abrirPreRegistro(){
   if(!_sesion || _sesion.rol !== "Admin") return;
-  ["preCliente","preNombreCorto","preMarca","preColor","preSpec","preSerie","preNumParte","prePotencia","preFrame","preVolts","preFolio"].forEach(id => document.getElementById(id).value = "");
+  ["preCliente","preDescripcionProblema","preNombreCorto","preMarca","preColor","preSpec","preSerie","preNumParte","prePotencia","preFrame","preVolts","preFolio"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("preTipoEquipo").value = "";
   document.getElementById("preRegStatus").textContent = "";
-  // Poblar técnicos
-  const sel = document.getElementById("preTecnico");
-  sel.innerHTML = `<option value="">— Sin asignar —</option>` +
-    tecnicosList.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  document.getElementById("btnGuardarPreReg").disabled = false; // el botón quedaba deshabilitado tras un guardado exitoso
+  // Poblar técnicos (checkboxes, sin ninguno marcado — el pre-registro siempre arranca en blanco)
+  document.getElementById("preTecnicoChecks").innerHTML =
+    tecnicosList.map(n => `<label><input type="checkbox" value="${esc(n)}"> ${esc(n)}</label>`).join("");
   document.getElementById("modalPreRegistro").classList.remove("hidden");
 }
 function cerrarPreRegistro(){ document.getElementById("modalPreRegistro").classList.add("hidden"); }
@@ -2128,8 +2862,8 @@ async function guardarPreRegistro(){
     "fldkkXFzqKeGSIqJQ": gv("preSpec"),   // SPEC
     "fldSvMeOGe98aT2e0": gv("preFrame"),  // Frame
   };
-  const tecnico = document.getElementById("preTecnico").value;
-  if(tecnico) fields[F.tecnicoAsignado] = tecnico;
+  const tecnicosMarcados = [...document.querySelectorAll('#preTecnicoChecks input:checked')].map(c => c.value);
+  if(tecnicosMarcados.length) fields[F.tecnicoAsignado] = tecnicosMarcados.join(", ");
   const hp = parseFloat(gv("prePotencia"));
   if(!isNaN(hp)) fields["fldjyFFAaL0dIFWIE"] = hp;
   const volts = parseFloat(gv("preVolts"));
@@ -2154,6 +2888,7 @@ async function guardarPreRegistro(){
       marca: gv("preMarca"),
       color: gv("preColor"),
       numParte: gv("preNumParte"),
+      descripcionProblema: gv("preDescripcionProblema"),
     });
     await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
       method: "POST",
@@ -2173,6 +2908,8 @@ async function guardarPreRegistro(){
     statusEl.style.color = "var(--rojo)";
     statusEl.textContent = "Error: " + (err.message || "no se pudo guardar");
     btn.disabled = false;
+  } finally {
+    setTimeout(() => { btn.disabled = false; }, 1300); // seguro adicional: nunca debe quedar deshabilitado permanentemente
   }
 }
 
@@ -2184,7 +2921,7 @@ async function cancelarPreRegistro(id, folio){
     });
     // Borrar también el registro de BORRADORES asociado (por folio)
     const formula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
-    const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`);
+    const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`, {});
     if(bfRes.ok){
       const bfData = await bfRes.json();
       for(const r of (bfData.records||[])){
@@ -2218,11 +2955,49 @@ function celdaPrioridad(o, esAdmin){
 }
 
 function celdaTecnico(o, esAdmin){
-  if(!esAdmin) return esc(o.tecnicoAsignado) || `<span style="color:var(--gris-texto)">— Sin asignar —</span>`;
-  const opciones = [`<option value="">— Sin asignar —</option>`]
-    .concat(tecnicosList.map(nombre =>
-      `<option value="${esc(nombre)}" ${o.tecnicoAsignado===nombre?"selected":""}>${esc(nombre)}</option>`));
-  return `<select class="sel-fila" onchange="actualizarCampoOrden('${o.id}','tecnicoAsignado',this.value,this)">${opciones.join("")}</select>`;
+  const nombres = esc(o.tecnicoAsignado) || `<span style="color:var(--gris-texto)">— Sin asignar —</span>`;
+  if(!esAdmin) return nombres;
+  return `<button class="sel-fila" style="text-align:left" onclick="abrirAsignarTecnicos('${o.id}')">${nombres} ✎</button>`;
+}
+
+/* ============================================================
+   ASIGNAR TÉCNICO(S) A UNA ORDEN (modal, solo Admin)
+   ============================================================ */
+let asignandoTecnicosOrdenId = null;
+
+function abrirAsignarTecnicos(ordenId){
+  const o = allOrdenes.find(x => x.id === ordenId);
+  if(!o) return;
+  asignandoTecnicosOrdenId = ordenId;
+  const seleccionados = (o.tecnicoAsignado||"").split(",").map(s => s.trim()).filter(Boolean);
+  const otros = seleccionados.filter(n => !tecnicosList.includes(n));
+  document.getElementById("asigTecTitulo").textContent = o.folio || o.serie || "—";
+  document.getElementById("asigTecnicoChecks").innerHTML =
+    tecnicosList.map(n => `<label><input type="checkbox" value="${esc(n)}" ${seleccionados.includes(n)?"checked":""}> ${esc(n)}</label>`).join("") +
+    `<label><input type="checkbox" id="asigTecnicoOtro" value="" onchange="toggleAsigTecnicoOtro()" ${otros.length?"checked":""}> Otro</label>`;
+  document.getElementById("asigTecnicoOtroTexto").value = otros.join(", ");
+  toggleAsigTecnicoOtro();
+  document.getElementById("modalAsignarTecnicos").classList.remove("hidden");
+}
+function cerrarAsignarTecnicos(){
+  document.getElementById("modalAsignarTecnicos").classList.add("hidden");
+  asignandoTecnicosOrdenId = null;
+}
+function cerrarAsignarTecnicosSiFuera(e){ if(e.target.id === "modalAsignarTecnicos") cerrarAsignarTecnicos(); }
+function toggleAsigTecnicoOtro(){
+  const on = document.getElementById("asigTecnicoOtro").checked;
+  document.getElementById("wrapAsigTecnicoOtro").classList.toggle("hidden", !on);
+}
+
+async function guardarAsignacionTecnicos(){
+  if(!asignandoTecnicosOrdenId) return;
+  const nombres = [...document.querySelectorAll('#asigTecnicoChecks input[type=checkbox]:checked')]
+    .map(c => c.value)
+    .filter(v => v); // el checkbox "Otro" tiene value="" y se agrega aparte
+  const otroTexto = document.getElementById("asigTecnicoOtroTexto").value.trim();
+  if(document.getElementById("asigTecnicoOtro").checked && otroTexto) nombres.push(otroTexto);
+  await actualizarCampoOrden(asignandoTecnicosOrdenId, "tecnicoAsignado", nombres.join(", "));
+  cerrarAsignarTecnicos();
 }
 
 function formatoFechaCorta(iso){
@@ -2281,6 +3056,7 @@ function chipEstado(estado){
     proceso:       { cls:"chip-proceso",      lbl: estado||"En Proceso" },
     endiagnostico: { cls:"chip-diagnostico",  lbl: estado||"En diagnóstico" },
     noautorizado:  { cls:"chip-noautorizado", lbl: estado||"No autorizado" },
+    encorreccion:  { cls:"chip-correccion",   lbl: estado||"En corrección" },
     terminado:     { cls:"chip-terminado",    lbl: estado||"Terminado" },
     entregado:     { cls:"chip-entregado",    lbl: estado||"Entregado" },
     otro:          { cls:"chip-default",      lbl: estado||"—" },
@@ -2299,6 +3075,7 @@ function renderPie(ordenes){
     { key:"proceso",       label:"En Proceso",     color:"#f59e0b" },
     { key:"endiagnostico", label:"En diagnóstico", color:"#9333ea" },
     { key:"noautorizado",  label:"No autorizado",  color:"#dc2626" },
+    { key:"encorreccion",  label:"En corrección",  color:"#c2410c" },
     { key:"terminado",     label:"Terminado",      color:"#1b7a34" },
     { key:"entregado",     label:"Entregado",      color:"#9ca3af" },
     { key:"otro",          label:"Sin Estado",     color:"#d1d5db" },
@@ -2471,6 +3248,37 @@ function abrirReportes(ordenId, serie){
   window.open(`reportes.html?id=${encodeURIComponent(ordenId)}&serie=${encodeURIComponent(serie)}`, '_blank');
 }
 
+// Reabre una orden General Terminada/Entregada porque el cliente pidió ajustes tras la entrega
+// (ej. "esa pintura no era", "falto esto") — pasa a "En corrección" y manda al técnico de
+// vuelta al formulario, que en modo corrección carga el reporte ya existente para actualizarlo.
+async function abrirAjustesGeneral(ordenId, folio){
+  const motivo = prompt(`¿Qué pidió ajustar el cliente para la orden ${folio}?\n\n(se guarda como referencia para el técnico)`);
+  if(motivo === null) return;
+  if(!motivo.trim()){ alert("Escribe brevemente qué pidió el cliente."); return; }
+
+  try{
+    // reporteGeneralCompletado se pone en false mientras dura la corrección — es la MISMA
+    // señal que usa "Continuar" para un reporte nunca terminado, así que sigue funcionando
+    // sin importar por qué estados cicle la orden mientras se corrige (En proceso, incluso
+    // En diagnóstico si el técnico pasa otra vez por ese checkpoint). Vuelve a `true` solo
+    // cuando se reenvía el reporte (enviarReporteGeneral() en formulario_general.html).
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [F.estado]: "En corrección", [F.notasCorreccion]: motivo.trim(), [F.reporteGeneralCompletado]: false } })
+    });
+    if(!resp.ok){
+      const d = await resp.json().catch(()=>({}));
+      throw new Error((d.error && d.error.message) || `Error HTTP ${resp.status}`);
+    }
+  } catch(e){
+    alert("No se pudo reabrir la orden: " + (e.message||""));
+    return;
+  }
+
+  window.location.href = `formulario_general.html?folio=${encodeURIComponent(folio)}`;
+}
+
 function abrirCorrecciones(ordenId, serie){
   // El flujo ahora es dentro del formulario_maestro.html unificado
   window.open(`formulario_maestro.html`, '_blank');
@@ -2498,7 +3306,7 @@ async function verChecklist(ordenId, serie){
       `OR(FIND("${ordenId}", ARRAYJOIN({${F_CK_ORDEN_LINK}})), FIND("${serie} |", {fldHCz04kdMaGhjNR}))`
     );
     const url = `/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const res = await fetch(url);
+    const res = await fetch(url, {});
     if(!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
 
@@ -2946,6 +3754,7 @@ function renderChartSemanal(ordenes){
 window.addEventListener("DOMContentLoaded", () => {
   if(!_sesionValida) return; // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
   aplicarRestriccionesRol();
+  cambiarVistaOrdenes(vistaOrdenes);
   cargarDatos();
   iniciarMonitorNoOk();
 });
@@ -2989,7 +3798,8 @@ async function ejecutarMonitorNoOk(){
     const BF_ULTIMA_ACT = "fldXxLdLrsLruVFnq";
     const rBorr = await fetch(
       `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true` +
-      `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`
+      `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`,
+      {}
     );
     if(rBorr.ok){
       const dBorr = await rBorr.json();

@@ -45,6 +45,10 @@
 
   .badge-orden{ display:inline-block; background:rgba(245,157,30,0.15); color:#b5650a; font-size:12px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; padding:6px 14px; border-radius:20px; margin-bottom:24px; }
   .empty-msg{ color:var(--muted); font-size:14px; padding:40px 0; }
+  .btn-auth{ display:block; width:100%; padding:13px; border-radius:8px; border:none; font-weight:700; font-size:14px; cursor:pointer; margin-top:10px; font-family:inherit; }
+  .btn-auth.ver{ background:#f0ece4; color:var(--ink); }
+  .btn-auth.si{ background:#16a34a; color:#fff; }
+  .btn-auth.no{ background:#e23c2b; color:#fff; }
 </style>
 </head>
 <body>
@@ -73,7 +77,10 @@ const OF = {
   tipoServicio: "fld0rhBYkk5nAnXcT",
   checklist:    "flduerG3x3cKkt07p",
   pintura:      "fldRDnTfyWt5XmCFr",
-  evidencia:    "fldvJAyOkHXUKfiov"
+  evidencia:    "fldvJAyOkHXUKfiov",
+  estadoCotizacion:  "fldjUqpqdCRQ8rdCU",
+  clienteAutorizo:   "fld0YRjkHOdspFNHe",
+  fechaAutorizacion: "fldmizB5GKLZfVOYM"
 };
 
 const _sesion = (() => {
@@ -104,7 +111,7 @@ async function cargarOrden(){
     const vEsc = valor.replace(/"/g, '\\"');
     const formula = encodeURIComponent(`OR({${OF.serie}}="${vEsc}", {${OF.folio}}="${vEsc}")`);
     const url = `/.netlify/functions/airtable?table=${TABLE_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url);
+    const resp = await fetch(url, {});
     const data = await resp.json();
     const rec = (data.records || [])[0];
 
@@ -126,6 +133,37 @@ async function cargarOrden(){
         <div class="card" style="text-align:center">
           <h3 style="color:var(--c-red)">Servicio no autorizado</h3>
           <p style="color:var(--muted);font-size:14px">Contacta a Suministros Industriales para conocer el siguiente paso de tu equipo.</p>
+        </div>
+      `;
+      return;
+    }
+
+    const estadoCotRaw = f[OF.estadoCotizacion];
+    const estadoCotizacion = (estadoCotRaw && estadoCotRaw.name) || estadoCotRaw || null;
+
+    if(estadoCotizacion === "Enviada"){
+      cont.innerHTML = `
+        <div class="badge-orden">Orden: ${valor}</div>
+        <div class="card" style="text-align:center">
+          <h3 style="color:#b5650a">Cotización lista — esperando tu autorización</h3>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:4px">Revisa la cotización de tu servicio y autoriza para que podamos continuar.</p>
+          <button class="btn-auth ver" onclick="verCotizacionCliente('${rec.id}','${valor.replace(/'/g,"\\'")}')">💰 Ver cotización completa</button>
+          <button class="btn-auth si" onclick="autorizarCotizacionCliente('${rec.id}', true)">✅ Autorizo</button>
+          <button class="btn-auth no" onclick="autorizarCotizacionCliente('${rec.id}', false)">❌ No autorizo</button>
+        </div>
+      `;
+      return;
+    }
+
+    if(estadoNorm === "en diagnostico"){
+      cont.innerHTML = `
+        <div class="badge-orden">Orden: ${valor}</div>
+        <div class="card" style="text-align:center">
+          <h3 style="color:#b5650a">Diagnóstico listo — esperando tu autorización</h3>
+          <p style="color:var(--muted);font-size:14px;margin-bottom:4px">Revisa el diagnóstico de tu equipo y autoriza para que podamos continuar con el servicio.</p>
+          <button class="btn-auth ver" onclick="verDiagnosticoCliente('${rec.id}','${valor.replace(/'/g,"\\'")}')">🖨 Ver diagnóstico completo</button>
+          <button class="btn-auth si" onclick="autorizarComoCliente('${rec.id}', true)">✅ Autorizo continuar</button>
+          <button class="btn-auth no" onclick="autorizarComoCliente('${rec.id}', false)">❌ No autorizo</button>
         </div>
       `;
       return;
@@ -168,6 +206,54 @@ async function cargarOrden(){
     `;
   } catch(err){
     cont.innerHTML = `<div class="empty-msg">Error al cargar tu orden. Intenta de nuevo más tarde.</div>`;
+  }
+}
+
+function verDiagnosticoCliente(id, folio){
+  window.open(`reportes.html?id=${encodeURIComponent(id)}&serie=${encodeURIComponent(folio)}&auto=diagnostico`, '_blank');
+}
+
+function verCotizacionCliente(id, folio){
+  window.open(`reportes.html?id=${encodeURIComponent(id)}&serie=${encodeURIComponent(folio)}&auto=cotizacion`, '_blank');
+}
+
+async function autorizarCotizacionCliente(id, autorizado){
+  const msg = autorizado
+    ? "¿Confirmas que autorizas esta cotización?"
+    : "¿Confirmas que NO autorizas esta cotización?";
+  if(!confirm(msg)) return;
+  const nuevoEstado = autorizado ? "Autorizada" : "Rechazada";
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ORDENES}&recordId=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: {
+        [OF.estadoCotizacion]: nuevoEstado,
+        [OF.clienteAutorizo]: autorizado,
+        [OF.fechaAutorizacion]: new Date().toISOString()
+      } })
+    });
+    cargarOrden();
+  } catch(e){
+    alert("No se pudo enviar tu respuesta. Intenta de nuevo.");
+  }
+}
+
+async function autorizarComoCliente(id, autorizado){
+  const msg = autorizado
+    ? "¿Confirmas que autorizas continuar con el servicio?"
+    : "¿Confirmas que NO autorizas el servicio? La orden quedará pausada.";
+  if(!confirm(msg)) return;
+  const nuevoEstado = autorizado ? "En proceso" : "No autorizado";
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ORDENES}&recordId=${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [OF.estado]: nuevoEstado } })
+    });
+    cargarOrden();
+  } catch(e){
+    alert("No se pudo enviar tu respuesta. Intenta de nuevo.");
   }
 }
 
