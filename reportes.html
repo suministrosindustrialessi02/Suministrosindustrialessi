@@ -69,6 +69,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 }
 .rep-edit-btn:hover{ background:#fff; border-color:var(--azul-med); }
 .rep-edit-btn.hidden{ display:none; }
+.rep-card-wrap.hidden{ display:none; }
 
 /* MODAL EDITOR */
 .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
@@ -128,7 +129,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
     <div class="motor-meta">
       <div class="meta-item"><strong>Inspector:</strong> <span id="mc-inspector">—</span></div>
       <div class="meta-item"><strong>Fecha:</strong> <span id="mc-fecha">—</span></div>
-      <div class="meta-item"><strong>Orden Sulzer:</strong> <span id="mc-orden">—</span></div>
+      <div class="meta-item"><strong id="mc-orden-label">Orden Sulzer:</strong> <span id="mc-orden">—</span></div>
     </div>
   </div>
 
@@ -159,7 +160,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
         <span class="rep-btn-desc">Diagnóstico y servicios propuestos — para autorización del cliente</span>
         <span class="rep-btn-status" id="st-diagnostico-gen">—</span>
       </button>
-      <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')">✏️</button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-servicio-gen" onclick="generarServicioGeneral()">
@@ -168,7 +169,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
         <span class="rep-btn-desc">Diagnóstico, bitácora y evidencia del servicio</span>
         <span class="rep-btn-status" id="st-servicio-gen">—</span>
       </button>
-      <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio')">✏️</button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-materiales-gen" onclick="generarListaMaterialesGeneral()">
@@ -177,7 +178,7 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
         <span class="rep-btn-desc">Materiales / refacciones para cotización</span>
         <span class="rep-btn-status" id="st-materiales-gen">—</span>
       </button>
-      <button type="button" class="rep-edit-btn admin-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('materiales')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('materiales')">✏️</button>
     </div>
     <div class="rep-card-wrap admin-only hidden">
       <button class="rep-btn" id="btn-cotizacion-gen" onclick="generarCotizacionGeneral()">
@@ -537,6 +538,10 @@ const _sesion = (() => {
 if(_sesion && _sesion.rol === "Admin"){
   document.querySelectorAll(".admin-only").forEach(el => el.classList.remove("hidden"));
 }
+// Cotización queda admin-only siempre — el técnico NUNCA debe verla.
+if(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico")){
+  document.querySelectorAll(".editor-only").forEach(el => el.classList.remove("hidden"));
+}
 
 /* ============================================================
    FETCH HELPERS
@@ -677,7 +682,8 @@ function actualizarUI(){
     document.getElementById("mc-cliente").textContent  = cliente;
     document.getElementById("mc-inspector").textContent= fv(G.general, RG.nombreCorto) || "—";
     document.getElementById("mc-fecha").textContent    = fmtFecha(G.general?.createdTime);
-    document.getElementById("mc-orden").textContent    = resolverTipoEquipo(fv(G.orden, FO.tipoEquipo)?.name || fv(G.orden, FO.tipoEquipo), fv(G.orden, FO.descripcionOtro));
+    document.getElementById("mc-orden-label").textContent = "Folio:";
+    document.getElementById("mc-orden").textContent    = fv(G.orden, FO.folio) || "—";
     document.getElementById("st-diagnostico-gen").innerHTML = fv(G.orden, FO.diagnosticoTexto) ? ok : pend;
     document.getElementById("st-servicio-gen").innerHTML   = G.general ? ok : pend;
     document.getElementById("st-materiales-gen").innerHTML = G.general ? ok : (G.materialesBorrador ? borrador : pend);
@@ -1397,14 +1403,16 @@ function headerTablaGeneral(titulo, datos){
 }
 
 /* ============================================================
-   EDICIÓN RÁPIDA (solo Admin) — corrige datos ya guardados sin
-   tener que reabrir todo el formulario del técnico.
+   EDICIÓN RÁPIDA (Admin y Técnico) — corrige datos ya guardados sin
+   tener que reabrir todo el formulario del técnico. Cotización queda
+   fuera de este editor y sigue siendo exclusiva de Admin.
    ============================================================ */
 let _editorTipo = null;
 let _edMateriales = [];
+const _puedeEditarReportes = !!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
 
 function abrirEditor(tipo){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_puedeEditarReportes) return;
   _editorTipo = tipo;
   const body = document.getElementById("editorBody");
   const titulo = document.getElementById("editorTitulo");
@@ -1478,7 +1486,7 @@ function regenerarConVentanaReservada(w, fn){
 }
 
 async function guardarEdicion(){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_puedeEditarReportes) return;
   const btn = document.getElementById("btnGuardarEditor");
   btn.disabled = true; btn.textContent = "Guardando...";
   const wPre = window.open("", "_blank"); // reservar ANTES del await

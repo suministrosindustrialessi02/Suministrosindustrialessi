@@ -51,6 +51,7 @@ header::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:
 .header-brand h1{ font-size:0.88rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#fff; }
 .header-brand p{ font-size:0.72rem; color:rgba(255,255,255,0.45); letter-spacing:0.3px; margin-top:2px; }
 .header-right{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 0; }
+.saludo-usuario{ font-size:0.85rem; font-weight:600; color:#fff; }
 .btn-header{
   padding:7px 16px; border-radius:var(--radio-sm); font-size:0.78rem; font-weight:600;
   cursor:pointer; border:1px solid rgba(255,255,255,0.2); white-space:nowrap;
@@ -188,6 +189,7 @@ td{ padding:11px 14px; vertical-align:middle; }
     </div>
   </div>
   <div class="header-right">
+    <span class="saludo-usuario" id="saludoUsuario"></span>
     <button class="btn-header" onclick="cargarPlan()">↻ Actualizar</button>
     <a class="btn-header" href="dashboard.html" style="color:#fff;text-decoration:none;display:inline-flex;align-items:center;">Ir al Dashboard →</a>
     <button class="btn-header" onclick="cerrarSesion()">Cerrar sesión</button>
@@ -744,8 +746,22 @@ function cerrarSesion(){
   window.location.href = "login.html";
 }
 
+function primerNombre(nombreCompleto){
+  return (nombreCompleto || "").trim().split(/\s+/)[0] || "";
+}
+
+function mostrarSaludo(){
+  const el = document.getElementById("saludoUsuario");
+  if(!el || !_sesion) return;
+  const nombre = primerNombre(_sesion.nombre || _sesion.usuario);
+  el.textContent = nombre ? `Hola, ${nombre} 👋` : "";
+}
+
 /* ============ INIT ============ */
-if(_sesionValida) cargarPlan(); // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
+if(_sesionValida){
+  mostrarSaludo();
+  cargarPlan(); // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
+}
 </script>
 
 </body>

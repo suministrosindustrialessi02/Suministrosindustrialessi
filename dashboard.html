@@ -97,6 +97,7 @@ header::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:
   margin-top: 2px;
 }
 .header-right{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.saludo-usuario{ font-size: 0.85rem; font-weight: 600; color: #fff; }
 .sync-info{
   text-align: right;
   font-size: 0.72rem;
@@ -1189,6 +1190,7 @@ footer strong{ color: var(--azul); }
     </div>
   </div>
   <div class="header-right">
+    <span class="saludo-usuario" id="saludoUsuario"></span>
     <div class="sync-info" id="syncInfo" style="display:none">
       <span class="sync-dot" id="syncDot"></span>
       Última actualización: <strong id="syncTime">—</strong>
@@ -3753,11 +3755,23 @@ function renderChartSemanal(ordenes){
    ============================================================ */
 window.addEventListener("DOMContentLoaded", () => {
   if(!_sesionValida) return; // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
+  mostrarSaludo();
   aplicarRestriccionesRol();
   cambiarVistaOrdenes(vistaOrdenes);
   cargarDatos();
   iniciarMonitorNoOk();
 });
+
+function primerNombre(nombreCompleto){
+  return (nombreCompleto || "").trim().split(/\s+/)[0] || "";
+}
+
+function mostrarSaludo(){
+  const el = document.getElementById("saludoUsuario");
+  if(!el || !_sesion) return;
+  const nombre = primerNombre(_sesion.nombre || _sesion.usuario);
+  el.textContent = nombre ? `Hola, ${nombre} 👋` : "";
+}
 
 function aplicarRestriccionesRol(){
   if(!_sesion) return;
