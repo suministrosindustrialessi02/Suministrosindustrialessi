@@ -1292,7 +1292,7 @@ footer strong{ color: var(--azul); }
       <div class="kpi-card" style="--kpi-color:#b45309" data-tooltip="Ordenes recibidas que aun no iniciaron inspeccion. Entre mas alto, mayor es la cola de espera.">
         <div class="kpi-head"><div class="kpi-ico"><svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div><div class="kpi-tag">Backlog</div></div><div class="kpi-number" id="kpiBacklog">&#x2014;</div>
         <div class="kpi-label">Sin iniciar (Recibido)</div>
-        <div class="kpi-sub">esperando intervenci&#xF3;n</div>
+        <div class="kpi-sub" id="kpiBacklogSub">esperando intervenci&#xF3;n</div>
       </div>
       <div class="kpi-card" style="--kpi-color:#1d5496" data-tooltip="Promedio real de dias de recepcion a entrega, calculado solo con ordenes ya entregadas al cliente.">
         <div class="kpi-head"><div class="kpi-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><polyline points="12 10 12 13 14 14"/><line x1="9" y1="2" x2="15" y2="2"/></svg></div><div class="kpi-tag">Lead time real</div></div><div class="kpi-number" id="kpiLeadTime">&#x2014;</div>
@@ -1317,7 +1317,7 @@ footer strong{ color: var(--azul); }
       <div class="kpi-card" style="--kpi-color:#991b1b" data-tooltip="Total de puntos marcados como NO OK en los formularios que los técnicos tienen abiertos en este momento.">
         <div class="kpi-head"><div class="kpi-ico"><svg viewBox="0 0 24 24"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div class="kpi-tag">Puntos NO OK activos</div></div><div class="kpi-number" id="kpiNoOkCount">&#x2014;</div>
         <div class="kpi-label">Puntos NO OK activos</div>
-        <div class="kpi-sub">en formularios en progreso</div>
+        <div class="kpi-sub" id="kpiNoOkSub">en formularios en progreso</div>
       </div>
     </div>
 
@@ -2830,7 +2830,12 @@ function cerrarPreRegistro(){ document.getElementById("modalPreRegistro").classL
 function cerrarPreRegistroSiFuera(e){ if(e.target.id === "modalPreRegistro") cerrarPreRegistro(); }
 
 // Genera el folio consultando los folios ya cargados (mismo esquema que el formulario)
-function preRegGenerarFolio(){
+// Revisa TANTO las órdenes ya cargadas en memoria (allOrdenes) como REPORTES_GENERAL
+// en Airtable — si solo se revisara allOrdenes, borrar una orden "liberaría" su
+// número y un equipo distinto podría terminar con el mismo folio que uno viejo
+// (ya pasó: MTB-001 se le asignó dos veces porque la orden original se borró).
+// REPORTES_GENERAL conserva el folio como texto aunque la orden ligada desaparezca.
+async function preRegGenerarFolio(){
   const tipo = document.getElementById("preTipoEquipo").value;
   const prefijo = PREFIJOS_PREREG[tipo] || "";
   const folioEl = document.getElementById("preFolio");
@@ -2840,6 +2845,17 @@ function preRegGenerarFolio(){
     const m = (o.folio || "").match(new RegExp(`^${prefijo}-(\\d+)$`));
     if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
   });
+  try{
+    const FLD_RG_FOLIO = "fldKBCvEigK6R8hOQ";
+    const formula = encodeURIComponent(`FIND("${prefijo}-", {${FLD_RG_FOLIO}}) = 1`);
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formula}&returnFieldsByFieldId=true&fields[]=${FLD_RG_FOLIO}`, {});
+    const data = await resp.json();
+    (data.records || []).forEach(r => {
+      const folio = r.fields[FLD_RG_FOLIO] || "";
+      const m = folio.match(new RegExp(`^${prefijo}-(\\d+)$`));
+      if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+    });
+  }catch(e){}
   folioEl.value = `${prefijo}-${String(maxNum + 1).padStart(3, "0")}`;
 }
 
@@ -3461,6 +3477,20 @@ function imprimirCk(){
 /* ============================================================
    NUEVOS KPIs Y GRAFICAS
    ============================================================ */
+/* Folio/serie de una orden para mostrar en KPIs y listas */
+function idOrden(o){ return o.serie || o.folio || "—"; }
+
+/* Junta identificadores de un grupo de ordenes ("MOT-005 (12d), COND-003 (6d) +2 más") */
+function listaConDetalle(lista, maxItems, extra){
+  if(!lista.length) return "";
+  var items = lista.slice(0, maxItems).map(function(o){
+    return idOrden(o) + (extra ? extra(o) : "");
+  });
+  var txt = items.join(", ");
+  if(lista.length > maxItems) txt += " +" + (lista.length - maxItems) + " más";
+  return txt;
+}
+
 function renderNuevosKPIs(ordenes){
   var activas    = ordenes.filter(function(o){ return !["terminado","entregado"].includes(normEstado(o.estado)); });
   var entregadas = ordenes.filter(function(o){ return normEstado(o.estado) === "entregado"; });
@@ -3469,11 +3499,19 @@ function renderNuevosKPIs(ordenes){
 
   var vencidas = activas.filter(function(o){ return o.dias !== null && o.dias > 4; });
   document.getElementById("kpiVencidas").textContent   = vencidas.length;
+  var vencidasOrdenadas = vencidas.slice().sort(function(a,b){ return (b.dias||0)-(a.dias||0); });
   document.getElementById("kpiVencidasSub").textContent = vencidas.length > 0
-    ? vencidas.length + " requieren atención"
+    ? listaConDetalle(vencidasOrdenadas, 3, function(o){ return " (" + o.dias + "d)"; })
     : "Todas dentro del plazo";
 
   document.getElementById("kpiBacklog").textContent = recibidas.length;
+  var recibidasOrdenadas = recibidas.slice().sort(function(a,b){ return (b.dias||0)-(a.dias||0); });
+  var backlogSubEl = document.getElementById("kpiBacklogSub");
+  if(backlogSubEl){
+    backlogSubEl.textContent = recibidas.length > 0
+      ? "más antigua: " + idOrden(recibidasOrdenadas[0]) + (recibidasOrdenadas[0].dias !== null ? " (" + recibidasOrdenadas[0].dias + "d)" : "")
+      : "esperando intervención";
+  }
 
   var diasEnt  = entregadas.filter(function(o){ return o.dias !== null; }).map(function(o){ return o.dias; });
   var leadTime = diasEnt.length ? Math.round(diasEnt.reduce(function(a,b){return a+b;},0)/diasEnt.length) : null;
@@ -3486,9 +3524,9 @@ function renderNuevosKPIs(ordenes){
 
   var docsInc = terminadas.filter(function(o){ return !o.checklist || !o.pintura || !o.evidencia; });
   document.getElementById("kpiDocsInc").textContent   = docsInc.length;
-  document.getElementById("kpiDocsIncSub").textContent = terminadas.length > 0
-    ? "de " + terminadas.length + " terminadas"
-    : "Sin terminadas";
+  document.getElementById("kpiDocsIncSub").textContent = docsInc.length > 0
+    ? listaConDetalle(docsInc, 3) + " · de " + terminadas.length + " terminadas"
+    : (terminadas.length > 0 ? "Todas documentadas" : "Sin terminadas");
 
   // ── KPI A: Entregadas este mes (por fecha de creación del registro) ──
   var now = new Date();
@@ -3856,7 +3894,14 @@ function actualizarBadgeNoOk(){
   const badge = document.getElementById("badgeNoOk");
   const btn   = document.getElementById("btnVerNoOk");
   const kpi   = document.getElementById("kpiNoOkCount");
+  const kpiSub = document.getElementById("kpiNoOkSub");
   if(kpi) kpi.textContent = _totalNoOkActivos;
+  if(kpiSub){
+    kpiSub.textContent = _totalNoOkActivos > 0
+      ? _noOkResultados.slice(0,3).map(function(r){ return (r.serie||"—") + " (" + r.puntos.length + ")"; }).join(", ")
+        + (_noOkResultados.length > 3 ? " +" + (_noOkResultados.length - 3) + " más" : "")
+      : "en formularios en progreso";
+  }
   if(_totalNoOkActivos > 0){
     if(badge){ badge.style.display = "inline-block"; badge.textContent = _totalNoOkActivos; }
     if(btn){ btn.style.borderColor = "rgba(248,113,113,0.6)"; btn.style.color = "#fecaca"; }

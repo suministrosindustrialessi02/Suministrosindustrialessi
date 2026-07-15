@@ -289,6 +289,7 @@ input[type="file"].hidden-input{ display:none; }
           <select id="remTipoEntrega" onchange="actualizarCamposRemision()">
             <option value="directa">Entrega directa en instalaciones del cliente</option>
             <option value="paqueteria">Envío por paquetería</option>
+            <option value="sitio">Servicio en sitio (instalaciones del cliente)</option>
           </select>
         </div>
         <div class="ed-field">
@@ -585,7 +586,18 @@ function fv(rec, fieldId){ return rec?.fields?.[fieldId]; }
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
 function fmtFecha(s){
   if(!s) return "—";
-  const d = new Date(s);
+  // Un valor "YYYY-MM-DD" sin hora (ej. de un <input type="date">) lo interpreta
+  // new Date(s) como medianoche UTC — al mostrarlo en hora local (México, UTC-6)
+  // se recorre un día atrás (15 sale como 14). Se arma con los componentes locales
+  // para evitarlo. Los valores CON hora (dateTime de Airtable, ISO con "T") sí
+  // representan un instante real y se dejan tal cual, convertidos a hora local.
+  let d;
+  if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+    const [y, m, day] = s.split("-").map(Number);
+    d = new Date(y, m - 1, day);
+  } else {
+    d = new Date(s);
+  }
   if(isNaN(d)) return s;
   return d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"});
 }
@@ -984,6 +996,12 @@ function abrirVentana(htmlContent, titulo){
         var contentMarginOriginal = content.style.marginTop;
         bar.style.display = "none";
         content.style.marginTop = "0";
+        // Si la ventana está desplazada hacia abajo (el usuario venía revisando el
+        // reporte) al momento de capturar, html2canvas mide mal y el PDF sale con un
+        // hueco en blanco arriba y el contenido recortado/movido. Se fuerza scroll
+        // arriba ANTES de capturar, y además se le pasa el offset a html2canvas por
+        // si algo más ya movió el scroll entre el scrollTo y la captura real.
+        window.scrollTo(0, 0);
         function restaurar(){
           bar.style.display = barDisplayOriginal;
           content.style.marginTop = contentMarginOriginal;
@@ -992,7 +1010,7 @@ function abrirVentana(htmlContent, titulo){
           margin: 6,
           filename: nombreArchivo,
           image: { type:"jpeg", quality:0.92 },
-          html2canvas: { scale:2, useCORS:true },
+          html2canvas: { scale:2, useCORS:true, scrollX:0, scrollY:0 },
           jsPDF: { unit:"mm", format:"letter", orientation:"portrait" },
           pagebreak: { mode:["css","legacy"] }
         }).from(content).save().then(function(){
@@ -1172,11 +1190,14 @@ function generarPintura(){
   const comentarios= fv(G.pintura, FP.comentarios)|| "";
   const resColor   = resultado === "Cumple" ? "color:#2e7d32;font-weight:bold" : "color:#c62828;font-weight:bold";
 
+  // Igual que fotoItemHtml(): se usa background-image (no <img style="object-fit">)
+  // porque html2canvas, usado por "Descargar PDF", ignora object-fit y estira la
+  // imagen para llenar la caja en vez de conservar sus proporciones.
   const imgPinturaHtml = imagenPinturaB64
     ? `<div class="seccion-hdr">Diagrama de puntos de inspección</div>
        <div style="text-align:center;margin:8px 0;">
-         <img src="${imagenPinturaB64}" alt="Puntos de inspección de pintura"
-              style="max-width:100%;max-height:280px;object-fit:contain;border:1px solid #ddd;border-radius:4px;">
+         <div style="max-width:100%;height:280px;background-image:url('${imagenPinturaB64}');background-size:contain;background-repeat:no-repeat;background-position:center;border:1px solid #ddd;border-radius:4px;"></div>
+         <img src="${imagenPinturaB64}" alt="Puntos de inspección de pintura" style="display:none">
        </div>`
     : "";
 
@@ -1760,7 +1781,7 @@ function renderHistorialRemisiones(){
   lista.innerHTML = remisiones.slice().reverse().map((r, iRev) => {
     const i = remisiones.length - 1 - iRev; // índice real dentro del array original
     return `<div class="rem-historial-item">
-      <span class="rem-historial-info">${esc(r.folioRemision || "—")}<small>${esc(fmtFecha(r.fecha))} · ${esc(r.tipoEntrega === "paqueteria" ? "Paquetería" : "Entrega directa")}</small></span>
+      <span class="rem-historial-info">${esc(r.folioRemision || "—")}<small>${esc(fmtFecha(r.fecha))} · ${esc(etiquetaTipoEntrega(r.tipoEntrega))}</small></span>
       <button type="button" class="rem-historial-ver" onclick="verRemisionHistorial(${i})">🖨 Ver</button>
     </div>`;
   }).join("");
@@ -1811,6 +1832,14 @@ async function abrirRemision(){
   document.getElementById("remFolio").value = "Calculando...";
   try{ document.getElementById("remFolio").value = await obtenerSiguienteFolioRemision(); }
   catch(e){ document.getElementById("remFolio").value = ""; }
+}
+
+// Texto legible para un valor de tipoEntrega — compartido entre el historial de
+// remisiones y cualquier otro lugar que necesite mostrarlo.
+function etiquetaTipoEntrega(tipoEntrega){
+  if(tipoEntrega === "paqueteria") return "Paquetería";
+  if(tipoEntrega === "sitio") return "Servicio en sitio";
+  return "Entrega directa";
 }
 
 function actualizarCamposRemision(){

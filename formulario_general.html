@@ -703,6 +703,7 @@ let ordenRecordId = null;
 let reporteEnviado = false;
 let reporteRecordId = null; // ID del registro YA EXISTENTE en REPORTES_GENERAL cuando se reabre en modo corrección (si es null, enviarReporteGeneral() crea uno nuevo como siempre)
 let modoCorreccion = false; // true cuando se reabrió por "↩ Ajustes" — salta el checkpoint de diagnóstico (pantalla 3), ya se autorizó la primera vez
+let _recIdEnvioActual = null; // ID de REPORTES_GENERAL creado en UN intento previo de enviarReporteGeneral() que falló a medias (ej. "Failed to fetch" subiendo fotos) — si se reintenta, se debe seguir escribiendo en ESTE registro (PATCH) en vez de crear uno nuevo (POST), para no duplicar el reporte
 let _bfRecordIdGeneral = null; // ID del registro en TABLA_BORRADORES de Airtable
 let _bfSyncTimerGeneral = null;
 let _autoSaveIntervalGeneral = null;
@@ -1098,18 +1099,41 @@ async function buscarEquipoRegistrado(){
   }
 }
 
+// Calcula el siguiente folio libre para un prefijo (ej. "MOT-006"). Revisa TANTO
+// ORDENES como REPORTES_GENERAL — si solo se revisara ORDENES, borrar una orden
+// (limpieza, prueba, error) "liberaría" su número y un equipo COMPLETAMENTE
+// distinto podría terminar con el mismo folio que uno viejo (ya pasó: MTB-001
+// se le asignó dos veces a dos equipos distintos porque la orden original se
+// borró). REPORTES_GENERAL conserva el folio como texto aunque la orden ligada
+// desaparezca, así que sirve de "memoria" de números ya usados.
 async function generarFolioAutomatico(prefijo){
   try{
-    const formula = encodeURIComponent(`FIND("${prefijo}-", {${OF.folio}}) = 1`);
-    const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true&fields[]=${OF.folio}`;
-    const resp = await fetch(url, {});
-    const data = await resp.json();
-    let maxNum = 0;
-    (data.records || []).forEach(r => {
-      const folio = r.fields[OF.folio] || "";
-      const m = folio.match(new RegExp(`^${prefijo}-(\\d+)$`));
-      if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
-    });
+    const extraerMax = (registros, campoFolio) => {
+      let maxNum = 0;
+      (registros || []).forEach(r => {
+        const folio = r.fields[campoFolio] || "";
+        const m = folio.match(new RegExp(`^${prefijo}-(\\d+)$`));
+        if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+      });
+      return maxNum;
+    };
+
+    const formulaOrdenes = encodeURIComponent(`FIND("${prefijo}-", {${OF.folio}}) = 1`);
+    const urlOrdenes = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formulaOrdenes}&returnFieldsByFieldId=true&fields[]=${OF.folio}`;
+    const formulaReportes = encodeURIComponent(`FIND("${prefijo}-", {${RG.folio}}) = 1`);
+    const urlReportes = `/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formulaReportes}&returnFieldsByFieldId=true&fields[]=${RG.folio}`;
+
+    const [respOrdenes, respReportes] = await Promise.all([
+      fetch(urlOrdenes, {}),
+      fetch(urlReportes, {})
+    ]);
+    const dataOrdenes = await respOrdenes.json();
+    const dataReportes = await respReportes.json();
+
+    const maxNum = Math.max(
+      extraerMax(dataOrdenes.records, OF.folio),
+      extraerMax(dataReportes.records, RG.folio)
+    );
     const siguiente = String(maxNum + 1).padStart(3, "0");
     return `${prefijo}-${siguiente}`;
   }catch(e){
@@ -1969,9 +1993,28 @@ function generarVistaPrevia(){
 }
 
 /* ============ ENVÍO A AIRTABLE ============ */
+// Reintenta un fetch ante fallas de RED (conexión débil/cortada — el error "Failed to
+// fetch"), no ante respuestas HTTP de error (4xx/5xx, esas se resuelven normal y las
+// maneja quien llama). Con esto, un corte breve de señal durante el envío del reporte
+// ya no interrumpe todo el proceso a medias.
+async function fetchConReintento(url, opciones, intentos = 3, esperaMs = 1500){
+  for(let i = 0; i < intentos; i++){
+    try{
+      return await fetch(url, opciones);
+    }catch(err){
+      if(i === intentos - 1) throw err;
+      await new Promise(r => setTimeout(r, esperaMs));
+    }
+  }
+}
+
+// Cada foto se marca con `._subida=true` tras subir bien — si enviarReporteGeneral() se
+// reintenta después de una falla a medias, las fotos ya subidas se saltan en vez de
+// volver a subirse (evita duplicar fotos en el mismo registro).
 async function subirFotosA(recordId, fieldId, fotos){
   for(const f of fotos){
-    await fetch(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
+    if(f._subida) continue;
+    await fetchConReintento(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1980,6 +2023,7 @@ async function subirFotosA(recordId, fieldId, fotos){
         file: f.dataUrl.split(",")[1]
       })
     });
+    f._subida = true;
   }
 }
 
@@ -2044,10 +2088,15 @@ async function enviarReporteGeneral(){
     // porque el reporte ya existía — se ACTUALIZA en vez de crear uno nuevo, para no
     // duplicar el registro en REPORTES_GENERAL.
     const esCorreccion = !!reporteRecordId;
+    // recExistente cubre AMBOS casos de "ya hay un registro, no crear otro": una
+    // corrección real (reporteRecordId) o un reintento de ESTE mismo envío que falló
+    // a medias después de crear el registro (_recIdEnvioActual) — sin esto, reintentar
+    // tras un "Failed to fetch" duplicaba el reporte en vez de continuar el mismo.
+    const recExistente = reporteRecordId || _recIdEnvioActual;
     let recId;
-    if(esCorreccion){
+    if(recExistente){
       statusEl.textContent = "Actualizando el reporte...";
-      const patchResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&recordId=${reporteRecordId}`, {
+      const patchResp = await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&recordId=${recExistente}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields })
@@ -2057,7 +2106,7 @@ async function enviarReporteGeneral(){
       recId = patchData.id;
     } else {
       statusEl.textContent = "Guardando datos del reporte...";
-      const createResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}`, {
+      const createResp = await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ records: [{ fields }] })
@@ -2065,6 +2114,7 @@ async function enviarReporteGeneral(){
       const createData = await createResp.json();
       if(!createResp.ok) throw new Error(createData?.error?.message || "Error al guardar el reporte");
       recId = createData.records[0].id;
+      _recIdEnvioActual = recId; // por si un paso posterior (fotos, etc.) falla y se reintenta
     }
 
     statusEl.textContent = "Subiendo fotos de recibido...";
@@ -2080,12 +2130,13 @@ async function enviarReporteGeneral(){
     await subirFotosA(recId, RG.fotosFinal, fotosFinal);
 
     statusEl.textContent = "Marcando orden como terminada...";
-    await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+    await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true, [OF.notasCorreccion]: "" } })
     });
 
+    _recIdEnvioActual = null; // reporte completo, ya no hace falta recordar el registro para un reintento
     reporteEnviado = true;
     statusEl.classList.add("success");
     statusEl.textContent = esCorreccion
