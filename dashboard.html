@@ -2118,7 +2118,12 @@ function datosFila(o, esAdmin){
   let p;
   if(esGeneral){
     const bp = borradorLookup[o.folio?.toUpperCase()];
-    p = o.reporteGeneralCompletado ? 100 : (bp != null ? bp : (normEstado(o.estado) === "proceso" ? 40 : 0));
+    // Piso mínimo por estado: evita que un borrador viejo/incompleto (ej. quedó
+    // guardado en 0% antes de llenar los datos) oculte que la orden ya avanzó
+    // más allá de "Recibido" (diagnóstico, en proceso, en corrección, etc. ya
+    // implican que se completaron varias pantallas del formulario).
+    const piso = ["proceso","endiagnostico","noautorizado","encorreccion","terminado","entregado"].includes(normEstado(o.estado)) ? 40 : 0;
+    p = o.reporteGeneralCompletado ? 100 : Math.max(bp ?? 0, piso);
   } else {
     const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
     p = prog > 0 ? Math.round((prog/3)*100) : (borradorLookup[o.serie?.toUpperCase()] ?? 0);

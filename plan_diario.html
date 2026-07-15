@@ -86,6 +86,18 @@ main{ max-width:1100px; margin:0 auto; padding:24px 24px 56px; }
 .titulo-plan h2{ font-size:1.15rem; font-weight:800; color:var(--navy); letter-spacing:0.5px; }
 .titulo-plan p{ font-size:0.8rem; color:var(--azul-claro); margin-top:2px; text-transform:capitalize; }
 
+.progreso-plan{
+  background:var(--blanco); border:1px solid var(--gris); border-radius:var(--radio);
+  box-shadow:var(--sombra); padding:14px 20px; margin-bottom:16px;
+}
+.progreso-plan-top{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px; }
+.progreso-plan-label{ font-size:0.82rem; font-weight:700; color:var(--navy); }
+.progreso-plan-pct{ font-size:0.95rem; font-weight:800; color:var(--azul-claro); }
+.progreso-plan-track{ height:10px; border-radius:6px; background:var(--gris); overflow:hidden; }
+.progreso-plan-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg,#3b82c4,#1d5496); transition:width 0.3s; }
+.progreso-plan-fill.full{ background:linear-gradient(90deg,#4ade80,#0e7a3c); }
+.progreso-plan-sub{ font-size:0.72rem; color:var(--gris-texto); margin-top:6px; }
+
 .toolbar{ display:flex; justify-content:flex-end; gap:10px; margin-bottom:12px; }
 .btn-add{
   background:var(--azul); color:#fff; border:1px solid var(--azul-claro); padding:9px 18px;
@@ -207,6 +219,15 @@ td{ padding:11px 14px; vertical-align:middle; }
   <div class="titulo-plan">
     <h2>PLAN DIARIO DE C.S. SI</h2>
     <p id="fechaLarga">—</p>
+  </div>
+
+  <div class="progreso-plan" id="progresoPlan">
+    <div class="progreso-plan-top">
+      <span class="progreso-plan-label">Progreso del día</span>
+      <span class="progreso-plan-pct" id="progresoPlanPct">0%</span>
+    </div>
+    <div class="progreso-plan-track"><div class="progreso-plan-fill" id="progresoPlanFill" style="width:0%"></div></div>
+    <div class="progreso-plan-sub" id="progresoPlanSub">Sin tareas manuales para este día</div>
   </div>
 
   <div class="toolbar hidden" id="toolbarAdmin">
@@ -471,8 +492,23 @@ function renderTodo(){
   document.getElementById("btnVerOcultos").classList.toggle("hidden", ocultosCount === 0);
   document.getElementById("cntOcultos").textContent = ocultosCount;
 
+  // Barra de progreso — solo cuenta tareas manuales (tienen checkbox de completado);
+  // las órdenes de servicio inyectadas no aplican, se completan al terminar el servicio,
+  // no con un check, y siempre están "activas" mientras aparecen en el plan.
+  const tareasDelDia = tareasParaFecha(fechaSeleccionada);
+  const totalTareas = tareasDelDia.length;
+  const completadas = tareasDelDia.filter(t => t.completado).length;
+  const pct = totalTareas > 0 ? Math.round((completadas / totalTareas) * 100) : 0;
+  document.getElementById("progresoPlanPct").textContent = pct + "%";
+  const fillEl = document.getElementById("progresoPlanFill");
+  fillEl.style.width = pct + "%";
+  fillEl.classList.toggle("full", totalTareas > 0 && pct === 100);
+  document.getElementById("progresoPlanSub").textContent = totalTareas > 0
+    ? `${completadas} de ${totalTareas} tareas completadas`
+    : "Sin tareas manuales para este día";
+
   // Ítems combinados: tareas manuales + (solo en HOY) órdenes de servicio activas y no ocultas
-  const items = tareasParaFecha(fechaSeleccionada).map(t => ({ ...t, _tipo: "tarea" }));
+  const items = tareasDelDia.map(t => ({ ...t, _tipo: "tarea" }));
   if(fechaSeleccionada === hoyISO()){
     ordenesActivas.filter(o => !o.oculto).forEach(o => items.push({ ...o, _tipo: "orden" }));
   }
