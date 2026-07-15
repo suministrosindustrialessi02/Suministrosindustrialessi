@@ -92,6 +92,17 @@ body{ font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif; background:v
 .ed-mat-row input{ padding:6px 8px; border:1px solid #ccc; border-radius:5px; font-size:0.8rem; font-family:inherit; }
 .ed-mat-del{ background:#fdecea; color:#991b1b; border:1px solid #f5b5ac; border-radius:5px; cursor:pointer; font-size:0.75rem; }
 .btn-add-ed{ margin-top:4px; padding:7px 14px; background:#eef3fa; border:1px solid #cfe0f5; border-radius:6px; cursor:pointer; font-size:0.8rem; color:var(--azul-med); font-weight:600; }
+input[type="file"].hidden-input{ display:none; }
+.ed-foto-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:8px; }
+.ed-foto-grid p{ grid-column:1/-1; }
+.ed-foto-actions{ display:flex; gap:8px; }
+.photo-thumb{ position:relative; border:1px solid #ddd; border-radius:8px; overflow:hidden; aspect-ratio:1/1; background:#eee; }
+.photo-thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.photo-thumb .remove-btn{
+  position:absolute; top:4px; right:4px; width:24px; height:24px; border-radius:50%; border:none;
+  background:rgba(198,40,40,0.9); color:#fff; font-weight:700; font-size:0.9rem; line-height:1;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
 .status-ok{ color:var(--verde); }
 .status-pend{ color:var(--ambar); }
 .status-gen{ color:var(--azul-med); }
@@ -392,6 +403,23 @@ const RG = {
   fotosPinturaAntes:      "fldP3090cnvLpk7CM",
   fotosPinturaDespues:    "fldaPzquSHFOnNgto",
   fotosFinal:             "fldfrWCVJQD5Bna4T",
+};
+
+// Categorías de fotos editables por tipo de reporte — usadas por el editor (abrirEditor/guardarEdicion)
+const FOTO_CATEGORIAS = {
+  diagnostico: [
+    { key:"fotosDiagnostico",         tabla:"orden",   campo:"fotosDiagnostico",         label:"Fotos de diagnóstico" },
+    { key:"fotosObservaciones",       tabla:"orden",   campo:"fotosObservaciones",       label:"Fotos de observaciones" },
+    { key:"fotosDiagnosticoTecnico",  tabla:"orden",   campo:"fotosDiagnosticoTecnico",  label:"Fotos de diagnóstico técnico" },
+    { key:"fotosPlaca",               tabla:"orden",   campo:"fotosPlaca",               label:"Fotos de placa" },
+  ],
+  servicio: [
+    { key:"fotosRecibido",       tabla:"general", campo:"fotosRecibido",       label:"Fotos de recibido" },
+    { key:"fotosBitacora",       tabla:"general", campo:"fotosBitacora",       label:"Fotos de bitácora" },
+    { key:"fotosPinturaAntes",   tabla:"general", campo:"fotosPinturaAntes",   label:"Fotos de pintura — antes" },
+    { key:"fotosPinturaDespues", tabla:"general", campo:"fotosPinturaDespues", label:"Fotos de pintura — después" },
+    { key:"fotosFinal",          tabla:"general", campo:"fotosFinal",          label:"Fotos finales" },
+  ],
 };
 
 // Field IDs — Checklist
@@ -1409,6 +1437,7 @@ function headerTablaGeneral(titulo, datos){
    ============================================================ */
 let _editorTipo = null;
 let _edMateriales = [];
+let _edFotos = {}; // { catKey: { original:[...adjuntosAirtable], eliminadosIds:Set, nuevas:[{dataUrl,filename}] } }
 const _puedeEditarReportes = !!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
 
 function abrirEditor(tipo){
@@ -1429,7 +1458,10 @@ function abrirEditor(tipo){
       <div class="ed-field"><label>Observaciones (una por línea)</label><textarea id="edObservaciones">${esc(lineas(d.observaciones))}</textarea></div>
       <div class="ed-field"><label>Diagnóstico</label><textarea id="edDiagnostico">${esc(d.diagnosticoTecnico||"")}</textarea></div>
       <div class="ed-field"><label>Servicios propuestos (uno por línea)</label><textarea id="edServicios">${esc(lineas(d.serviciosPropuestos))}</textarea></div>
+      ${edSeccionFotosHtml("diagnostico")}
     `;
+    edInicializarFotos("diagnostico");
+    edRenderTodasFotos("diagnostico");
   } else if(tipo === "servicio"){
     if(!G.general){ alert("Todavía no hay un reporte de servicio final para editar — el técnico aún no ha terminado el formulario."); return; }
     const g = G.general.fields;
@@ -1442,7 +1474,10 @@ function abrirEditor(tipo){
       <div class="ed-field"><label>Observaciones (una por línea)</label><textarea id="edObservaciones">${esc(lineas(observaciones))}</textarea></div>
       <div class="ed-field"><label>Otros servicios (uno por línea)</label><textarea id="edServiciosOtros">${esc(lineas(serviciosOtros))}</textarea></div>
       <div class="ed-field"><label>Bitácora de servicio realizado (un punto por línea)</label><textarea id="edBitacora">${esc(g[RG.bitacoraTexto]||"")}</textarea></div>
+      ${edSeccionFotosHtml("servicio")}
     `;
+    edInicializarFotos("servicio");
+    edRenderTodasFotos("servicio");
   } else if(tipo === "materiales"){
     if(!G.general && !G.materialesBorrador){ alert("No hay materiales registrados todavía para esta orden."); return; }
     let base = G.general ? (() => { try{ return JSON.parse(G.general.fields[RG.materialesJson] || "[]"); }catch(e){ return []; } })() : (G.materialesBorrador.materiales || []);
@@ -1468,6 +1503,138 @@ function edRenderMateriales(){
 }
 function edAgregarMaterial(){ _edMateriales.push({cantidad:"",unidad:"",descripcion:"",nota:""}); edRenderMateriales(); }
 function edEliminarMaterial(i){ _edMateriales.splice(i,1); edRenderMateriales(); }
+
+/* ============ FOTOS DEL EDITOR (agregar/borrar en Diagnóstico y Servicio) ============ */
+function edSeccionFotosHtml(tipo){
+  return (FOTO_CATEGORIAS[tipo]||[]).map(cat => `
+    <div class="ed-field">
+      <label>${esc(cat.label)}</label>
+      <div class="ed-foto-grid" id="edGrid_${cat.key}"></div>
+      <div class="ed-foto-actions">
+        <button type="button" class="btn-add-ed" onclick="edAbrirSelectorFoto('${cat.key}','camara')">📷 Tomar foto</button>
+        <button type="button" class="btn-add-ed" onclick="edAbrirSelectorFoto('${cat.key}','galeria')">🖼️ Galería</button>
+      </div>
+      <input type="file" class="hidden-input" id="edInput_${cat.key}" accept="image/*" multiple onchange="edManejarFotos(this,'${cat.key}')">
+    </div>
+  `).join("");
+}
+
+function edInicializarFotos(tipo){
+  _edFotos = {};
+  (FOTO_CATEGORIAS[tipo]||[]).forEach(cat => {
+    const esOrden = cat.tabla === "orden";
+    const origenObj = esOrden ? G.orden : G.general;
+    const fieldId = esOrden ? FO[cat.campo] : RG[cat.campo];
+    const original = (origenObj && fv(origenObj, fieldId)) || [];
+    _edFotos[cat.key] = { original: Array.isArray(original) ? original : [], eliminadosIds: new Set(), nuevas: [] };
+  });
+}
+
+function edRenderTodasFotos(tipo){
+  (FOTO_CATEGORIAS[tipo]||[]).forEach(cat => edRenderFotos(cat.key));
+}
+
+function edRenderFotos(key){
+  const st = _edFotos[key];
+  const grid = document.getElementById(`edGrid_${key}`);
+  if(!st || !grid) return;
+  const existentes = st.original.filter(a => !st.eliminadosIds.has(a.id));
+  const htmlExistentes = existentes.map(a => `
+    <div class="photo-thumb">
+      <img src="${a.thumbnails?.large?.url || a.url}" alt="foto">
+      <button type="button" class="remove-btn" onclick="edEliminarFotoExistente('${key}','${a.id}')">✕</button>
+    </div>`).join("");
+  const htmlNuevas = st.nuevas.map((f,i) => `
+    <div class="photo-thumb">
+      <img src="${f.dataUrl}" alt="foto nueva">
+      <button type="button" class="remove-btn" onclick="edEliminarFotoNueva('${key}',${i})">✕</button>
+    </div>`).join("");
+  grid.innerHTML = (htmlExistentes + htmlNuevas) || `<p style="font-size:0.78rem;color:#888;margin:0">Sin fotos.</p>`;
+}
+
+function edAbrirSelectorFoto(key, modo){
+  const input = document.getElementById(`edInput_${key}`);
+  if(!input) return;
+  if(modo === "camara") input.setAttribute("capture", "environment");
+  else input.removeAttribute("capture");
+  input.click();
+}
+
+function edManejarFotos(inputEl, key){
+  const files = Array.from(inputEl.files || []);
+  if(files.length === 0) return;
+  const st = _edFotos[key];
+  let pendientes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      st.nuevas.push({ dataUrl: e.target.result, filename: `${key}_${Date.now()}_${st.nuevas.length+1}.jpg` });
+      pendientes--;
+      if(pendientes === 0) edRenderFotos(key);
+    };
+    reader.readAsDataURL(file);
+  });
+  inputEl.value = "";
+}
+
+function edEliminarFotoExistente(key, attId){
+  const st = _edFotos[key];
+  if(!st) return;
+  st.eliminadosIds.add(attId);
+  edRenderFotos(key);
+}
+
+function edEliminarFotoNueva(key, i){
+  const st = _edFotos[key];
+  if(!st) return;
+  st.nuevas.splice(i, 1);
+  edRenderFotos(key);
+}
+
+// Aplica los cambios de fotos (borrados + agregados) a Airtable para el tipo de reporte actual.
+// Borrar: PATCH reemplazando el campo con solo los adjuntos que quedaron (referenciados por id).
+// Agregar: uploadAttachment por archivo — ese endpoint AGREGA al campo, no lo reemplaza.
+async function edGuardarFotos(tipo){
+  let cambioOrden = false, cambioGeneral = false;
+  for(const cat of (FOTO_CATEGORIAS[tipo]||[])){
+    const st = _edFotos[cat.key];
+    if(!st) continue;
+    const esOrden = cat.tabla === "orden";
+    const recordId = esOrden ? G.orden.id : G.general.id;
+    const tabla = esOrden ? T_ORDENES : T_REPORTES_GENERAL;
+    const fieldId = esOrden ? FO[cat.campo] : RG[cat.campo];
+    const kept = st.original.filter(a => !st.eliminadosIds.has(a.id));
+    if(kept.length !== st.original.length){
+      await fetch(`/.netlify/functions/airtable?table=${tabla}&recordId=${recordId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { [fieldId]: kept.map(a => ({ id: a.id })) } })
+      });
+      if(esOrden) cambioOrden = true; else cambioGeneral = true;
+    }
+    if(st.nuevas.length > 0){
+      for(const f of st.nuevas){
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentType: "image/jpeg", filename: f.filename, file: f.dataUrl.split(",")[1] })
+        });
+      }
+      if(esOrden) cambioOrden = true; else cambioGeneral = true;
+    }
+  }
+  // Refresca la caché local para que el reporte regenerado muestre las fotos ya actualizadas
+  if(cambioOrden){
+    const resp = await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}&returnFieldsByFieldId=true`);
+    const data = await resp.json();
+    if(data.fields) Object.assign(G.orden.fields, data.fields);
+  }
+  if(cambioGeneral){
+    const resp = await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}&returnFieldsByFieldId=true`);
+    const data = await resp.json();
+    if(data.fields) Object.assign(G.general.fields, data.fields);
+  }
+}
 
 function cerrarEditor(){ document.getElementById("modalEditor").classList.add("hidden"); _editorTipo = null; }
 function cerrarEditorSiFuera(e){ if(e.target.id === "modalEditor") cerrarEditor(); }
@@ -1505,6 +1672,7 @@ async function guardarEdicion(){
         body: JSON.stringify({ fields: { [FO.diagnosticoTexto]: JSON.stringify(d) } })
       });
       G.orden.fields[FO.diagnosticoTexto] = JSON.stringify(d);
+      await edGuardarFotos("diagnostico");
       cerrarEditor();
       regenerarConVentanaReservada(wPre, generarDiagnosticoGeneral);
     } else if(_editorTipo === "servicio"){
@@ -1520,6 +1688,7 @@ async function guardarEdicion(){
         body: JSON.stringify({ fields })
       });
       Object.assign(G.general.fields, fields);
+      await edGuardarFotos("servicio");
       cerrarEditor();
       regenerarConVentanaReservada(wPre, generarServicioGeneral);
     } else if(_editorTipo === "materiales"){
