@@ -103,6 +103,8 @@ input[type="file"].hidden-input{ display:none; }
   background:rgba(198,40,40,0.9); color:#fff; font-weight:700; font-size:0.9rem; line-height:1;
   cursor:pointer; display:flex; align-items:center; justify-content:center;
 }
+.photo-thumb-wrap{ display:flex; flex-direction:column; gap:4px; }
+.photo-desc-input{ font-size:0.72rem; padding:4px 6px; border:1px solid #ccc; border-radius:6px; width:100%; box-sizing:border-box; font-family:inherit; }
 .status-ok{ color:var(--verde); }
 .status-pend{ color:var(--ambar); }
 .status-gen{ color:var(--azul-med); }
@@ -357,6 +359,7 @@ const FO = {
   fotosObservaciones: "fldYP3De5e0PBdoKL",
   fotosDiagnosticoTecnico: "fldkTCQJVODxJD9Db",
   fotosPlaca:       "fldNUJRgVWwI6JRjH",
+  fotosDescripciones: "fldhxUzgrTGIRUE5L",
   usuario:          "fldJmwtkHIJLsveaC",
   fotosEntregaEquipo:   "fldk4rbHtR3zslHJB",
   fotosEntregaRemision: "fldV9nvYJWCZ28fAo",
@@ -404,6 +407,7 @@ const RG = {
   fotosPinturaAntes:      "fldP3090cnvLpk7CM",
   fotosPinturaDespues:    "fldaPzquSHFOnNgto",
   fotosFinal:             "fldfrWCVJQD5Bna4T",
+  fotosDescripciones:     "fldqKR2dYNLaZTC6E",
 };
 
 // Categorías de fotos editables por tipo de reporte — usadas por el editor (abrirEditor/guardarEdicion)
@@ -584,6 +588,10 @@ async function at(tabla, params){
 
 function fv(rec, fieldId){ return rec?.fields?.[fieldId]; }
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+// Parseo tolerante de un campo JSON — regresa {} si está vacío o mal formado.
+function jparseObj(raw){ try{ return JSON.parse(raw || "{}") || {}; }catch(e){ return {}; } }
+// Caption de una foto: la descripción guardada aparte (fotosDescripciones) si existe, si no el número consecutivo.
+function fotoCaption(descs, attId, numero){ const d = descs[attId]; return (d && d.trim()) ? esc(d) : numero; }
 function fmtFecha(s){
   if(!s) return "—";
   // Un valor "YYYY-MM-DD" sin hora (ej. de un <input type="date">) lo interpreta
@@ -614,10 +622,11 @@ function placaHtml(){
   if(!fotos.length){
     return `<div class="serv-section">PLACA DEL EQUIPO</div><p style="font-size:7.5pt;color:#666;margin-bottom:8px;">No aplica / sin foto de placa.</p>`;
   }
+  const descs = jparseObj(fv(G.orden, FO.fotosDescripciones));
   return `<div class="serv-section">PLACA DEL EQUIPO</div><div class="fotos-grid" style="margin-bottom:8px">${fotos.map((a,i)=>`
     <div class="foto-item">
       <img src="${a.thumbnails?.large?.url||a.url}" alt="placa ${i+1}" loading="eager">
-      <div class="foto-caption">${i+1}</div>
+      <div class="foto-caption">${fotoCaption(descs, a.id, i+1)}</div>
     </div>`).join("")}</div>`;
 }
 
@@ -1458,7 +1467,10 @@ function headerTablaGeneral(titulo, datos){
    ============================================================ */
 let _editorTipo = null;
 let _edMateriales = [];
-let _edFotos = {}; // { catKey: { original:[...adjuntosAirtable], eliminadosIds:Set, nuevas:[{dataUrl,filename}] } }
+let _edFotos = {}; // { catKey: { original:[...adjuntosAirtable], eliminadosIds:Set, nuevas:[{dataUrl,filename,descripcion}], tabla:"orden"|"general" } }
+// Descripciones de fotos por tabla — {attachmentId: texto}. Se guarda en un campo aparte
+// (fotosDescripciones) porque los adjuntos de Airtable no tienen descripción vía API.
+let _edDescripciones = { orden: {}, general: {} };
 const _puedeEditarReportes = !!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
 
 function abrirEditor(tipo){
@@ -1542,12 +1554,16 @@ function edSeccionFotosHtml(tipo){
 
 function edInicializarFotos(tipo){
   _edFotos = {};
+  _edDescripciones = {
+    orden: jparseObj(fv(G.orden, FO.fotosDescripciones)),
+    general: jparseObj(G.general ? fv(G.general, RG.fotosDescripciones) : null),
+  };
   (FOTO_CATEGORIAS[tipo]||[]).forEach(cat => {
     const esOrden = cat.tabla === "orden";
     const origenObj = esOrden ? G.orden : G.general;
     const fieldId = esOrden ? FO[cat.campo] : RG[cat.campo];
     const original = (origenObj && fv(origenObj, fieldId)) || [];
-    _edFotos[cat.key] = { original: Array.isArray(original) ? original : [], eliminadosIds: new Set(), nuevas: [] };
+    _edFotos[cat.key] = { original: Array.isArray(original) ? original : [], eliminadosIds: new Set(), nuevas: [], tabla: esOrden ? "orden" : "general" };
   });
 }
 
@@ -1559,18 +1575,33 @@ function edRenderFotos(key){
   const st = _edFotos[key];
   const grid = document.getElementById(`edGrid_${key}`);
   if(!st || !grid) return;
+  const descs = _edDescripciones[st.tabla];
   const existentes = st.original.filter(a => !st.eliminadosIds.has(a.id));
   const htmlExistentes = existentes.map(a => `
-    <div class="photo-thumb">
-      <img src="${a.thumbnails?.large?.url || a.url}" alt="foto">
-      <button type="button" class="remove-btn" onclick="edEliminarFotoExistente('${key}','${a.id}')">✕</button>
+    <div class="photo-thumb-wrap">
+      <div class="photo-thumb">
+        <img src="${a.thumbnails?.large?.url || a.url}" alt="foto">
+        <button type="button" class="remove-btn" onclick="edEliminarFotoExistente('${key}','${a.id}')">✕</button>
+      </div>
+      <input type="text" class="photo-desc-input" placeholder="Descripción (opcional)" value="${esc(descs[a.id]||"")}" oninput="edActualizarDescExistente('${st.tabla}','${a.id}',this.value)">
     </div>`).join("");
   const htmlNuevas = st.nuevas.map((f,i) => `
-    <div class="photo-thumb">
-      <img src="${f.dataUrl}" alt="foto nueva">
-      <button type="button" class="remove-btn" onclick="edEliminarFotoNueva('${key}',${i})">✕</button>
+    <div class="photo-thumb-wrap">
+      <div class="photo-thumb">
+        <img src="${f.dataUrl}" alt="foto nueva">
+        <button type="button" class="remove-btn" onclick="edEliminarFotoNueva('${key}',${i})">✕</button>
+      </div>
+      <input type="text" class="photo-desc-input" placeholder="Descripción (opcional)" value="${esc(f.descripcion||"")}" oninput="edActualizarDescNueva('${key}',${i},this.value)">
     </div>`).join("");
   grid.innerHTML = (htmlExistentes + htmlNuevas) || `<p style="font-size:0.78rem;color:#888;margin:0">Sin fotos.</p>`;
+}
+
+function edActualizarDescExistente(tabla, attId, valor){
+  _edDescripciones[tabla][attId] = valor;
+}
+function edActualizarDescNueva(key, i, valor){
+  const st = _edFotos[key];
+  if(st && st.nuevas[i]) st.nuevas[i].descripcion = valor;
 }
 
 function edAbrirSelectorFoto(key, modo){
@@ -1589,7 +1620,7 @@ function edManejarFotos(inputEl, key){
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
-      st.nuevas.push({ dataUrl: e.target.result, filename: `${key}_${Date.now()}_${st.nuevas.length+1}.jpg` });
+      st.nuevas.push({ dataUrl: e.target.result, filename: `${key}_${Date.now()}_${st.nuevas.length+1}.jpg`, descripcion: "" });
       pendientes--;
       if(pendientes === 0) edRenderFotos(key);
     };
@@ -1602,6 +1633,7 @@ function edEliminarFotoExistente(key, attId){
   const st = _edFotos[key];
   if(!st) return;
   st.eliminadosIds.add(attId);
+  delete _edDescripciones[st.tabla][attId];
   edRenderFotos(key);
 }
 
@@ -1634,15 +1666,43 @@ async function edGuardarFotos(tipo){
       if(esOrden) cambioOrden = true; else cambioGeneral = true;
     }
     if(st.nuevas.length > 0){
+      const descMapTabla = esOrden ? _edDescripciones.orden : _edDescripciones.general;
       for(const f of st.nuevas){
-        await fetch(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
+        const resp = await fetch(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ contentType: "image/jpeg", filename: f.filename, file: f.dataUrl.split(",")[1] })
         });
+        if(f.descripcion && f.descripcion.trim()){
+          try{
+            const data = await resp.json();
+            const atts = data?.fields?.[fieldId] || [];
+            const nuevo = atts.find(a => a.filename === f.filename);
+            if(nuevo) descMapTabla[nuevo.id] = f.descripcion.trim();
+          }catch(e){}
+        }
       }
       if(esOrden) cambioOrden = true; else cambioGeneral = true;
     }
+  }
+  // Guarda el mapa de descripciones de la tabla que corresponda a este tipo de reporte
+  // (agregadas, editadas o borradas) — siempre, aunque no haya cambios de fotos, por si
+  // solo se editó el texto de una descripción ya existente.
+  const catsTipo = FOTO_CATEGORIAS[tipo] || [];
+  if(catsTipo.length && catsTipo.every(c => c.tabla === "orden")){
+    await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [FO.fotosDescripciones]: JSON.stringify(_edDescripciones.orden) } })
+    });
+    cambioOrden = true;
+  } else if(catsTipo.length){
+    await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [RG.fotosDescripciones]: JSON.stringify(_edDescripciones.general) } })
+    });
+    cambioGeneral = true;
   }
   // Refresca la caché local para que el reporte regenerado muestre las fotos ya actualizadas
   if(cambioOrden){
@@ -2072,12 +2132,14 @@ function generarDiagnosticoGeneral(){
     ? `<ul style="margin-left:16px;font-size:8.5pt">${d.serviciosPropuestos.map(s=>`<li>${esc(s)}</li>`).join("")}</ul>`
     : `<p style="font-size:7.5pt;color:#666;">Sin servicios especificados.</p>`;
 
+  const descsOrden = jparseObj(fv(G.orden, FO.fotosDescripciones));
+
   const fotosDiag = fv(G.orden, FO.fotosDiagnostico) || [];
   const fotosDiagHtml = fotosDiag.length
     ? `<div class="fotos-grid" style="margin-bottom:8px">${fotosDiag.map((a,i)=>`
       <div class="foto-item">
         <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
-        <div class="foto-caption">${i+1}</div>
+        <div class="foto-caption">${fotoCaption(descsOrden, a.id, i+1)}</div>
       </div>`).join("")}</div>`
     : "";
 
@@ -2086,7 +2148,7 @@ function generarDiagnosticoGeneral(){
     ? `<div class="fotos-grid" style="margin-bottom:8px">${fotosObs.map((a,i)=>`
       <div class="foto-item">
         <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
-        <div class="foto-caption">${i+1}</div>
+        <div class="foto-caption">${fotoCaption(descsOrden, a.id, i+1)}</div>
       </div>`).join("")}</div>`
     : "";
 
@@ -2095,7 +2157,7 @@ function generarDiagnosticoGeneral(){
     ? `<div class="fotos-grid" style="margin-bottom:8px">${fotosDiagTec.map((a,i)=>`
       <div class="foto-item">
         <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
-        <div class="foto-caption">${i+1}</div>
+        <div class="foto-caption">${fotoCaption(descsOrden, a.id, i+1)}</div>
       </div>`).join("")}</div>`
     : "";
 
@@ -2228,13 +2290,15 @@ function generarServicioGeneral(){
   const aplicaElectrico     = !!g[RG.aplicaElectrico];
   const aplicaPintura       = !!g[RG.aplicaPintura];
 
+  const descsGeneral = jparseObj(g[RG.fotosDescripciones]);
+
   function secFotosGen(fieldId, titulo){
     const arr = g[fieldId];
     if(!arr || !arr.length) return "";
     const imgs = arr.map((a,i) => `
       <div class="foto-item">
         <img src="${a.thumbnails?.large?.url||a.url}" alt="foto ${i+1}" loading="eager">
-        <div class="foto-caption">${i+1}</div>
+        <div class="foto-caption">${fotoCaption(descsGeneral, a.id, i+1)}</div>
       </div>`).join("");
     return `${titulo ? `<div class="serv-section">${esc(titulo)}</div>` : ""}<div class="fotos-grid">${imgs}</div>`;
   }
@@ -2333,8 +2397,8 @@ function generarServicioGeneral(){
       <div class="serv-section">SERVICIO DE PINTURA</div>
       <table class="adh-tbl" style="margin-bottom:0"><tr><th style="width:50%">ANTES</th><th style="width:50%">DESPUÉS</th></tr></table>
       <div style="display:flex;gap:10px;margin-bottom:8px">
-        <div class="fotos-grid" style="flex:1">${antes.map((a,i)=>`<div class="foto-item"><img src="${a.thumbnails?.large?.url||a.url}" loading="eager"><div class="foto-caption">${i+1}</div></div>`).join("")}</div>
-        <div class="fotos-grid" style="flex:1">${despues.map((a,i)=>`<div class="foto-item"><img src="${a.thumbnails?.large?.url||a.url}" loading="eager"><div class="foto-caption">${i+1}</div></div>`).join("")}</div>
+        <div class="fotos-grid" style="flex:1">${antes.map((a,i)=>`<div class="foto-item"><img src="${a.thumbnails?.large?.url||a.url}" loading="eager"><div class="foto-caption">${fotoCaption(descsGeneral, a.id, i+1)}</div></div>`).join("")}</div>
+        <div class="fotos-grid" style="flex:1">${despues.map((a,i)=>`<div class="foto-item"><img src="${a.thumbnails?.large?.url||a.url}" loading="eager"><div class="foto-caption">${fotoCaption(descsGeneral, a.id, i+1)}</div></div>`).join("")}</div>
       </div>`;
     }
   }

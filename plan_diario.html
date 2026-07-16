@@ -176,6 +176,11 @@ td{ padding:11px 14px; vertical-align:middle; }
   width:100%; padding:9px 11px; border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.85rem; font-family:inherit;
 }
 .campo textarea{ resize:vertical; min-height:60px; }
+.tecnico-checks{ display:flex; flex-wrap:wrap; gap:6px 14px; border:1px solid var(--gris); border-radius:var(--radio-sm); padding:10px 11px; }
+.tecnico-checks label{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:400; text-transform:none; letter-spacing:normal; margin:0; cursor:pointer; }
+.tecnico-checks input{ width:15px; height:15px; }
+.tecnico-otro-texto.hidden{ display:none; }
+.tecnico-otro-texto{ margin-top:8px; }
 .fila-2{ display:flex; gap:10px; }
 .fila-2 .campo{ flex:1; }
 .chk-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
@@ -274,7 +279,10 @@ td{ padding:11px 14px; vertical-align:middle; }
       </div>
       <div class="campo">
         <label>Asignado a</label>
-        <select id="mTecnico"><option value="">— Sin asignar —</option></select>
+        <div class="tecnico-checks" id="mTecnicoChecks"></div>
+        <div class="campo tecnico-otro-texto hidden" id="wrapTecnicoOtro">
+          <input type="text" id="mTecnicoOtroTexto" placeholder="Nombre de quien no está en la lista">
+        </div>
       </div>
       <div class="campo">
         <label>Cliente (dejar vacío si es tarea interna del C.S.)</label>
@@ -534,8 +542,14 @@ function chipPrioridadHtml(prioridad){
   return `<span class="chip-prioridad ${cls}">${txt}</span>`;
 }
 
+// Un mismo campo de texto puede traer varios nombres separados por coma (asignación a más de un técnico)
+function incluyeTecnico(campoTexto, nombre){
+  if(!campoTexto || !nombre) return false;
+  return campoTexto.split(",").map(n => n.trim()).includes(nombre.trim());
+}
+
 function filaTarea(t){
-  const esMio = _sesion.rol === "Tecnico" && t.tecnico && t.tecnico.trim() === (_sesion.nombre||"").trim();
+  const esMio = _sesion.rol === "Tecnico" && incluyeTecnico(t.tecnico, _sesion.nombre);
   return `<tr class="${t.completado ? "completado" : ""} ${esMio ? "mio" : ""}">
     <td style="text-align:center">${chipPrioridadHtml(t.prioridad)}</td>
     <td>${esc(t.tecnico) || "—"}</td>
@@ -549,7 +563,7 @@ function filaTarea(t){
 }
 
 function filaOrden(o){
-  const esMio = _sesion.rol === "Tecnico" && o.tecnico && o.tecnico.trim() === (_sesion.nombre||"").trim();
+  const esMio = _sesion.rol === "Tecnico" && incluyeTecnico(o.tecnico, _sesion.nombre);
   const id = o.folio || o.serie || "—";
   const esGeneral = o.tipoServicio === "General";
   const equipo = esGeneral ? (o.tipoEquipo || "Equipo") : "Motor Sulzer";
@@ -663,10 +677,24 @@ async function toggleCompletado(id, valor){
 /* ============================================================
    MODAL AGREGAR / EDITAR (solo Admin)
    ============================================================ */
-function poblarSelectTecnicos(seleccionado){
-  const sel = document.getElementById("mTecnico");
-  sel.innerHTML = `<option value="">— Sin asignar —</option>` +
-    tecnicosList.map(n => `<option value="${esc(n)}" ${n===seleccionado?"selected":""}>${esc(n)}</option>`).join("");
+// seleccionadosStr puede traer varios nombres separados por coma (asignación a más de un técnico)
+function poblarTecnicoChecks(seleccionadosStr){
+  const seleccionados = (seleccionadosStr||"").split(",").map(s => s.trim()).filter(Boolean);
+  const otros = seleccionados.filter(n => !tecnicosList.includes(n));
+
+  const cont = document.getElementById("mTecnicoChecks");
+  cont.innerHTML = tecnicosList.map(n => `
+    <label><input type="checkbox" value="${esc(n)}" ${seleccionados.includes(n)?"checked":""}> ${esc(n)}</label>
+  `).join("") + `
+    <label><input type="checkbox" id="mTecnicoOtro" value="" onchange="toggleTecnicoOtro()" ${otros.length?"checked":""}> Otro</label>
+  `;
+  document.getElementById("mTecnicoOtroTexto").value = otros.join(", ");
+  toggleTecnicoOtro();
+}
+
+function toggleTecnicoOtro(){
+  const on = document.getElementById("mTecnicoOtro").checked;
+  document.getElementById("wrapTecnicoOtro").classList.toggle("hidden", !on);
 }
 
 function toggleMax(){
@@ -698,7 +726,7 @@ function abrirModal(id){
 
   document.getElementById("modalTitulo").textContent = t ? "Editar tarea" : "Agregar tarea";
   document.getElementById("btnEliminarTarea").classList.toggle("hidden", !t);
-  poblarSelectTecnicos(t?.tecnico || "");
+  poblarTecnicoChecks(t?.tecnico || "");
 
   document.getElementById("mPrioridadMax").checked = !!(t && t.prioridad === 0);
   document.getElementById("mPrioridad").value = (t && t.prioridad != null && t.prioridad !== 0) ? t.prioridad : "";
@@ -730,9 +758,15 @@ async function guardarTarea(){
   const fechaEntregaIso = document.getElementById("mFechaEntrega").value;
   const fechaEntrega = esNA ? "N/A" : (fechaEntregaIso ? isoAFechaCorta(fechaEntregaIso) : "");
 
+  const tecnicosMarcados = [...document.querySelectorAll('#mTecnicoChecks input[type=checkbox]:checked')]
+    .map(c => c.value)
+    .filter(v => v); // el checkbox "Otro" no tiene value, se agrega aparte
+  const otroTexto = document.getElementById("mTecnicoOtroTexto").value.trim();
+  if(document.getElementById("mTecnicoOtro").checked && otroTexto) tecnicosMarcados.push(otroTexto);
+
   const fields = {
     [PF.actividad]:    actividad,
-    [PF.tecnico]:       document.getElementById("mTecnico").value,
+    [PF.tecnico]:       tecnicosMarcados.join(", "),
     [PF.cliente]:       document.getElementById("mCliente").value.trim(),
     [PF.fechaEntrega]:  fechaEntrega,
     [PF.proceso]:       document.getElementById("mProceso").value.trim(),

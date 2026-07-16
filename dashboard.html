@@ -1525,6 +1525,7 @@ footer strong{ color: var(--azul); }
     <div class="ck-modal-footer">
       <button class="btn-cancelar" onclick="cerrarCk()">Cerrar</button>
       <button class="btn-imprimir" onclick="imprimirCk()">Imprimir / Guardar PDF</button>
+      <button class="btn-corr hidden" id="btnEliminarCk" style="background:#991b1b" onclick="eliminarOrdenCascada(_ckOrdenIdActual, _ckSerieActual)">&#128465; Eliminar orden</button>
     </div>
   </div>
 </div>
@@ -1587,6 +1588,7 @@ footer strong{ color: var(--azul); }
     <div id="detalleGeneralAcciones"></div>
     <div class="ck-modal-footer">
       <button class="btn-cancelar" onclick="cerrarDetalleGeneral()">Cerrar</button>
+      <button class="btn-corr hidden" id="btnEliminarDetalleGeneral" style="background:#991b1b" onclick="eliminarOrdenCascada(_detalleGeneralOrdenId, _detalleGeneralIdentificador)">&#128465; Eliminar orden</button>
     </div>
   </div>
 </div>
@@ -2292,7 +2294,13 @@ function cambiarVistaOrdenes(v){
   document.getElementById("vistaBtnKanban").classList.toggle("active", v === "kanban");
 }
 
+let _detalleGeneralOrdenId      = null;
+let _detalleGeneralIdentificador = null;
+
 async function verDetalleGeneral(id, identificador){
+  _detalleGeneralOrdenId       = id;
+  _detalleGeneralIdentificador = identificador;
+  document.getElementById("btnEliminarDetalleGeneral").classList.toggle("hidden", !(_sesion && _sesion.rol === "Admin"));
   document.getElementById("detalleGeneralBody").innerHTML = `
     <div style="text-align:center;padding:40px;color:var(--gris-texto)">
       <div class="spinner" style="margin:0 auto 16px"></div>
@@ -2955,6 +2963,53 @@ async function cancelarPreRegistro(id, folio){
   } catch(e){ alert("No se pudo cancelar el pre-registro."); }
 }
 
+/* ============================================================
+   ELIMINAR ORDEN (Admin) — borra la orden y en cascada todo lo
+   ligado a ella (checklist, pintura, evidencia, reportes general,
+   borradores) para que Airtable no se quede con registros huérfanos.
+   ============================================================ */
+const TABLA_PINTURA          = "tbl6fY01T6q69BVN0";
+const F_PT_ORDEN_LINK        = "fldEPLjcyH5i50UDj";
+const TABLA_EVIDENCIA        = "tblSxLh7qYCkr4dTa";
+const F_EV_ORDEN_LINK        = "fldvzrPRmSWSWKh9y";
+const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+const F_RG_ORDEN_LINK        = "fldSIaStYemOiievZ";
+
+async function eliminarOrdenCascada(id, identificador){
+  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!confirm(`¿Eliminar definitivamente "${identificador}"?\n\nSe borrará la orden junto con su checklist, pintura, evidencia y reportes ligados. Esta acción no se puede deshacer.`)) return;
+
+  try{
+    const orden = allOrdenes.find(o => o.id === id);
+    const clave = (orden && (orden.serie || orden.folio)) || identificador;
+
+    const borrarLigados = async (tableId, formula) => {
+      const url = `/.netlify/functions/airtable?table=${tableId}&filterByFormula=${encodeURIComponent(formula)}`;
+      const res = await fetch(url);
+      if(!res.ok) return;
+      const data = await res.json();
+      for(const r of (data.records || [])){
+        await fetch(`/.netlify/functions/airtable?table=${tableId}&recordId=${r.id}`, { method:"DELETE" }).catch(()=>{});
+      }
+    };
+
+    await borrarLigados(TABLA_CHECKLIST, `FIND("${id}", ARRAYJOIN({${F_CK_ORDEN_LINK}}))`);
+    await borrarLigados(TABLA_PINTURA,   `FIND("${id}", ARRAYJOIN({${F_PT_ORDEN_LINK}}))`);
+    await borrarLigados(TABLA_EVIDENCIA, `FIND("${id}", ARRAYJOIN({${F_EV_ORDEN_LINK}}))`);
+    await borrarLigados(TABLA_REPORTES_GENERAL, `FIND("${id}", ARRAYJOIN({${F_RG_ORDEN_LINK}}))`);
+    if(clave) await borrarLigados(TABLA_BORRADORES, `{${BF_SERIE}}="${clave}"`);
+
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, { method: "DELETE" });
+
+    cerrarCk();
+    cerrarDetalleGeneral();
+    await cargarDatos();
+    alert(`"${identificador}" fue eliminado junto con sus datos relacionados.`);
+  } catch(e){
+    alert("No se pudo eliminar la orden: " + (e.message || ""));
+  }
+}
+
 const PRIORIDAD_INFO = {
   1: { lbl:"1 · Urgente",   color:"#991b1b", bg:"#fde8e8" },
   2: { lbl:"2 · Alta",      color:"#b45309", bg:"#fdf3db" },
@@ -3312,7 +3367,13 @@ function abrirPintura(ordenId, serie){
   window.open(`formulario_maestro.html`, '_blank');
 }
 
+let _ckOrdenIdActual = null;
+let _ckSerieActual   = null;
+
 async function verChecklist(ordenId, serie){
+  _ckOrdenIdActual = ordenId;
+  _ckSerieActual   = serie;
+  document.getElementById("btnEliminarCk").classList.toggle("hidden", !(_sesion && _sesion.rol === "Admin"));
   // Mostrar modal con spinner
   document.getElementById("ckMeta").innerHTML    = "";
   document.getElementById("ckResumen").innerHTML = "";

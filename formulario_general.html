@@ -124,6 +124,8 @@
     background: rgba(198,40,40,0.9); color: var(--blanco); font-weight: 700; font-size: 1rem; line-height: 1;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
   }
+  .photo-thumb-wrap{ display: flex; flex-direction: column; gap: 4px; }
+  .photo-desc-input{ font-size: 0.75rem; padding: 5px 7px; border: 1px solid var(--gris); border-radius: 6px; width: 100%; box-sizing: border-box; font-family: inherit; }
 
   .chip-row{ display:flex; flex-wrap:wrap; gap:8px; }
   .chip{ border:1px solid var(--gris); border-radius:20px; padding:8px 14px; font-size:0.85rem; cursor:pointer; background:var(--blanco); user-select:none; }
@@ -672,6 +674,7 @@ const OF = {
   fotosPlaca: "fldNUJRgVWwI6JRjH",
   usuario: "fldJmwtkHIJLsveaC",
   notasCorreccion: "fldP5uFmrDGcsxy9f",
+  fotosDescripciones: "fldhxUzgrTGIRUE5L",
 };
 
 const RG = {
@@ -696,7 +699,8 @@ const RG = {
   fotosBitacora: "fld3s920VvM9QC7qR",
   fotosPinturaAntes: "fldP3090cnvLpk7CM",
   fotosPinturaDespues: "fldaPzquSHFOnNgto",
-  fotosFinal: "fldfrWCVJQD5Bna4T"
+  fotosFinal: "fldfrWCVJQD5Bna4T",
+  fotosDescripciones: "fldqKR2dYNLaZTC6E"
 };
 
 let ordenRecordId = null;
@@ -854,10 +858,18 @@ async function generarDiagnostico(){
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) } })
     });
-    if(fotosDiagnostico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnostico, fotosDiagnostico);
-    if(fotosObservaciones.length > 0) await subirFotosA(ordenRecordId, OF.fotosObservaciones, fotosObservaciones);
-    if(fotosDiagnosticoTecnico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnosticoTecnico, fotosDiagnosticoTecnico);
-    if(fotosPlaca.length > 0) await subirFotosA(ordenRecordId, OF.fotosPlaca, fotosPlaca);
+    const descMap = {};
+    if(fotosDiagnostico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnostico, fotosDiagnostico, descMap);
+    if(fotosObservaciones.length > 0) await subirFotosA(ordenRecordId, OF.fotosObservaciones, fotosObservaciones, descMap);
+    if(fotosDiagnosticoTecnico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnosticoTecnico, fotosDiagnosticoTecnico, descMap);
+    if(fotosPlaca.length > 0) await subirFotosA(ordenRecordId, OF.fotosPlaca, fotosPlaca, descMap);
+    if(Object.keys(descMap).length > 0){
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { [OF.fotosDescripciones]: JSON.stringify(descMap) } })
+      });
+    }
   } catch(e){}
 
   const folio = document.getElementById("folio").value || "";
@@ -1198,7 +1210,7 @@ function manejarFotos(inputEl, arr, gridId, prefix){
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = function(e){
-      arr.push({ dataUrl: e.target.result, filename: `${prefix}_${arr.length + 1}.jpg` });
+      arr.push({ dataUrl: e.target.result, filename: `${prefix}_${arr.length + 1}.jpg`, descripcion: "" });
       pendientes--;
       if(pendientes === 0) renderizarGrid(arr, gridId, prefix);
     };
@@ -1210,14 +1222,23 @@ function manejarFotos(inputEl, arr, gridId, prefix){
 function renderizarGrid(arr, gridId, prefix){
   const grid = document.getElementById(gridId);
   grid.innerHTML = arr.map((foto, i) => `
-    <div class="photo-thumb">
-      <img src="${foto.dataUrl}" alt="Foto ${i+1}">
-      <button type="button" class="remove-btn" onclick="eliminarFoto('${prefix}', ${i})">✕</button>
+    <div class="photo-thumb-wrap">
+      <div class="photo-thumb">
+        <img src="${foto.dataUrl}" alt="Foto ${i+1}">
+        <button type="button" class="remove-btn" onclick="eliminarFoto('${prefix}', ${i})">✕</button>
+      </div>
+      <input type="text" class="photo-desc-input" placeholder="Descripción (opcional)" value="${esc(foto.descripcion||"")}" oninput="actualizarDescripcionFoto('${prefix}', ${i}, this.value)">
     </div>
   `).join("");
   const counterMap = { recibido:"counterRecibido", diagnostico:"counterDiagnostico", observaciones:"counterObservaciones", diagnostico_tecnico:"counterDiagnosticoTecnico", placa:"counterPlaca", final:"counterFinal", bitacora:"counterBitacora" };
   const counterId = counterMap[prefix];
   if(counterId) document.getElementById(counterId).textContent = `${arr.length} foto${arr.length===1?"":"s"} seleccionada${arr.length===1?"":"s"}`;
+  guardarBorradorGeneral();
+}
+
+function actualizarDescripcionFoto(prefix, i, valor){
+  const arr = getArrByPrefix(prefix);
+  if(arr[i]) arr[i].descripcion = valor;
   guardarBorradorGeneral();
 }
 
@@ -2011,10 +2032,14 @@ async function fetchConReintento(url, opciones, intentos = 3, esperaMs = 1500){
 // Cada foto se marca con `._subida=true` tras subir bien — si enviarReporteGeneral() se
 // reintenta después de una falla a medias, las fotos ya subidas se saltan en vez de
 // volver a subirse (evita duplicar fotos en el mismo registro).
-async function subirFotosA(recordId, fieldId, fotos){
+// descMap (opcional): objeto acumulador {attachmentId: descripcion} — si se pasa, cada foto
+// con .descripcion no vacía se agrega ahí usando el ID real que Airtable le asigna al adjunto
+// (se identifica emparejando por filename en la respuesta del upload, ya que el nombre se
+// genera único por foto).
+async function subirFotosA(recordId, fieldId, fotos, descMap){
   for(const f of fotos){
     if(f._subida) continue;
-    await fetchConReintento(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
+    const resp = await fetchConReintento(`/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -2024,6 +2049,14 @@ async function subirFotosA(recordId, fieldId, fotos){
       })
     });
     f._subida = true;
+    if(descMap && f.descripcion && f.descripcion.trim()){
+      try{
+        const data = await resp.json();
+        const atts = data?.fields?.[fieldId] || [];
+        const nuevo = atts.find(a => a.filename === f.filename);
+        if(nuevo) descMap[nuevo.id] = f.descripcion.trim();
+      }catch(e){}
+    }
   }
 }
 
@@ -2094,9 +2127,10 @@ async function enviarReporteGeneral(){
     // tras un "Failed to fetch" duplicaba el reporte en vez de continuar el mismo.
     const recExistente = reporteRecordId || _recIdEnvioActual;
     let recId;
+    let descripcionesExistentes = {};
     if(recExistente){
       statusEl.textContent = "Actualizando el reporte...";
-      const patchResp = await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&recordId=${recExistente}`, {
+      const patchResp = await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&recordId=${recExistente}&returnFieldsByFieldId=true`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields })
@@ -2104,6 +2138,7 @@ async function enviarReporteGeneral(){
       const patchData = await patchResp.json();
       if(!patchResp.ok) throw new Error(patchData?.error?.message || "Error al actualizar el reporte");
       recId = patchData.id;
+      try{ descripcionesExistentes = JSON.parse(patchData.fields?.[RG.fotosDescripciones] || "{}"); }catch(e){}
     } else {
       statusEl.textContent = "Guardando datos del reporte...";
       const createResp = await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}`, {
@@ -2117,17 +2152,27 @@ async function enviarReporteGeneral(){
       _recIdEnvioActual = recId; // por si un paso posterior (fotos, etc.) falla y se reintenta
     }
 
+    const descMap = {};
     statusEl.textContent = "Subiendo fotos de recibido...";
-    await subirFotosA(recId, RG.fotosRecibido, fotosRecibido);
+    await subirFotosA(recId, RG.fotosRecibido, fotosRecibido, descMap);
     statusEl.textContent = "Subiendo fotos de la bitácora...";
-    await subirFotosA(recId, RG.fotosBitacora, fotosBitacora);
+    await subirFotosA(recId, RG.fotosBitacora, fotosBitacora, descMap);
     if(document.getElementById("aplicaPintura").checked){
       statusEl.textContent = "Subiendo fotos de pintura...";
-      await subirFotosA(recId, RG.fotosPinturaAntes, fotosPinturaAntes);
-      await subirFotosA(recId, RG.fotosPinturaDespues, fotosPinturaDespues);
+      await subirFotosA(recId, RG.fotosPinturaAntes, fotosPinturaAntes, descMap);
+      await subirFotosA(recId, RG.fotosPinturaDespues, fotosPinturaDespues, descMap);
     }
     statusEl.textContent = "Subiendo evidencia final...";
-    await subirFotosA(recId, RG.fotosFinal, fotosFinal);
+    await subirFotosA(recId, RG.fotosFinal, fotosFinal, descMap);
+
+    if(Object.keys(descMap).length > 0){
+      const descripcionesFinales = { ...descripcionesExistentes, ...descMap };
+      await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&recordId=${recId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { [RG.fotosDescripciones]: JSON.stringify(descripcionesFinales) } })
+      });
+    }
 
     statusEl.textContent = "Marcando orden como terminada...";
     await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
