@@ -984,9 +984,10 @@ footer strong{ color: var(--azul); }
 .cot-tbl{ width:100%; border-collapse:collapse; margin-bottom:10px; }
 .cot-tbl th{ background:var(--azul-bg); color:var(--azul); font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; padding:7px 6px; border:1px solid var(--gris); text-align:left; }
 .cot-tbl td{ border:1px solid var(--gris); padding:4px; }
-.cot-tbl input, .cot-tbl select{ width:100%; padding:6px 7px; border:1px solid transparent; border-radius:4px; font-size:0.82rem; font-family:inherit; background:transparent; }
-.cot-tbl input:focus, .cot-tbl select:focus{ border-color:var(--azul-medio); background:var(--blanco); outline:none; }
+.cot-tbl input, .cot-tbl select, .cot-tbl textarea{ width:100%; padding:6px 7px; border:1px solid transparent; border-radius:4px; font-size:0.82rem; font-family:inherit; background:transparent; }
+.cot-tbl input:focus, .cot-tbl select:focus, .cot-tbl textarea:focus{ border-color:var(--azul-medio); background:var(--blanco); outline:none; }
 .cot-tbl input[readonly]{ color:var(--gris-texto); }
+.cot-tbl textarea{ resize:vertical; min-height:52px; line-height:1.35; }
 .cot-tbl .cot-del{ background:none; border:none; color:var(--rojo); cursor:pointer; font-size:0.95rem; font-weight:700; padding:4px; }
 .cot-totales{ display:flex; justify-content:flex-end; gap:22px; flex-wrap:wrap; margin:6px 2px 4px; padding:10px 14px; background:var(--fondo); border-radius:var(--radio-sm); font-size:0.85rem; }
 .cot-totales strong{ color:var(--azul); font-size:0.95rem; }
@@ -2612,7 +2613,29 @@ const COT = {
   estadoCotizacion:        "fldjUqpqdCRQ8rdCU",
   clienteAutorizo:         "fld0YRjkHOdspFNHe",
   fechaAutorizacion:       "fldmizB5GKLZfVOYM",
+  diagnosticoTexto:        "fldqrQ3SL3P4N06RJ",
 };
+
+// Arma el renglón por defecto (1 SERV) a partir de los servicios que el técnico marcó
+// en el diagnóstico ("Servicios a realizar") — mismo formato que las cotizaciones reales
+// (un solo renglón con la lista de servicios en viñetas dentro de la descripción).
+function cotDescripcionDesdeDiagnostico(raw){
+  let d = {};
+  try{ d = JSON.parse(raw || "{}"); }catch(e){}
+  const servicios = Array.isArray(d.serviciosPropuestos) ? d.serviciosPropuestos.map(s => (s||"").trim()).filter(Boolean) : [];
+  if(!servicios.length) return "";
+  const formatear = s => {
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if(!/[.!?]$/.test(s)) s += ".";
+    return s;
+  };
+  const yaTieneReporteFinal = servicios.some(s => /^reporte final\.?$/i.test(s.trim()));
+  const lineas = [...servicios.map(formatear), ...(yaTieneReporteFinal ? [] : ["Reporte final."])];
+  return lineas.map(l => `• ${l}`).join("\n");
+}
+function cotRenglonPorDefecto(diagnosticoRaw){
+  return { cant:1, unidad:"SERV", descripcion: cotDescripcionDesdeDiagnostico(diagnosticoRaw), precioUnitario:0, total:0 };
+}
 let cotOrdenId      = null;
 let cotFolio        = "";
 let cotRenglones    = [];
@@ -2650,7 +2673,7 @@ async function abrirCotizacion(id, identificador){
 
     let renglones = [];
     try{ renglones = JSON.parse(f[COT.detalleServicios] || "[]"); }catch(e){}
-    cotRenglones = renglones.length ? renglones : [{ cant:1, unidad:"SERV", descripcion:"", precioUnitario:0, total:0 }];
+    cotRenglones = renglones.length ? renglones : [cotRenglonPorDefecto(f[COT.diagnosticoTexto])];
 
     document.getElementById("cotSolicitadaPor").value   = f[COT.cotizacionSolicitadaPor] || "";
     document.getElementById("cotAgente").value          = f[COT.agenteReferencia] || "";
@@ -2702,7 +2725,7 @@ function cotRenderRenglones(){
     <tr>
       <td><input type="number" step="any" value="${esc(String(r.cant ?? ""))}" oninput="cotRenglones[${i}].cant=this.value;cotRecalcularFila(${i})"></td>
       <td><input type="text" value="${esc(r.unidad || "")}" placeholder="SERV" oninput="cotRenglones[${i}].unidad=this.value"></td>
-      <td><input type="text" value="${esc(r.descripcion || "")}" placeholder="Descripción del servicio" oninput="cotRenglones[${i}].descripcion=this.value"></td>
+      <td><textarea rows="3" placeholder="Descripción del servicio" oninput="cotRenglones[${i}].descripcion=this.value">${esc(r.descripcion || "")}</textarea></td>
       <td><input type="number" step="0.01" value="${esc(String(r.precioUnitario ?? ""))}" oninput="cotRenglones[${i}].precioUnitario=this.value;cotRecalcularFila(${i})"></td>
       <td><input type="text" readonly class="cot-total-cell" value="${esc(fmtMoneda(r.total))}"></td>
       <td><button type="button" class="cot-del" onclick="cotQuitarRenglon(${i})" title="Quitar renglón">✕</button></td>
