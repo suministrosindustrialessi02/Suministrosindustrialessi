@@ -2224,7 +2224,7 @@ function generarCotizacionGeneral(){
     <tr>
       <td style="text-align:center">${esc(String(r.cant))}</td>
       <td style="text-align:center">${esc(r.unidad)}</td>
-      <td>${esc(r.descripcion)}</td>
+      <td style="white-space:pre-line">${esc(r.descripcion)}</td>
       <td style="text-align:right">${fmtMon(r.precioUnitario)}</td>
       <td style="text-align:right">${fmtMon(r.total)}</td>
     </tr>`).join("");
