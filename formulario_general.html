@@ -190,6 +190,11 @@
     <span id="bannerCorreccionMotivo"></span>
   </div>
 
+  <div class="banner-correccion hidden" id="bannerRechazoMateriales">
+    <strong>📦 Dirección regresó la lista de materiales</strong>
+    <span id="bannerRechazoMotivo"></span>
+  </div>
+
   <!-- ============ PANTALLA 0: DATOS GENERALES ============ -->
   <div class="screen" id="screen0">
     <div class="card" id="cardBuscarPreReg" style="background:#fff8e1;border:1px solid var(--ambar-borde,#f0c96a);">
@@ -639,8 +644,6 @@ function esc(s){ const d = document.createElement("div"); d.textContent = String
 /* ============================================================
    AIRTABLE CONFIG
    ============================================================ */
-
-
 const TABLA_ORDENES = "tblcyGwDeOORxELJg";
 const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
 const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
@@ -675,6 +678,9 @@ const OF = {
   usuario: "fldJmwtkHIJLsveaC",
   notasCorreccion: "fldP5uFmrDGcsxy9f",
   fotosDescripciones: "fldhxUzgrTGIRUE5L",
+  estadoValidacionMateriales: "fldXrE2REqfpbnFMF",
+  validadoPor: "fldCdtkVex6NOjBqS",
+  fechaValidacion: "fldwSHiquwZ9IXsAx",
 };
 
 const RG = {
@@ -808,6 +814,7 @@ function construirDatosDiagnostico(){
     observaciones: observaciones.filter(o=>o),
     diagnosticoTecnico: gv("diagnosticoTecnico"),
     serviciosPropuestos,
+    materialesPropuestos: materialesValidos(),
     aplicaElectrico,
     pruebasElectricasIniciales: aplicaElectrico ? {
       numLineas: gv("numLineas"),
@@ -853,10 +860,19 @@ async function generarDiagnostico(){
   const datos = construirDatosDiagnostico();
 
   try{
+    // La lista de materiales entra a validación de Dirección desde AQUÍ (antes de que Admin
+    // autorice continuar) — no hasta el reporte final. Ver [[plan_rol_direccion]]: la validación
+    // debe pasar antes de la autorización para que la cotización se arme con datos ya revisados.
+    const ordenFields = { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) };
+    if(datos.materialesPropuestos.length > 0){
+      ordenFields[OF.estadoValidacionMateriales] = "Pendiente";
+      ordenFields[OF.validadoPor] = "";
+      ordenFields[OF.fechaValidacion] = null;
+    }
     await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) } })
+      body: JSON.stringify({ fields: ordenFields })
     });
     const descMap = {};
     if(fotosDiagnostico.length > 0) await subirFotosA(ordenRecordId, OF.fotosDiagnostico, fotosDiagnostico, descMap);
@@ -884,7 +900,9 @@ async function generarDiagnostico(){
 async function verificarAutorizacionAhora(){
   if(!ordenRecordId){ alert("No se encontró la orden."); return; }
   try{
-    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`, {});
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`, {
+      headers:{}
+    });
     const data = await resp.json();
     const estadoRaw = data.fields ? data.fields[OF.estado] : null;
     const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
@@ -949,7 +967,7 @@ async function confirmarDatosGenerales(){
   try{
     const formula = encodeURIComponent(`{${OF.folio}}="${folio}"`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url, {});
+    const resp = await fetch(url, { headers:{} });
     const data = await resp.json();
     const existente = (data.records || [])[0];
 
@@ -1041,7 +1059,7 @@ async function buscarEquipoRegistrado(){
     const qEsc = q.replace(/"/g, '\\"');
     const formula = encodeURIComponent(`AND({${OF.tipoServicio}}="General", OR({${OF.folio}}="${qEsc}", {${OF.serie}}="${qEsc}"))`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url, {});
+    const resp = await fetch(url, { headers:{} });
     const data = await resp.json();
     const rec = (data.records || [])[0];
 
@@ -1088,7 +1106,7 @@ async function buscarEquipoRegistrado(){
     try{
       const folioVal = f[OF.folio] || "";
       const bfFormula = encodeURIComponent(`{${BF.serie}}="${folioVal}"`);
-      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, {});
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, { headers:{} });
       if(bfRes.ok){
         const bfData = await bfRes.json();
         const bf = (bfData.records||[])[0];
@@ -1136,8 +1154,8 @@ async function generarFolioAutomatico(prefijo){
     const urlReportes = `/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formulaReportes}&returnFieldsByFieldId=true&fields[]=${RG.folio}`;
 
     const [respOrdenes, respReportes] = await Promise.all([
-      fetch(urlOrdenes, {}),
-      fetch(urlReportes, {})
+      fetch(urlOrdenes, { headers:{} }),
+      fetch(urlReportes, { headers:{} })
     ]);
     const dataOrdenes = await respOrdenes.json();
     const dataReportes = await respReportes.json();
@@ -1737,6 +1755,88 @@ function restaurarDesdeReporteFinal(ordenRec, reporteRec, motivo){
 }
 
 /* ============================================================
+   REENTRADA POR RECHAZO DE MATERIALES (Dirección) — la orden sigue
+   "En diagnóstico" (nunca llegó a existir REPORTES_GENERAL todavía),
+   así que se reconstruye desde diagnosticoTexto, no desde el reporte
+   final. Aterriza directo en Pantalla 2 (Materiales) para que el
+   técnico corrija y vuelva a generar el diagnóstico — eso ya dispara
+   de nuevo estadoValidacionMateriales="Pendiente" solo.
+   ============================================================ */
+function restaurarDesdeRechazoMateriales(ordenRec, motivo){
+  const of = ordenRec.fields;
+  const nom = v => (v && typeof v === "object" && "name" in v) ? v.name : v;
+  const diag = jparseObj(of[OF.diagnosticoTexto]);
+  const pruebas = diag.pruebasElectricasIniciales || null;
+  const numLineas = (pruebas && pruebas.numLineas) || "6";
+
+  const datos = {
+    ordenRecordId: ordenRec.id,
+    reporteEnviado: false,
+    pantallaActual: 2,
+
+    tipoEquipo: diag.tipoEquipo || nom(of[OF.tipoEquipo]) || "",
+    descripcionOtro: diag.descripcionOtro || of[OF.descripcionOtro] || "",
+    folio: diag.folio || of[OF.folio] || "",
+    cliente: diag.cliente || of[OF.cliente] || "",
+    usuario: diag.usuario || of[OF.usuario] || "",
+    nombreCorto: diag.nombreCorto || "",
+    marca: diag.marca || "",
+    color: diag.color || "",
+    spec: diag.spec || of[OF.spec] || "",
+    numSerie: diag.numSerie || of[OF.serie] || "",
+    numParte: diag.numParte || "",
+    potencia: diag.potencia || (of[OF.hp] != null ? of[OF.hp] : ""),
+    frame: diag.frame || of[OF.frame] || "",
+    volts: diag.volts || (of[OF.volts] != null ? of[OF.volts] : ""),
+    amperaje: diag.amperaje || "",
+
+    descripcionProblema: diag.descripcionProblema || "",
+    diagnosticoTecnico: diag.diagnosticoTecnico || "",
+    observaciones: diag.observaciones || [],
+
+    fotosRecibido: [], fotosDiagnostico: [], fotosObservaciones: [],
+    fotosDiagnosticoTecnico: [], fotosPlaca: [],
+    aplicaPlaca: true,
+
+    // Los servicios elegidos no se pueden reconstruir sin perder la distinción catálogo/otros
+    // (diagnosticoTexto solo guarda el texto ya formateado, no cuál era chip vs texto libre) —
+    // el técnico los vuelve a marcar si hace falta. Los materiales, que sí son el punto de
+    // este flujo, se restauran completos.
+    serviciosSeleccionados: [],
+    serviciosOtros: [],
+    materiales: diag.materialesPropuestos || [],
+
+    numLineas,
+    resistenciaIni: { valores: (pruebas && pruebas.resistencia) || {}, numLineas },
+    resistenciaFin: { valores: {}, numLineas },
+    tierraIni: (pruebas && pruebas.tierra) || {},
+    tierraFin: {},
+    aplicaElectrico: diag.aplicaElectrico !== false,
+    estadoIni: (pruebas && pruebas.estado) || "",
+    estadoFin: "",
+    notasIni: (pruebas && pruebas.notas) || "",
+    notasFin: "",
+    corrienteIni: (pruebas && pruebas.corriente) || ["","",""],
+    voltajeIni: (pruebas && pruebas.voltaje) || ["","",""],
+    corrienteFin: ["","",""],
+    voltajeFin: ["","",""],
+
+    bitacoraPuntos: [], fotosBitacora: [],
+    aplicaPintura: false,
+    fotosPinturaAntes: [], fotosPinturaDespues: [],
+    fotosFinal: [], videoNota: "",
+  };
+
+  restaurarBorradorGeneral(datos);
+
+  const banner = document.getElementById("bannerRechazoMateriales");
+  document.getElementById("bannerRechazoMotivo").textContent = motivo
+    ? `Motivo: ${motivo}`
+    : "Revisa la lista de materiales y vuelve a generar el diagnóstico.";
+  banner.classList.remove("hidden");
+}
+
+/* ============================================================
    SINCRONIZAR PROGRESO CON AIRTABLE (TABLA_BORRADORES)
    Alimenta el dashboard: % de avance, pantalla actual, y los
    datos que necesita el botón "Lista de Materiales" para estar
@@ -1764,6 +1864,7 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
       marca:       datos.marca || "",
       color:       datos.color || "",
       numParte:    datos.numParte || "",
+      descripcionProblema: datos.descripcionProblema || "",
     }),
   };
 
@@ -1772,7 +1873,7 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
       const formula = encodeURIComponent(`{${BF.serie}}="${folio}"`);
       const busca = await fetch(
         `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
-        {}
+        { headers:{}}
       );
       const bd = await busca.json();
       if(bd.records?.length) _bfRecordIdGeneral = bd.records[0].id;
@@ -1781,13 +1882,13 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     if(_bfRecordIdGeneral){
       await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
         method: "PATCH",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type": "application/json" },
         body: JSON.stringify({ fields: campos })
       });
     } else {
       const crea = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
         method: "POST",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type": "application/json" },
         body: JSON.stringify({ records:[{ fields: campos }] })
       });
       const cd = await crea.json();
@@ -1800,7 +1901,8 @@ async function eliminarBorradorGeneralAirtable(){
   if(!_bfRecordIdGeneral) return;
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers:{}
     });
   } catch(e){}
 }
@@ -2029,13 +2131,13 @@ async function fetchConReintento(url, opciones, intentos = 3, esperaMs = 1500){
   }
 }
 
-// Cada foto se marca con `._subida=true` tras subir bien — si enviarReporteGeneral() se
-// reintenta después de una falla a medias, las fotos ya subidas se saltan en vez de
-// volver a subirse (evita duplicar fotos en el mismo registro).
 // descMap (opcional): objeto acumulador {attachmentId: descripcion} — si se pasa, cada foto
 // con .descripcion no vacía se agrega ahí usando el ID real que Airtable le asigna al adjunto
 // (se identifica emparejando por filename en la respuesta del upload, ya que el nombre se
 // genera único por foto).
+// Cada foto se marca con `._subida=true` tras subir bien — si enviarReporteGeneral() se
+// reintenta después de una falla a medias, las fotos ya subidas se saltan en vez de
+// volver a subirse (evita duplicar fotos en el mismo registro).
 async function subirFotosA(recordId, fieldId, fotos, descMap){
   for(const f of fotos){
     if(f._subida) continue;
@@ -2175,10 +2277,19 @@ async function enviarReporteGeneral(){
     }
 
     statusEl.textContent = "Marcando orden como terminada...";
+    // La lista de materiales entra a validación de Dirección cada vez que se (re)envía el
+    // reporte (incluye reenvíos tras corrección) — se resetea validadoPor/fechaValidacion
+    // porque si la lista cambió, la validación anterior ya no aplica.
+    const ordenFields = { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true, [OF.notasCorreccion]: "" };
+    if(materialesValidos().length > 0){
+      ordenFields[OF.estadoValidacionMateriales] = "Pendiente";
+      ordenFields[OF.validadoPor] = "";
+      ordenFields[OF.fechaValidacion] = null;
+    }
     await fetchConReintento(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true, [OF.notasCorreccion]: "" } })
+      body: JSON.stringify({ fields: ordenFields })
     });
 
     _recIdEnvioActual = null; // reporte completo, ya no hace falta recordar el registro para un reintento
@@ -2218,7 +2329,7 @@ mostrarPantalla(0);
     try{
       const formula = encodeURIComponent(`{${OF.folio}}="${folioUrl}"`);
       const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-      const resp = await fetch(url, {});
+      const resp = await fetch(url, { headers:{} });
       const data = await resp.json();
       ordenRec = (data.records || [])[0] || null;
       if(ordenRec){
@@ -2229,6 +2340,15 @@ mostrarPantalla(0);
     } catch(e){}
 
     if(estadoOrden === "En diagnóstico" || estadoOrden === "No autorizado"){
+      // Excepción: si Dirección rechazó la lista de materiales, SÍ se deja reentrar —
+      // directo a Pantalla 2 para corregir — en vez de bloquear con la espera normal.
+      const estadoValMatRaw = ordenRec && ordenRec.fields[OF.estadoValidacionMateriales];
+      const estadoValMat = (estadoValMatRaw && estadoValMatRaw.name) || estadoValMatRaw || "";
+      if(estadoOrden === "En diagnóstico" && estadoValMat === "Rechazado"){
+        restaurarDesdeRechazoMateriales(ordenRec, ordenRec.fields[OF.notasCorreccion] || "");
+        _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
+        return;
+      }
       document.getElementById("folio").value = folioUrl;
       mostrarEsperaAutorizacion(estadoOrden);
       _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
@@ -2243,7 +2363,7 @@ mostrarPantalla(0);
       try{
         const formulaRG = encodeURIComponent(`OR(FIND("${ordenRecordId}",ARRAYJOIN({${RG.ordenServicio}})),{${RG.folio}}="${folioUrl}")`);
         const urlRG = `/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formulaRG}&returnFieldsByFieldId=true`;
-        const respRG = await fetch(urlRG, {});
+        const respRG = await fetch(urlRG, { headers:{} });
         const dataRG = await respRG.json();
         const reporteRec = (dataRG.records || [])[0];
         if(reporteRec){

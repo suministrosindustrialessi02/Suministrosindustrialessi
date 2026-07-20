@@ -176,15 +176,15 @@ td{ padding:11px 14px; vertical-align:middle; }
   width:100%; padding:9px 11px; border:1px solid var(--gris); border-radius:var(--radio-sm); font-size:0.85rem; font-family:inherit;
 }
 .campo textarea{ resize:vertical; min-height:60px; }
+.fila-2{ display:flex; gap:10px; }
+.fila-2 .campo{ flex:1; }
+.chk-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.chk-row input{ width:16px; height:16px; }
 .tecnico-checks{ display:flex; flex-wrap:wrap; gap:6px 14px; border:1px solid var(--gris); border-radius:var(--radio-sm); padding:10px 11px; }
 .tecnico-checks label{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:400; text-transform:none; letter-spacing:normal; margin:0; cursor:pointer; }
 .tecnico-checks input{ width:15px; height:15px; }
 .tecnico-otro-texto.hidden{ display:none; }
 .tecnico-otro-texto{ margin-top:8px; }
-.fila-2{ display:flex; gap:10px; }
-.fila-2 .campo{ flex:1; }
-.chk-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-.chk-row input{ width:16px; height:16px; }
 .modal-footer{ padding:14px 22px 18px; border-top:1px solid var(--gris); display:flex; justify-content:space-between; gap:8px; }
 .btn-guardar{ padding:9px 20px; background:var(--azul); color:#fff; border:1px solid var(--azul-medio); border-radius:var(--radio-sm); font-size:0.84rem; font-weight:700; cursor:pointer; }
 .btn-guardar:hover{ background:var(--azul-claro); }
@@ -332,11 +332,11 @@ td{ padding:11px 14px; vertical-align:middle; }
 const _sesion = (() => {
   try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
 })();
-const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
+const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion"));
 if(!_sesionValida){
   window.location.href = "login.html";
 }
-const esAdmin = _sesionValida && _sesion.rol === "Admin";
+const esAdmin = _sesionValida && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
 
 /* ============================================================
    CONFIG
@@ -352,6 +352,7 @@ const PF = {
   fechaEntrega:  "fldVKDSEayEURltar",
   proceso:       "fldWlydwLZcdpSGzA",
   completado:    "fld8aLJSb0zU2b9tY",
+  fechaCompletado: "fld9UmPtpBjtFv9OY",
 };
 const UF = { nombre:"fldmBBHrmw8YfCztf", rol:"fldrYhMpiJDQnfyTQ", activo:"fldhRUxF61z3p5voa" };
 const TABLA_ORDENES = "tblcyGwDeOORxELJg";
@@ -379,7 +380,7 @@ let editandoId = null;
 async function fetchTecnicos(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers:{}});
     if(!res.ok) return [];
     const d = await res.json();
     return (d.records || [])
@@ -400,7 +401,7 @@ async function fetchTareas(){
   do{
     let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers:{} });
     if(!res.ok) throw new Error("Error al cargar el plan diario");
     const d = await res.json();
     all = all.concat(d.records || []);
@@ -427,7 +428,7 @@ async function fetchOrdenesActivas(){
     do{
       let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
       if(offset) url += `&offset=${encodeURIComponent(offset)}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers:{} });
       if(!res.ok) return [];
       const d = await res.json();
       all = all.concat(d.records || []);
@@ -597,7 +598,7 @@ function filaOrden(o){
 async function patchOcultoOrden(id, valor){
   await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${id}`, {
     method: "PATCH",
-    headers:{ "Content-Type":"application/json" },
+    headers:{ "Content-Type": "application/json" },
     body: JSON.stringify({ fields: { [OF.ocultoPlanDiario]: valor } })
   });
 }
@@ -667,8 +668,8 @@ async function toggleCompletado(id, valor){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${id}`, {
       method: "PATCH",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ fields: { [PF.completado]: valor } })
+      headers:{ "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [PF.completado]: valor, [PF.fechaCompletado]: valor ? new Date().toISOString() : null } })
     });
   } catch(e){}
   renderTodo();
@@ -778,7 +779,7 @@ async function guardarTarea(){
       if(prioridad === null) fields[PF.prioridad] = null;
       await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${editandoId}`, {
         method: "PATCH",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type": "application/json" },
         body: JSON.stringify({ fields })
       });
     } else {
@@ -786,7 +787,7 @@ async function guardarTarea(){
       fields[PF.completado] = false;
       await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}`, {
         method: "POST",
-        headers:{ "Content-Type":"application/json" },
+        headers:{ "Content-Type": "application/json" },
         body: JSON.stringify({ records:[{ fields }] })
       });
     }
@@ -802,7 +803,8 @@ async function eliminarTareaModal(){
   if(!confirm("¿Eliminar esta tarea del plan diario? Esta acción no se puede deshacer.")) return;
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${editandoId}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers:{}
     });
     cerrarModal();
     await cargarPlan();

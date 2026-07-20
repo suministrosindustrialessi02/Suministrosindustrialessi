@@ -1175,6 +1175,47 @@ footer strong{ color: var(--azul); }
 @media(max-width:1100px){ .charts-grid-new{ grid-template-columns: repeat(2,1fr); } }
 @media(max-width:640px){ .charts-grid-new{ grid-template-columns: 1fr; } }
 
+/* ============================================================
+   CALIDAD Y CUMPLIMIENTO — 4 KPIs (agregado 2026-07-17)
+   ============================================================ */
+.calidad-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px; }
+@media(max-width:900px){ .calidad-grid{ grid-template-columns:1fr; } }
+.cal-panel{ background:var(--blanco); border-radius:12px; padding:16px 18px 18px; box-shadow:0 1px 3px rgba(12,30,53,0.06), 0 2px 8px rgba(12,30,53,0.05); border-top:3px solid var(--cal-accent); }
+.cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
+.cal-title{ font-size:0.9rem; font-weight:800; color:var(--gris-oscuro); }
+.cal-sub{ font-size:0.72rem; color:var(--gris-texto); margin-bottom:12px; }
+.cal-row{ display:flex; gap:16px; align-items:center; }
+.cal-legend{ display:flex; flex-direction:column; gap:6px; font-size:0.74rem; }
+.cal-legend .li{ display:flex; align-items:center; gap:7px; }
+.cal-legend .dot{ width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+.cal-legend .lbl{ color:var(--gris-texto); flex:1; }
+.cal-legend .val{ font-weight:800; color:var(--gris-oscuro); }
+.cal-stat-line{ margin-top:10px; font-size:0.76rem; color:var(--gris-texto); background:var(--fondo); padding:7px 10px; border-radius:8px; }
+.cal-stat-pair{ display:flex; gap:10px; }
+.cal-stat-tile{ flex:1; background:var(--fondo); border-radius:10px; padding:10px 12px; }
+.cal-stat-tile .n{ font-size:1.6rem; font-weight:800; line-height:1; }
+.cal-stat-tile .l{ font-size:0.65rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:4px; }
+.cal-stat-tile .p{ font-size:0.7rem; color:var(--gris-texto); margin-top:2px; }
+.cal-trend-label{ font-size:0.68rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:12px; }
+.cal-trend{ display:flex; align-items:flex-end; gap:3px; height:56px; margin-top:6px; }
+.cal-trend-bar{ flex:1; border-radius:2px 2px 0 0; min-height:2px; }
+.cal-trend-labels{ display:flex; gap:3px; margin-top:3px; }
+.cal-trend-labels span{ flex:1; text-align:center; font-size:0.52rem; color:var(--gris-texto); }
+.cal-detail-list{ margin-top:10px; display:flex; flex-direction:column; gap:6px; max-height:150px; overflow-y:auto; }
+.cal-detail-item{ font-size:0.72rem; padding:7px 9px; background:var(--fondo); border-radius:7px; border-left:3px solid var(--cal-accent); }
+.cal-detail-item .f{ font-weight:700; color:var(--gris-oscuro); }
+.cal-detail-item .m{ color:var(--gris-texto); margin-top:1px; }
+.cal-gauge-wrap{ display:flex; align-items:center; gap:16px; }
+.cal-gauge-num{ font-size:1.8rem; font-weight:800; }
+.cal-divlist{ margin-top:10px; display:flex; flex-direction:column; gap:5px; max-height:140px; overflow-y:auto; }
+.cal-divrow{ display:grid; grid-template-columns:60px 1fr 46px; align-items:center; gap:7px; font-size:0.7rem; }
+.cal-divrow .folio{ font-weight:700; color:var(--gris-oscuro); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cal-divtrack{ position:relative; height:14px; background:var(--gris); border-radius:4px; overflow:hidden; }
+.cal-divzero{ position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(0,0,0,0.15); }
+.cal-divbar{ position:absolute; top:2px; bottom:2px; border-radius:3px; }
+.cal-divval{ text-align:right; font-weight:700; }
+.cal-empty{ font-size:0.76rem; color:var(--gris-texto); padding:10px 0; }
+
 </style>
 </head>
 <body>
@@ -1212,6 +1253,7 @@ footer strong{ color: var(--azul); }
     <button class="btn-header btn-refresh" id="btnVerNoOk" onclick="abrirPanelNoOk()">
       ⚠ NO OK<span id="badgeNoOk" style="display:none; background:#dc2626; color:#fff; border-radius:10px; padding:1px 6px; font-size:0.68rem; font-weight:700; margin-left:5px;">0</span>
     </button>
+    <button class="btn-header btn-refresh" id="btnImprimirKPIs" onclick="imprimirKPIs()">🖨️ Imprimir KPIs</button>
 
     <span class="header-divider"></span>
 
@@ -1221,8 +1263,9 @@ footer strong{ color: var(--azul); }
 
 <!-- ===== TOPBAR ===== -->
 <div class="topbar">
-  <div class="topbar-item active" id="tab-general"  onclick="cambiarTab('general')">General</div>
-  <div class="topbar-item"        id="tab-ordenes"  onclick="cambiarTab('ordenes')">Órdenes</div>
+  <div class="topbar-item active" id="tab-general"    onclick="cambiarTab('general')">General</div>
+  <div class="topbar-item"        id="tab-ordenes"    onclick="cambiarTab('ordenes')">Órdenes</div>
+  <div class="topbar-item"        id="tab-validacion" onclick="cambiarTab('validacion')">Validación Materiales <span class="badge" id="badgeDireccionPend" style="margin-left:4px">0</span></div>
 </div>
 
 <main>
@@ -1378,6 +1421,55 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
+    <!-- CALIDAD Y CUMPLIMIENTO -->
+    <div class="section-label" style="margin-top:4px">Calidad y cumplimiento</div>
+    <div class="calidad-grid">
+      <div class="cal-panel" style="--cal-accent:#0e7a3c">
+        <div class="cal-head"><div class="cal-title">🎯 Cumplimiento de entrega</div></div>
+        <div class="cal-sub">Fecha real de entrega vs. fecha programada</div>
+        <div class="cal-row">
+          <svg id="donutEntrega" width="100" height="100" viewBox="0 0 200 200"></svg>
+          <div class="cal-legend" id="legendEntrega"></div>
+        </div>
+        <div class="cal-stat-line" id="statDesviacion"></div>
+        <div class="cal-divlist" id="divlistEntregas"></div>
+      </div>
+
+      <div class="cal-panel" style="--cal-accent:#c2410c">
+        <div class="cal-head"><div class="cal-title">🔁 Retrabajos</div></div>
+        <div class="cal-sub">Equipos que regresaron y reportes tocados después de entregados</div>
+        <div class="cal-stat-pair">
+          <div class="cal-stat-tile"><div class="n" id="statCorrecciones" style="color:#c2410c">—</div><div class="l">Regresos por corrección</div><div class="p" id="statCorreccionesP"></div></div>
+          <div class="cal-stat-tile"><div class="n" id="statEdiciones" style="color:#c2410c">—</div><div class="l">Reportes editados después</div><div class="p" id="statEdicionesP"></div></div>
+        </div>
+        <div class="cal-trend-label">Correcciones por semana (últimas 8)</div>
+        <div class="cal-trend" id="trendRetrabajos"></div>
+        <div class="cal-trend-labels" id="trendRetrabajosLabels"></div>
+        <div class="cal-detail-list" id="detalleRetrabajos"></div>
+      </div>
+
+      <div class="cal-panel" style="--cal-accent:#2563a8">
+        <div class="cal-head"><div class="cal-title">🧰 Precisión de lista de materiales</div></div>
+        <div class="cal-sub">¿Se arma bien la lista desde el diagnóstico, sin corregirla después?</div>
+        <div class="cal-gauge-wrap">
+          <svg id="gaugeMateriales" width="90" height="90" viewBox="0 0 200 200"></svg>
+          <div><div class="cal-gauge-num" id="pctMateriales" style="color:#2563a8">—</div><div class="cal-sub" style="margin-bottom:0">de listas correctas a la primera</div></div>
+        </div>
+        <div class="cal-stat-line" id="statPromedioEdicionesMat"></div>
+      </div>
+
+      <div class="cal-panel" style="--cal-accent:#1d5496">
+        <div class="cal-head"><div class="cal-title">📋 Cumplimiento del plan diario</div></div>
+        <div class="cal-sub">% de tareas planeadas que se completaron</div>
+        <div class="cal-row" style="align-items:baseline;gap:8px">
+          <div class="cal-gauge-num" id="pctPlanDiario" style="color:#1d5496">—</div>
+          <div class="cal-sub" style="margin-bottom:0">últimos 14 días hábiles</div>
+        </div>
+        <div class="cal-trend" id="trendPlanDiario"></div>
+        <div class="cal-trend-labels" id="trendPlanDiarioLabels"></div>
+      </div>
+    </div>
+
     </div><!-- /secGeneral -->
 
     <!-- SECCIÓN ÓRDENES -->
@@ -1492,6 +1584,28 @@ footer strong{ color: var(--azul); }
     </div>
 
     </div><!-- /secOrdenes -->
+
+    <!-- ===== VALIDACIÓN DE MATERIALES (Admin + Dirección) ===== -->
+    <div id="secValidacion" style="display:none">
+      <div class="section-label">Validación de listas de materiales</div>
+      <div class="card" style="margin-bottom:18px">
+        <div class="card-title"><span class="card-title-dot"></span>Pendientes de validar</div>
+        <div class="table-section" style="margin-top:8px">
+          <div class="table-wrap" id="wrapDireccion">
+            <table>
+              <thead>
+                <tr><th>Folio</th><th>Equipo</th><th>Cliente</th><th>Técnico</th><th style="text-align:center">Días en C.S</th><th style="text-align:center">Acción</th></tr>
+              </thead>
+              <tbody id="tbodyDireccion"></tbody>
+            </table>
+          </div>
+          <div id="direccionVacio" class="hidden" style="text-align:center;padding:40px 0;color:var(--gris-texto)">
+            <div style="font-size:2rem;margin-bottom:6px">✅</div>
+            Sin listas pendientes de validar — todo al día.
+          </div>
+        </div>
+      </div>
+    </div>
 
   </div><!-- /content -->
 </main>
@@ -1713,6 +1827,7 @@ footer strong{ color: var(--azul); }
         <button class="modal-close" onclick="cerrarCotizacion()">✕</button>
       </div>
       <div id="cotEstadoBadge" style="margin-top:8px"></div>
+      <div id="cotAvisoValidacion" class="hidden" style="margin-top:8px;background:#fff3cd;color:#7a5b00;padding:8px 12px;border-radius:6px;font-size:0.8rem;font-weight:600">⚠ La lista de materiales de esta orden todavía no ha sido validada por Dirección.</div>
     </div>
     <div class="ck-modal-body" id="cotBody">
       <div style="text-align:center;padding:40px;color:var(--gris-texto)" id="cotCargando">
@@ -1756,8 +1871,11 @@ footer strong{ color: var(--azul); }
         <button type="button" class="btn-cancelar" id="cotBtnAgregar" onclick="cotAgregarRenglon()">+ Agregar renglón</button>
 
         <div class="cot-totales">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:600;margin-right:auto">
+            <input type="checkbox" id="cotAplicaIVA" checked onchange="cotRecalcular()"> Aplica IVA
+          </label>
           <div>Subtotal: <strong id="cotSubtotalTxt">$0.00</strong></div>
-          <div>IVA (16%): <strong id="cotIvaTxt">$0.00</strong></div>
+          <div id="cotIvaRow">IVA (16%): <strong id="cotIvaTxt">$0.00</strong></div>
           <div>Total: <strong id="cotTotalTxt">$0.00</strong></div>
         </div>
         <div id="cotStatus" style="margin-top:8px;font-size:0.83rem;font-weight:600"></div>
@@ -1767,6 +1885,38 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL VALIDACIÓN DE MATERIALES (rol Dirección) -->
+<div class="modal-overlay hidden" id="modalValidacion" onclick="cerrarValidacionSiFuera(event)">
+  <div class="ck-modal" style="max-width:640px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Validar materiales — <span id="valFolioTitulo">—</span></h2>
+        <button class="modal-close" onclick="cerrarValidacion()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body" id="valBody">
+      <div style="text-align:center;padding:40px;color:var(--gris-texto)" id="valCargando">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <p>Cargando lista de materiales...</p>
+      </div>
+      <div id="valForm" class="hidden">
+        <div class="prereg-grid" style="margin-bottom:14px">
+          <div class="prereg-campo"><label>Cliente</label><div id="valCliente" style="font-weight:600">—</div></div>
+          <div class="prereg-campo"><label>Equipo</label><div id="valEquipo" style="font-weight:600">—</div></div>
+          <div class="prereg-campo"><label>Técnico</label><div id="valTecnico" style="font-weight:600">—</div></div>
+        </div>
+        <table class="cot-tbl">
+          <thead>
+            <tr><th style="width:64px">Cant.</th><th style="width:80px">Unidad</th><th>Descripción</th><th>Nota</th></tr>
+          </thead>
+          <tbody id="valMaterialesBody"></tbody>
+        </table>
+        <div id="valStatus" style="margin-top:10px;font-size:0.83rem;font-weight:600"></div>
+      </div>
+    </div>
+    <div class="ck-modal-footer" id="valFooter"></div>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -1775,7 +1925,7 @@ footer strong{ color: var(--azul); }
 const _sesion = (() => {
   try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
 })();
-const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico"));
+const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion"));
 if(!_sesionValida){
   window.location.href = "login.html";
 }
@@ -1783,7 +1933,6 @@ if(!_sesionValida){
 /* ============================================================
    CONFIGURACIÓN
    ============================================================ */
-
 const TABLE_ID = "tblcyGwDeOORxELJg";
 const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
 const BF_SERIE = "fldegmWGpcWW7Awzn";
@@ -1793,6 +1942,12 @@ const UF = {
   nombre: "fldmBBHrmw8YfCztf",
   rol:    "fldrYhMpiJDQnfyTQ",
   activo: "fldhRUxF61z3p5voa",
+};
+const TABLA_PLAN = "tblJRotpG8YV8wpvv";
+const PD = {
+  fecha:           "fldHoHWaTzjhu8fVC",
+  completado:      "fld8aLJSb0zU2b9tY",
+  fechaCompletado: "fld9UmPtpBjtFv9OY",
 };
 // Auto-refresh desactivado — actualización manual
 
@@ -1815,6 +1970,14 @@ const F = {
   notasCorreccion:         "fldP5uFmrDGcsxy9f",
   fotosEntregaEquipo:      "fldk4rbHtR3zslHJB",
   fotosEntregaRemision:    "fldV9nvYJWCZ28fAo",
+  fechaEntregaReal:        "fldNtX3OSmdoOSNqa",
+  vecesCorregido:          "fldjd0cxXKv4yg6lW",
+  historialCorreccion:     "fldwGOoIpXxGDiwSZ",
+  edicionesReporte:        "fldQYNZS3GNKC8OGZ",
+  edicionesMateriales:     "fldSLDNdxSC4LB6Tg",
+  estadoValidacionMateriales: "fldXrE2REqfpbnFMF",
+  validadoPor:             "fldCdtkVex6NOjBqS",
+  fechaValidacion:         "fldwSHiquwZ9IXsAx",
 };
 
 /* ============================================================
@@ -1826,6 +1989,7 @@ let cargando        = false;
 let tsActualizacion = null;
 let borradorLookup  = {}; // serie.toUpperCase() → porcentaje en progreso
 let tecnicosList    = []; // nombres de técnicos activos (para el selector)
+let allTareasPlan   = []; // tareas de PLAN_DIARIO, para el KPI de cumplimiento
 
 /* ============================================================
    FETCH CON PAGINACIÓN
@@ -1836,7 +2000,7 @@ async function fetchAll(){
   do{
     let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { headers:{} });
     if(!res.ok){
       const d = await res.json().catch(() => ({}));
       throw new Error((d.error && d.error.message) || `Error HTTP ${res.status}`);
@@ -1851,7 +2015,7 @@ async function fetchAll(){
 async function fetchTecnicos(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url, {});
+    const res = await fetch(url, { headers:{}});
     if(!res.ok) return [];
     const d = await res.json();
     return (d.records || [])
@@ -1869,7 +2033,7 @@ async function fetchTecnicos(){
 async function fetchBorradores(){
   try{
     const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true&pageSize=100`;
-    const res = await fetch(url, {});
+    const res = await fetch(url, { headers:{}});
     if(!res.ok) return {};
     const d = await res.json();
     const lookup = {};
@@ -1880,6 +2044,27 @@ async function fetchBorradores(){
     });
     return lookup;
   } catch(e){ return {}; }
+}
+
+async function fetchPlanDiario(){
+  try{
+    let all = [], offset = null;
+    const base = `/.netlify/functions/airtable?table=${TABLA_PLAN}`;
+    do{
+      let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+      if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+      const res = await fetch(url, { headers:{} });
+      if(!res.ok) break;
+      const d = await res.json();
+      all = all.concat(d.records || []);
+      offset = d.offset || null;
+    } while(offset);
+    return all.map(r => ({
+      fecha: r.fields[PD.fecha] || "",
+      completado: !!r.fields[PD.completado],
+      fechaCompletado: r.fields[PD.fechaCompletado] || "",
+    }));
+  } catch(e){ return []; }
 }
 
 /* ============================================================
@@ -1910,6 +2095,14 @@ function parsear(rec){
     tecnicoAsignado: f[F.tecnicoAsignado] || "",
     fechaEntregaProgramada: f[F.fechaEntregaProgramada] || "",
     notasCorreccion: f[F.notasCorreccion] || "",
+    fechaEntregaReal: f[F.fechaEntregaReal] || "",
+    vecesCorregido: Number(f[F.vecesCorregido]) || 0,
+    historialCorreccion: f[F.historialCorreccion] || "",
+    edicionesReporte: Number(f[F.edicionesReporte]) || 0,
+    edicionesMateriales: Number(f[F.edicionesMateriales]) || 0,
+    estadoValidacionMateriales: (f[F.estadoValidacionMateriales] && f[F.estadoValidacionMateriales].name) || f[F.estadoValidacionMateriales] || "",
+    validadoPor: f[F.validadoPor] || "",
+    fechaValidacion: f[F.fechaValidacion] || "",
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -1946,10 +2139,11 @@ async function cargarDatos(){
   document.getElementById("content").classList.add("hidden");
 
   try{
-    const [recs, borradores, tecnicos] = await Promise.all([fetchAll(), fetchBorradores(), fetchTecnicos()]);
+    const [recs, borradores, tecnicos, tareasPlan] = await Promise.all([fetchAll(), fetchBorradores(), fetchTecnicos(), fetchPlanDiario()]);
     allOrdenes = recs.map(parsear);
     borradorLookup = borradores;
     tecnicosList = tecnicos;
+    allTareasPlan = tareasPlan;
     aplicarFiltros();
     tsActualizacion = new Date();
     actualizarSyncInfo();
@@ -2047,11 +2241,13 @@ function renderDashboard(ordenes){
   renderPie(ordenes);
   renderBar(ordenes);
   renderNuevosKPIs(ordenes);
+  renderKPIsCalidad(ordenes, allTareasPlan);
+  renderValidacionMateriales();
 
   // Tablas — enTaller incluye TODAS las no terminadas/entregadas (incluso sin estado)
   const activas   = enTaller.slice().sort(byPrioridadYDias);
   const cerradas  = [...terminadas, ...entregadas].sort(byDiasDesc);
-  const esAdmin   = _sesion && _sesion.rol === "Admin";
+  const esAdmin   = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
 
   document.getElementById("badgeActivas").textContent   = activas.length;
   document.getElementById("badgeTerminadas").textContent = cerradas.length;
@@ -2070,7 +2266,7 @@ function renderDashboard(ordenes){
 
 function renderTablaPorLlegar(ordenes){
   const tbody = document.getElementById("tbodyPorLlegar");
-  const esAdmin = _sesion && _sesion.rol === "Admin";
+  const esAdmin = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
   if(ordenes.length === 0){
     tbody.innerHTML = `<tr class="empty-row"><td colspan="7">Sin equipos pre-registrados por llegar.</td></tr>`;
     return;
@@ -2104,12 +2300,13 @@ function byPrioridadYDias(a, b){
    ============================================================ */
 function cambiarTab(tab){
   // Tabs
-  ["general","ordenes"].forEach(t => {
+  ["general","ordenes","validacion"].forEach(t => {
     document.getElementById("tab-"+t).classList.toggle("active", t === tab);
   });
   // Secciones
-  document.getElementById("secGeneral").style.display  = tab === "general"  ? "" : "none";
-  document.getElementById("secOrdenes").style.display  = tab === "ordenes"  ? "" : "none";
+  document.getElementById("secGeneral").style.display    = tab === "general"    ? "" : "none";
+  document.getElementById("secOrdenes").style.display    = tab === "ordenes"    ? "" : "none";
+  document.getElementById("secValidacion").style.display = tab === "validacion" ? "" : "none";
 }
 
 /* ============================================================
@@ -2157,7 +2354,7 @@ function datosFila(o, esAdmin){
         ? `<button class="btn-corr" style="background:#c2410c" onclick="abrirAjustesGeneral('${o.id}','${esc(o.folio)}')">&#8617; Ajustes</button>`
         : ''}
       <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
-      ${esAdmin ? `<button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(identificador)}')">&#128176; Cotizar</button>` : ''}
+      ${esAdmin ? `<button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(identificador)}')" ${o.estadoValidacionMateriales==="Pendiente" ? `title="Materiales aún sin validar por Dirección"` : ''}>&#128176; Cotizar${o.estadoValidacionMateriales==="Pendiente" ? ` <span style="background:#fde68a;color:#7a5b00;border-radius:8px;padding:0 5px;font-size:0.68rem;margin-left:2px">&#9888;</span>` : ''}</button>` : ''}
     ` : `
       <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
       ${!["terminado","entregado"].includes(normEstado(o.estado))
@@ -2189,7 +2386,7 @@ function renderTabla(tbodyId, ordenes){
     tbody.innerHTML = `<tr class="empty-row"><td colspan="11">Sin registros en esta categoría.</td></tr>`;
     return;
   }
-  const esAdmin = _sesion && _sesion.rol === "Admin";
+  const esAdmin = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
   tbody.innerHTML = ordenes.map(o => {
     const d = datosFila(o, esAdmin);
     return `<tr>
@@ -2300,7 +2497,7 @@ let _detalleGeneralIdentificador = null;
 async function verDetalleGeneral(id, identificador){
   _detalleGeneralOrdenId       = id;
   _detalleGeneralIdentificador = identificador;
-  document.getElementById("btnEliminarDetalleGeneral").classList.toggle("hidden", !(_sesion && _sesion.rol === "Admin"));
+  document.getElementById("btnEliminarDetalleGeneral").classList.toggle("hidden", !(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion")));
   document.getElementById("detalleGeneralBody").innerHTML = `
     <div style="text-align:center;padding:40px;color:var(--gris-texto)">
       <div class="spinner" style="margin:0 auto 16px"></div>
@@ -2319,7 +2516,7 @@ async function verDetalleGeneral(id, identificador){
   const BF_DATOS_JSON = "fldSdxpRwhyvSWEgJ";
 
   try{
-    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, {});
+    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} });
     if(!ordenRes.ok) throw new Error("No se pudo cargar la orden.");
     const orden = await ordenRes.json();
     const of = orden.fields || {};
@@ -2327,9 +2524,9 @@ async function verDetalleGeneral(id, identificador){
 
     // Datos adicionales (marca/color/nombre corto/n° parte): del reporte final si ya existe,
     // o si no, del borrador en progreso (misma tabla que alimenta "Lista de Materiales").
-    let extra = { nombreCorto:"", marca:"", color:"", numParte:"" };
+    let extra = { nombreCorto:"", marca:"", color:"", numParte:"", descripcionProblema:"" };
     const rgFormula = encodeURIComponent(`OR(FIND("${id}",ARRAYJOIN({${RGD.ordenServicio}})),{${RGD.folio}}="${folio}")`);
-    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`, {});
+    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`, { headers:{} });
     if(rgRes.ok){
       const rgData = await rgRes.json();
       const rg = (rgData.records||[])[0];
@@ -2344,7 +2541,7 @@ async function verDetalleGeneral(id, identificador){
     }
     if(!extra.nombreCorto && !extra.marca && !extra.color && !extra.numParte){
       const bfFormula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
-      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, {});
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, { headers:{} });
       if(bfRes.ok){
         const bfData = await bfRes.json();
         const bf = (bfData.records||[])[0];
@@ -2356,6 +2553,7 @@ async function verDetalleGeneral(id, identificador){
               marca:       datos.marca || "",
               color:       datos.color || "",
               numParte:    datos.numParte || "",
+              descripcionProblema: datos.descripcionProblema || "",
             };
           } catch(e){}
         }
@@ -2389,17 +2587,27 @@ async function verDetalleGeneral(id, identificador){
         ${item("Color", extra.color)}
         ${item("N° de parte", extra.numParte)}
       </div>
+      ${extra.descripcionProblema ? `
+      <div class="detalle-seccion">Descripción del problema</div>
+      <div style="font-size:0.85rem;line-height:1.5;white-space:pre-wrap;color:var(--gris-oscuro);background:var(--fondo);border-radius:6px;padding:10px 12px;">${esc(extra.descripcionProblema)}</div>
+      ` : ""}
     `;
 
     // Checkpoint de diagnóstico: el servicio está pausado esperando (o habiendo recibido)
     // la autorización del cliente para continuar con la bitácora y pruebas finales.
     if(estado === "En diagnóstico" || estado === "No autorizado"){
-      const esAdminDetalle = _sesion && _sesion.rol === "Admin";
+      const esAdminDetalle = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
       const banner = estado === "En diagnóstico"
         ? `<div style="background:#fff3cd;color:#7a5b00;padding:10px 14px;border-radius:6px;font-size:0.85rem;margin-top:14px;">⏳ Esperando autorización del cliente para continuar.</div>`
         : `<div style="background:#fdecea;color:#991b1b;padding:10px 14px;border-radius:6px;font-size:0.85rem;margin-top:14px;">🚫 El cliente no autorizó continuar con el servicio.</div>`;
+      const estadoValMatRaw = of[F.estadoValidacionMateriales];
+      const estadoValMat = (estadoValMatRaw && estadoValMatRaw.name) || estadoValMatRaw || "";
+      const avisoMateriales = (estado === "En diagnóstico" && estadoValMat === "Pendiente")
+        ? `<div style="background:#fff3cd;color:#7a5b00;padding:10px 14px;border-radius:6px;font-size:0.85rem;margin-top:8px;">⚠ La lista de materiales todavía no ha sido validada por Dirección.</div>`
+        : "";
       document.getElementById("detalleGeneralAcciones").innerHTML = `
         ${banner}
+        ${avisoMateriales}
         <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
           <button class="btn-line" style="margin:0;flex:1;min-width:140px;" onclick="verDiagnostico('${id}','${esc(folio)}')">🖨 Ver diagnóstico</button>
           ${esAdminDetalle ? `
@@ -2429,17 +2637,19 @@ function verDiagnostico(ordenId, folio){
 // (Admin, por seguridad) — el camino de ida (marcar Entregado) ahora pasa por
 // abrirModalEntrega()/confirmarEntregaConEvidencia(), que exige fotos de evidencia.
 async function cambiarEntregado(id, identificador, marcar){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
   const nuevoEstado = marcar ? "Entregado" : "Terminado";
   const msg = marcar
     ? `¿Confirmas que "${identificador}" ya se entregó al cliente?`
     : `¿Revertir "${identificador}" a "Terminado"? Se quita la marca de Entregado.`;
   if(!confirm(msg)) return;
   try{
+    const fields = { [F.estado]: nuevoEstado };
+    if(marcar) fields[F.fechaEntregaReal] = new Date().toISOString();
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ fields: { [F.estado]: nuevoEstado } })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields })
     });
     if(!res.ok){
       const d = await res.json().catch(() => ({}));
@@ -2554,7 +2764,7 @@ async function confirmarEntregaConEvidencia(){
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_entregaOrdenId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [F.estado]: "Entregado" } })
+      body: JSON.stringify({ fields: { [F.estado]: "Entregado", [F.fechaEntregaReal]: new Date().toISOString() } })
     });
     if(!res.ok){
       const d = await res.json().catch(() => ({}));
@@ -2575,7 +2785,7 @@ async function confirmarEntregaConEvidencia(){
 }
 
 async function autorizarDiagnostico(id, autorizado){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
   const nuevoEstado = autorizado ? "En proceso" : "No autorizado";
   const msg = autorizado
     ? "¿Confirmas que el cliente autorizó continuar con el servicio?"
@@ -2584,7 +2794,7 @@ async function autorizarDiagnostico(id, autorizado){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { fldRtvzailqq6WbQu: nuevoEstado } })
     });
     cerrarDetalleGeneral();
@@ -2612,6 +2822,7 @@ const COT = {
   estadoCotizacion:        "fldjUqpqdCRQ8rdCU",
   clienteAutorizo:         "fld0YRjkHOdspFNHe",
   fechaAutorizacion:       "fldmizB5GKLZfVOYM",
+  aplicaIVA:               "fldmW4salFKyMne6d",
 };
 let cotOrdenId      = null;
 let cotFolio        = "";
@@ -2630,7 +2841,7 @@ function fmtFechaHoraCot(s){
 }
 
 async function abrirCotizacion(id, identificador){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
   cotOrdenId = id;
   cotFolio = identificador;
   document.getElementById("cotFolioTitulo").textContent = identificador;
@@ -2638,12 +2849,13 @@ async function abrirCotizacion(id, identificador){
   document.getElementById("cotCargando").classList.remove("hidden");
   document.getElementById("cotCargando").innerHTML = `<div class="spinner" style="margin:0 auto 16px"></div><p>Cargando cotización...</p>`;
   document.getElementById("cotEstadoBadge").innerHTML = "";
+  document.getElementById("cotAvisoValidacion").classList.add("hidden");
   document.getElementById("cotFooter").innerHTML = "";
   document.getElementById("cotStatus").textContent = "";
   document.getElementById("modalCotizacion").classList.remove("hidden");
 
   try{
-    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, {});
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} });
     if(!res.ok) throw new Error("No se pudo cargar la orden.");
     const orden = await res.json();
     const f = orden.fields || {};
@@ -2657,9 +2869,15 @@ async function abrirCotizacion(id, identificador){
     document.getElementById("cotFechaEntrega").value    = f[COT.fechaEntregaEstimada] || "";
     document.getElementById("cotCondicionesPago").value = (f[COT.condicionesPago] && f[COT.condicionesPago].name) || f[COT.condicionesPago] || "Crédito";
     document.getElementById("cotVigencia").value        = f[COT.vigenciaDias] || 15;
+    const aplicaIVARaw = f[COT.aplicaIVA];
+    document.getElementById("cotAplicaIVA").checked     = ((aplicaIVARaw && aplicaIVARaw.name) || aplicaIVARaw) !== "No";
 
     const estadoRaw = f[COT.estadoCotizacion];
     cotEstadoActual = (estadoRaw && estadoRaw.name) || estadoRaw || null;
+
+    const estadoValMatRaw = f[F.estadoValidacionMateriales];
+    const estadoValMat = (estadoValMatRaw && estadoValMatRaw.name) || estadoValMatRaw || "";
+    document.getElementById("cotAvisoValidacion").classList.toggle("hidden", estadoValMat !== "Pendiente");
 
     cotRenderRenglones();
     cotRecalcular();
@@ -2731,13 +2949,15 @@ function cotQuitarRenglon(i){
 }
 
 function cotRecalcular(){
+  const aplicaIVA = document.getElementById("cotAplicaIVA").checked;
   const subtotal = cotRenglones.reduce((s,r) => s + (parseFloat(r.total) || 0), 0);
-  const iva   = subtotal * 0.16;
+  const iva   = aplicaIVA ? subtotal * 0.16 : 0;
   const total = subtotal + iva;
   document.getElementById("cotSubtotalTxt").textContent = fmtMoneda(subtotal);
   document.getElementById("cotIvaTxt").textContent      = fmtMoneda(iva);
+  document.getElementById("cotIvaRow").classList.toggle("hidden", !aplicaIVA);
   document.getElementById("cotTotalTxt").textContent    = fmtMoneda(total);
-  return { subtotal, iva, total };
+  return { subtotal, iva, total, aplicaIVA };
 }
 
 function cotRecolectarDatos(){
@@ -2750,7 +2970,7 @@ function cotRecolectarDatos(){
       total: parseFloat(r.total) || 0,
     }))
     .filter(r => r.descripcion);
-  const { subtotal, iva, total } = cotRecalcular();
+  const { subtotal, iva, total, aplicaIVA } = cotRecalcular();
   return {
     renglonesValidos,
     fields: {
@@ -2758,6 +2978,7 @@ function cotRecolectarDatos(){
       [COT.subtotal]:                Math.round(subtotal * 100) / 100,
       [COT.iva]:                     Math.round(iva * 100) / 100,
       [COT.precioTotal]:             Math.round(total * 100) / 100,
+      [COT.aplicaIVA]:               aplicaIVA ? "Sí" : "No",
       [COT.fechaEntregaEstimada]:    document.getElementById("cotFechaEntrega").value.trim(),
       [COT.condicionesPago]:         document.getElementById("cotCondicionesPago").value,
       [COT.vigenciaDias]:            parseInt(document.getElementById("cotVigencia").value, 10) || 15,
@@ -2781,7 +3002,7 @@ async function cotGuardar(estadoDestino){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${cotOrdenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields })
     });
     if(estadoDestino) cotEstadoActual = estadoDestino;
@@ -2824,7 +3045,7 @@ function cerrarCotizacionSiFuera(e){ if(e.target.id === "modalCotizacion") cerra
 const PREFIJOS_PREREG = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
 
 function abrirPreRegistro(){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
   ["preCliente","preDescripcionProblema","preNombreCorto","preMarca","preColor","preSpec","preSerie","preNumParte","prePotencia","preFrame","preVolts","preFolio"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("preTipoEquipo").value = "";
   document.getElementById("preRegStatus").textContent = "";
@@ -2856,7 +3077,7 @@ async function preRegGenerarFolio(){
   try{
     const FLD_RG_FOLIO = "fldKBCvEigK6R8hOQ";
     const formula = encodeURIComponent(`FIND("${prefijo}-", {${FLD_RG_FOLIO}}) = 1`);
-    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formula}&returnFieldsByFieldId=true&fields[]=${FLD_RG_FOLIO}`, {});
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formula}&returnFieldsByFieldId=true&fields[]=${FLD_RG_FOLIO}`, { headers:{} });
     const data = await resp.json();
     (data.records || []).forEach(r => {
       const folio = r.fields[FLD_RG_FOLIO] || "";
@@ -2904,7 +3125,7 @@ async function guardarPreRegistro(){
     // 1) Crear la ORDEN "Por llegar"
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}`, {
       method: "POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type": "application/json" },
       body: JSON.stringify({ records:[{ fields }] })
     });
     const data = await res.json();
@@ -2923,7 +3144,7 @@ async function guardarPreRegistro(){
     });
     await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
       method: "POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type": "application/json" },
       body: JSON.stringify({ records:[{ fields: {
         [BF_SERIE]: folio,
         "fldzogHAx1BAkw4q2": cliente,
@@ -2948,15 +3169,15 @@ async function cancelarPreRegistro(id, folio){
   if(!confirm(`¿Cancelar el pre-registro de ${folio}? Se eliminará la orden. Esta acción no se puede deshacer.`)) return;
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
-      method: "DELETE"
+      method: "DELETE", headers:{}
     });
     // Borrar también el registro de BORRADORES asociado (por folio)
     const formula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
-    const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`, {});
+    const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`, { headers:{} });
     if(bfRes.ok){
       const bfData = await bfRes.json();
       for(const r of (bfData.records||[])){
-        await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${r.id}`, { method:"DELETE" }).catch(()=>{});
+        await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${r.id}`, { method:"DELETE", headers:{} }).catch(()=>{});
       }
     }
     await cargarDatos();
@@ -2968,15 +3189,8 @@ async function cancelarPreRegistro(id, folio){
    ligado a ella (checklist, pintura, evidencia, reportes general,
    borradores) para que Airtable no se quede con registros huérfanos.
    ============================================================ */
-const TABLA_PINTURA          = "tbl6fY01T6q69BVN0";
-const F_PT_ORDEN_LINK        = "fldEPLjcyH5i50UDj";
-const TABLA_EVIDENCIA        = "tblSxLh7qYCkr4dTa";
-const F_EV_ORDEN_LINK        = "fldvzrPRmSWSWKh9y";
-const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
-const F_RG_ORDEN_LINK        = "fldSIaStYemOiievZ";
-
 async function eliminarOrdenCascada(id, identificador){
-  if(!_sesion || _sesion.rol !== "Admin") return;
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
   if(!confirm(`¿Eliminar definitivamente "${identificador}"?\n\nSe borrará la orden junto con su checklist, pintura, evidencia y reportes ligados. Esta acción no se puede deshacer.`)) return;
 
   try{
@@ -2985,11 +3199,11 @@ async function eliminarOrdenCascada(id, identificador){
 
     const borrarLigados = async (tableId, formula) => {
       const url = `/.netlify/functions/airtable?table=${tableId}&filterByFormula=${encodeURIComponent(formula)}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers:{} });
       if(!res.ok) return;
       const data = await res.json();
       for(const r of (data.records || [])){
-        await fetch(`/.netlify/functions/airtable?table=${tableId}&recordId=${r.id}`, { method:"DELETE" }).catch(()=>{});
+        await fetch(`/.netlify/functions/airtable?table=${tableId}&recordId=${r.id}`, { method:"DELETE", headers:{} }).catch(()=>{});
       }
     };
 
@@ -2999,7 +3213,9 @@ async function eliminarOrdenCascada(id, identificador){
     await borrarLigados(TABLA_REPORTES_GENERAL, `FIND("${id}", ARRAYJOIN({${F_RG_ORDEN_LINK}}))`);
     if(clave) await borrarLigados(TABLA_BORRADORES, `{${BF_SERIE}}="${clave}"`);
 
-    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, { method: "DELETE" });
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
+      method: "DELETE", headers:{}
+    });
 
     cerrarCk();
     cerrarDetalleGeneral();
@@ -3322,6 +3538,14 @@ const TABLA_CHECKLIST  = "tbl1yAx029Em12QDG";
 const F_CK_JSON        = "fldgfHAIaqCWScwC9";  // Checklist JSON
 const F_CK_ORDEN_LINK  = "fldvylNZ5irHPdRM7";  // Campo link a Ordenes
 
+// Tablas ligadas a una orden (usadas por eliminarOrdenCascada)
+const TABLA_PINTURA          = "tbl6fY01T6q69BVN0";
+const F_PT_ORDEN_LINK        = "fldEPLjcyH5i50UDj";
+const TABLA_EVIDENCIA        = "tblSxLh7qYCkr4dTa";
+const F_EV_ORDEN_LINK        = "fldvzrPRmSWSWKh9y";
+const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+const F_RG_ORDEN_LINK        = "fldSIaStYemOiievZ";
+
 function abrirReportes(ordenId, serie){
   window.open(`reportes.html?id=${encodeURIComponent(ordenId)}&serie=${encodeURIComponent(serie)}`, '_blank');
 }
@@ -3335,6 +3559,14 @@ async function abrirAjustesGeneral(ordenId, folio){
   if(!motivo.trim()){ alert("Escribe brevemente qué pidió el cliente."); return; }
 
   try{
+    // Lee el historial/contador actuales antes de reabrir, para no pisarlos (KPI de Retrabajos).
+    const getResp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}&returnFieldsByFieldId=true`, { headers:{} });
+    const ordenActual = getResp.ok ? await getResp.json() : { fields:{} };
+    let historial = [];
+    try{ historial = JSON.parse(ordenActual.fields?.[F.historialCorreccion] || "[]"); }catch(e){}
+    historial.push({ fecha: new Date().toISOString(), motivo: motivo.trim() });
+    const vecesActual = parseInt(ordenActual.fields?.[F.vecesCorregido], 10) || 0;
+
     // reporteGeneralCompletado se pone en false mientras dura la corrección — es la MISMA
     // señal que usa "Continuar" para un reporte nunca terminado, así que sigue funcionando
     // sin importar por qué estados cicle la orden mientras se corrige (En proceso, incluso
@@ -3343,7 +3575,13 @@ async function abrirAjustesGeneral(ordenId, folio){
     const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [F.estado]: "En corrección", [F.notasCorreccion]: motivo.trim(), [F.reporteGeneralCompletado]: false } })
+      body: JSON.stringify({ fields: {
+        [F.estado]: "En corrección",
+        [F.notasCorreccion]: motivo.trim(),
+        [F.reporteGeneralCompletado]: false,
+        [F.vecesCorregido]: vecesActual + 1,
+        [F.historialCorreccion]: JSON.stringify(historial),
+      } })
     });
     if(!resp.ok){
       const d = await resp.json().catch(()=>({}));
@@ -3356,6 +3594,180 @@ async function abrirAjustesGeneral(ordenId, folio){
 
   window.location.href = `formulario_general.html?folio=${encodeURIComponent(folio)}`;
 }
+
+/* ============================================================
+   VALIDACIÓN DE MATERIALES — Admin y Dirección (agregado 2026-07-17)
+   Dirección tiene exactamente las mismas funciones que Admin en todo el
+   dashboard, más esta pestaña extra. Se recalcula en cada renderDashboard()
+   a partir de allOrdenes (sin importar los filtros de búsqueda activos).
+   ============================================================ */
+function renderValidacionMateriales(){
+  const pendientes = allOrdenes.filter(o =>
+    o.tipoServicio === "General" &&
+    o.estadoValidacionMateriales === "Pendiente" &&
+    normEstado(o.estado) !== "encorreccion"
+  );
+  renderTablaDireccion(pendientes);
+}
+
+function renderTablaDireccion(ordenes){
+  document.getElementById("badgeDireccionPend").textContent = ordenes.length;
+  const tbody = document.getElementById("tbodyDireccion");
+  const vacio = document.getElementById("direccionVacio");
+  const wrap  = document.getElementById("wrapDireccion");
+  if(!ordenes.length){
+    wrap.classList.add("hidden");
+    vacio.classList.remove("hidden");
+    tbody.innerHTML = "";
+    return;
+  }
+  wrap.classList.remove("hidden");
+  vacio.classList.add("hidden");
+  const ordenadas = ordenes.slice().sort((a,b) => (b.dias||0)-(a.dias||0));
+  tbody.innerHTML = ordenadas.map(o => `
+    <tr>
+      <td>${esc(o.folio || o.serie || "—")}</td>
+      <td>${esc(o.tipoEquipo || "—")}</td>
+      <td>${esc(o.cliente || "—")}</td>
+      <td>${esc(o.tecnicoAsignado || "—")}</td>
+      <td style="text-align:center">${o.dias ?? "—"}</td>
+      <td style="text-align:center"><button class="btn-corr" style="background:var(--azul-medio)" onclick="abrirValidacion('${o.id}','${esc(o.folio||o.serie)}')">🔍 Revisar</button></td>
+    </tr>
+  `).join("");
+}
+
+let _valOrdenId = null, _valFolio = null, _valEstado = "";
+
+async function abrirValidacion(id, folio){
+  _valOrdenId = id; _valFolio = folio;
+  document.getElementById("valFolioTitulo").textContent = folio;
+  document.getElementById("valForm").classList.add("hidden");
+  document.getElementById("valCargando").classList.remove("hidden");
+  document.getElementById("valCargando").innerHTML = `<div class="spinner" style="margin:0 auto 16px"></div><p>Cargando lista de materiales...</p>`;
+  document.getElementById("valStatus").textContent = "";
+  document.getElementById("valFooter").innerHTML = "";
+  document.getElementById("modalValidacion").classList.remove("hidden");
+
+  const T_RG = "tbluHVpYNulSFFvnw";
+  const RGV = { ordenServicio:"fldSIaStYemOiievZ", folio:"fldKBCvEigK6R8hOQ", materialesJson:"fldDjAainIuzcjOxe" };
+
+  try{
+    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} });
+    if(!ordenRes.ok) throw new Error("No se pudo cargar la orden.");
+    const orden = await ordenRes.json();
+    const of = orden.fields || {};
+    const estadoRaw = of[F.estado];
+    _valEstado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
+    const tipoEquipoRaw = of[F.tipoEquipo];
+    const tipoEquipo = (tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "—";
+
+    document.getElementById("valCliente").textContent  = of[F.cliente] || "—";
+    document.getElementById("valEquipo").textContent   = tipoEquipo;
+    document.getElementById("valTecnico").textContent  = of[F.tecnicoAsignado] || "—";
+
+    // La validación se dispara desde el checkpoint de diagnóstico (antes de que exista el
+    // reporte final en REPORTES_GENERAL) — se busca ahí primero por si ya existe (reenvíos/
+    // correcciones), y si no, se usa la lista que el técnico propuso en el diagnóstico.
+    let materiales = [];
+    const rgFormula = encodeURIComponent(`OR(FIND("${id}",ARRAYJOIN({${RGV.ordenServicio}})),{${RGV.folio}}="${folio}")`);
+    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`, { headers:{} });
+    if(rgRes.ok){
+      const rgData = await rgRes.json();
+      const rg = (rgData.records||[])[0];
+      if(rg){ try{ materiales = JSON.parse(rg.fields[RGV.materialesJson] || "[]"); }catch(e){} }
+    }
+    if(!materiales.length){
+      try{
+        const diag = JSON.parse(of[COT.diagnosticoTexto] || "{}");
+        materiales = diag.materialesPropuestos || [];
+      }catch(e){}
+    }
+
+    document.getElementById("valMaterialesBody").innerHTML = materiales.length
+      ? materiales.map(m => `<tr><td>${esc(m.cantidad||"—")}</td><td>${esc(m.unidad||"—")}</td><td>${esc(m.descripcion||"")}</td><td>${esc(m.nota||"")}</td></tr>`).join("")
+      : `<tr><td colspan="4" style="text-align:center;color:var(--gris-texto)">Sin materiales en la lista.</td></tr>`;
+
+    document.getElementById("valFooter").innerHTML = `
+      <button class="btn-cancelar" onclick="cerrarValidacion()">Cerrar</button>
+      <button class="btn-corr" style="background:var(--rojo)" onclick="rechazarMateriales()">↩ Regresar al técnico</button>
+      <button class="btn-imprimir" onclick="validarMateriales()">✅ Validar</button>
+    `;
+
+    document.getElementById("valCargando").classList.add("hidden");
+    document.getElementById("valForm").classList.remove("hidden");
+  } catch(e){
+    document.getElementById("valCargando").innerHTML = `<p style="color:var(--rojo)">Error al cargar: ${esc(e.message||"")}</p>`;
+  }
+}
+
+async function validarMateriales(){
+  const statusEl = document.getElementById("valStatus");
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando...";
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_valOrdenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: {
+        [F.estadoValidacionMateriales]: "Validado",
+        [F.validadoPor]: (_sesion.nombre || _sesion.usuario || ""),
+        [F.fechaValidacion]: new Date().toISOString(),
+      } })
+    });
+    if(!resp.ok){
+      const d = await resp.json().catch(()=>({}));
+      throw new Error((d.error && d.error.message) || `Error HTTP ${resp.status}`);
+    }
+    statusEl.style.color = "var(--verde)";
+    statusEl.textContent = "✓ Validado.";
+    setTimeout(() => { cerrarValidacion(); cargarDatos(); }, 700);
+  } catch(e){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Error al guardar: " + (e.message||"");
+  }
+}
+
+// El rechazo reutiliza el flujo ya existente de "↩ Ajustes" — mismo prompt de motivo,
+// reabre el formulario completo para el técnico. La orden sale sola de esta cola porque
+// el filtro de renderValidacionMateriales() excluye estado "En corrección".
+function rechazarMateriales(){
+  cerrarValidacion();
+  // La validación puede llegar en dos momentos distintos: en el checkpoint de diagnóstico
+  // (antes de que exista reporte final — "En diagnóstico") o después del reporte final
+  // (Terminado/Entregado, ya reenviado). Solo el segundo caso puede reutilizar el flujo
+  // de "↩ Ajustes" (abrirAjustesGeneral reabre un reporte YA terminado en REPORTES_GENERAL).
+  if(normEstado(_valEstado) === "endiagnostico"){
+    rechazarMaterialesTemprano(_valOrdenId, _valFolio);
+  } else {
+    abrirAjustesGeneral(_valOrdenId, _valFolio);
+  }
+}
+
+// Rechazo en la etapa de diagnóstico: todavía no hay reporte final que reabrir en
+// REPORTES_GENERAL, así que no se reutiliza abrirAjustesGeneral(). En vez de eso se marca
+// "Rechazado" — formulario_general.html detecta esto y deja reentrar al técnico directo en
+// Pantalla 2 (Materiales) para corregir, ver restaurarDesdeRechazoMateriales().
+async function rechazarMaterialesTemprano(ordenId, folio){
+  const motivo = prompt(`¿Qué está mal en la lista de materiales de "${folio}"?\n\nEl técnico va a poder volver a entrar al formulario directo en la pantalla de materiales para corregirlo.`);
+  if(motivo === null) return;
+  try{
+    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: {
+        [F.estadoValidacionMateriales]: "Rechazado",
+        [F.notasCorreccion]: (motivo||"").trim(),
+      } })
+    });
+  } catch(e){
+    alert("No se pudo guardar el rechazo: " + (e.message||""));
+    return;
+  }
+  cargarDatos();
+}
+
+function cerrarValidacion(){ document.getElementById("modalValidacion").classList.add("hidden"); }
+function cerrarValidacionSiFuera(e){ if(e.target.id === "modalValidacion") cerrarValidacion(); }
 
 function abrirCorrecciones(ordenId, serie){
   // El flujo ahora es dentro del formulario_maestro.html unificado
@@ -3373,7 +3785,7 @@ let _ckSerieActual   = null;
 async function verChecklist(ordenId, serie){
   _ckOrdenIdActual = ordenId;
   _ckSerieActual   = serie;
-  document.getElementById("btnEliminarCk").classList.toggle("hidden", !(_sesion && _sesion.rol === "Admin"));
+  document.getElementById("btnEliminarCk").classList.toggle("hidden", !(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion")));
   // Mostrar modal con spinner
   document.getElementById("ckMeta").innerHTML    = "";
   document.getElementById("ckResumen").innerHTML = "";
@@ -3390,7 +3802,7 @@ async function verChecklist(ordenId, serie){
       `OR(FIND("${ordenId}", ARRAYJOIN({${F_CK_ORDEN_LINK}})), FIND("${serie} |", {fldHCz04kdMaGhjNR}))`
     );
     const url = `/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const res = await fetch(url, {});
+    const res = await fetch(url, { headers:{} });
     if(!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
 
@@ -3534,6 +3946,139 @@ function imprimirCk(){
   setTimeout(() => ventana.print(), 400);
 }
 
+function imprimirKPIs(){
+  var logoSrc   = document.getElementById("brandLogo").src;
+  var fechaTxt  = new Date().toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+  fechaTxt      = fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1);
+
+  var kpiClave   = document.querySelector("#secGeneral .kpi-grid:not(.kpi-grid-new)");
+  var kpiNuevos  = document.querySelector("#secGeneral .kpi-grid.kpi-grid-new");
+  var calidad    = document.querySelector("#secGeneral .calidad-grid");
+
+  if(!kpiClave || !kpiNuevos || !calidad){
+    alert("Aún no cargan los indicadores. Espera a que termine de cargar el dashboard e intenta de nuevo.");
+    return;
+  }
+
+  var ventana = window.open("", "_blank");
+  ventana.document.write(`<!DOCTYPE html><html lang="es"><head>
+    <meta charset="UTF-8"><title>Indicadores — Centro de Servicio SI</title>
+    <style>
+      :root{
+        --navy:#0c1e35; --azul:#12325a; --azul-claro:#1d5496; --azul-medio:#2563a8; --azul-acento:#3b82c4;
+        --azul-bg:#e8f0fb; --blanco:#ffffff; --fondo:#eef1f6; --gris:#dde3ec; --gris-texto:#485568; --gris-oscuro:#3d4a5c;
+        --verde:#0e7a3c; --rojo:#991b1b; --grad-marca: linear-gradient(90deg,#f2741a 0%,#a0228e 52%,#1d5496 100%);
+      }
+      *{ box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body{ font-family: Arial, sans-serif; color:#1f2937; padding:26px 30px; background:#fff; }
+
+      .print-header{ display:flex; align-items:center; gap:16px; border-bottom:3px solid var(--navy); padding-bottom:14px; margin-bottom:24px; }
+      .print-header img{ height:58px; width:auto; }
+      .print-header .tit h1{ font-size:1.25rem; color:var(--navy); }
+      .print-header .tit p{ font-size:0.8rem; color:var(--gris-texto); margin-top:2px; }
+      .print-header .fecha{ margin-left:auto; text-align:right; font-size:0.78rem; color:var(--gris-texto); }
+      .print-header .fecha b{ display:block; font-size:0.85rem; color:var(--navy); }
+
+      .section-label{
+        font-size:0.78rem; font-weight:800; color:var(--navy); text-transform:uppercase; letter-spacing:1.1px;
+        margin: 22px 0 12px; display:flex; align-items:center; gap:9px;
+      }
+      .section-label:first-of-type{ margin-top:0; }
+      .section-label::before{ content:""; width:4px; height:14px; border-radius:2px; background:var(--grad-marca); }
+
+      /* ===== KPI GRID ===== */
+      .kpi-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:6px; }
+      .kpi-card{
+        position:relative; background:var(--blanco); border-radius:12px; padding:14px 16px;
+        border:1px solid #e9edf4; display:flex; flex-direction:column; gap:7px; overflow:hidden;
+        page-break-inside:avoid; break-inside:avoid;
+      }
+      .kpi-card::after{
+        content:""; position:absolute; right:-32px; top:-32px; width:100px; height:100px; border-radius:50%;
+        background: color-mix(in srgb, var(--kpi-color,#2563a8) 8%, transparent); pointer-events:none;
+      }
+      .kpi-head{ display:flex; align-items:center; gap:10px; position:relative; z-index:1; }
+      .kpi-ico{
+        width:38px; height:38px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+        background: linear-gradient(135deg, var(--kpi-color,#2563a8), color-mix(in srgb, var(--kpi-color,#2563a8) 68%, #000));
+      }
+      .kpi-ico svg{ width:19px; height:19px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+      .kpi-ico svg.fill{ fill:#fff; stroke:none; }
+      .kpi-tag{ font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--gris-texto); line-height:1.2; }
+      .kpi-number{ font-size:1.9rem; font-weight:800; color:var(--navy); line-height:1; letter-spacing:-0.5px; margin-top:1px; position:relative; z-index:1; }
+      .kpi-label{ font-size:0.76rem; font-weight:700; color:var(--gris-oscuro); position:relative; z-index:1; }
+      .kpi-sub{ font-size:0.68rem; color:var(--gris-texto); line-height:1.3; position:relative; z-index:1; }
+
+      /* ===== CALIDAD Y CUMPLIMIENTO ===== */
+      .calidad-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+      .cal-panel{ background:var(--blanco); border-radius:11px; padding:14px 16px 16px; border:1px solid #e9edf4; border-top:3px solid var(--cal-accent); page-break-inside:avoid; break-inside:avoid; }
+      .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
+      .cal-title{ font-size:0.86rem; font-weight:800; color:var(--gris-oscuro); }
+      .cal-sub{ font-size:0.68rem; color:var(--gris-texto); margin-bottom:11px; }
+      .cal-row{ display:flex; gap:14px; align-items:center; }
+      .cal-legend{ display:flex; flex-direction:column; gap:6px; font-size:0.72rem; }
+      .cal-legend .li{ display:flex; align-items:center; gap:7px; }
+      .cal-legend .dot{ width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+      .cal-legend .lbl{ color:var(--gris-texto); flex:1; }
+      .cal-legend .val{ font-weight:800; color:var(--gris-oscuro); }
+      .cal-stat-line{ margin-top:9px; font-size:0.73rem; color:var(--gris-texto); background:var(--fondo); padding:6px 9px; border-radius:7px; }
+      .cal-stat-pair{ display:flex; gap:9px; }
+      .cal-stat-tile{ flex:1; background:var(--fondo); border-radius:9px; padding:9px 11px; }
+      .cal-stat-tile .n{ font-size:1.4rem; font-weight:800; line-height:1; }
+      .cal-stat-tile .l{ font-size:0.62rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:4px; }
+      .cal-stat-tile .p{ font-size:0.66rem; color:var(--gris-texto); margin-top:2px; }
+      .cal-trend-label{ font-size:0.64rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:11px; }
+      .cal-trend{ display:flex; align-items:flex-end; gap:3px; height:48px; margin-top:6px; }
+      .cal-trend-bar{ flex:1; border-radius:2px 2px 0 0; min-height:2px; }
+      .cal-trend-labels{ display:flex; gap:3px; margin-top:3px; }
+      .cal-trend-labels span{ flex:1; text-align:center; font-size:0.5rem; color:var(--gris-texto); }
+      .cal-detail-list{ margin-top:9px; display:flex; flex-direction:column; gap:5px; }
+      .cal-detail-item{ font-size:0.68rem; padding:6px 8px; background:var(--fondo); border-radius:7px; border-left:3px solid var(--cal-accent); }
+      .cal-detail-item .f{ font-weight:700; color:var(--gris-oscuro); }
+      .cal-detail-item .m{ color:var(--gris-texto); margin-top:1px; }
+      .cal-gauge-wrap{ display:flex; align-items:center; gap:14px; }
+      .cal-gauge-num{ font-size:1.6rem; font-weight:800; }
+      .cal-divlist{ margin-top:9px; display:flex; flex-direction:column; gap:5px; }
+      .cal-divrow{ display:grid; grid-template-columns:56px 1fr 42px; align-items:center; gap:7px; font-size:0.66rem; }
+      .cal-divrow .folio{ font-weight:700; color:var(--gris-oscuro); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .cal-divtrack{ position:relative; height:13px; background:var(--gris); border-radius:4px; overflow:hidden; }
+      .cal-divzero{ position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(0,0,0,0.15); }
+      .cal-divbar{ position:absolute; top:2px; bottom:2px; border-radius:3px; }
+      .cal-divval{ text-align:right; font-weight:700; }
+      .cal-empty{ font-size:0.72rem; color:var(--gris-texto); padding:8px 0; }
+
+      .print-footer{ margin-top:26px; padding-top:10px; border-top:1px solid var(--gris); font-size:0.66rem; color:var(--gris-texto); text-align:center; }
+
+      @media print{
+        @page{ size: letter landscape; margin: 1.2cm; }
+      }
+      @media(max-width:900px){ .calidad-grid{ grid-template-columns:1fr; } .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
+    </style></head><body>
+    <div class="print-header">
+      <img src="${logoSrc}" alt="Suministros Industriales SI">
+      <div class="tit">
+        <h1>Suministros Industriales SI — Centro de Servicio</h1>
+        <p>Indicadores de calidad y desempeño</p>
+      </div>
+      <div class="fecha"><b>${fechaTxt}</b>Reporte generado desde el dashboard</div>
+    </div>
+
+    <div class="section-label">Indicadores clave</div>
+    ${kpiClave.outerHTML}
+
+    <div class="section-label">Nuevos indicadores</div>
+    ${kpiNuevos.outerHTML}
+
+    <div class="section-label">Calidad y cumplimiento</div>
+    ${calidad.outerHTML}
+
+    <div class="print-footer">Suministros Industriales SI &middot; Sistema de gestión del Centro de Servicio</div>
+    </body></html>`);
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(() => ventana.print(), 400);
+}
+
 
 /* ============================================================
    NUEVOS KPIs Y GRAFICAS
@@ -3626,6 +4171,232 @@ function renderNuevosKPIs(ordenes){
   renderChartLeadTime(leadTime, promAct, entregadas.length, activas.length);
   renderChartDocsDonut(terminadas);
   renderChartSemanal(ordenes);
+}
+
+/* ============================================================
+   CALIDAD Y CUMPLIMIENTO — 4 KPIs nuevos (agregado 2026-07-17)
+   ============================================================ */
+function donutSvgHtml(datos, centerText, centerColor){
+  var cx=100, cy=100, r=80, ri=48;
+  var ang = -Math.PI/2, paths = "";
+  var total = datos.reduce(function(s,d){ return s+d.val; }, 0);
+  if(total === 0) return '<circle cx="100" cy="100" r="'+((r+ri)/2)+'" fill="none" stroke="var(--gris)" stroke-width="'+(r-ri)+'"/>';
+  datos.forEach(function(d){
+    if(d.val <= 0) return;
+    var sweep = (d.val/total)*2*Math.PI;
+    var x1=cx+r*Math.cos(ang), y1=cy+r*Math.sin(ang);
+    var x2=cx+r*Math.cos(ang+sweep), y2=cy+r*Math.sin(ang+sweep);
+    var xi1=cx+ri*Math.cos(ang), yi1=cy+ri*Math.sin(ang);
+    var xi2=cx+ri*Math.cos(ang+sweep), yi2=cy+ri*Math.sin(ang+sweep);
+    var large = sweep>Math.PI?1:0;
+    paths += '<path d="M'+xi1+' '+yi1+' L'+x1+' '+y1+' A'+r+' '+r+' 0 '+large+' 1 '+x2+' '+y2+' L'+xi2+' '+yi2+' A'+ri+' '+ri+' 0 '+large+' 0 '+xi1+' '+yi1+'" fill="'+d.color+'" stroke="var(--blanco)" stroke-width="2"/>';
+    ang += sweep;
+  });
+  if(centerText) paths += '<text x="'+cx+'" y="'+(cy+8)+'" text-anchor="middle" font-size="30" font-weight="800" fill="'+centerColor+'">'+centerText+'</text>';
+  return paths;
+}
+
+function fechaSoloDia(iso){
+  if(!iso) return null;
+  // Fechas "solo día" (YYYY-MM-DD, ej. fechaEntregaProgramada) se parsean manualmente para evitar
+  // que JS las interprete como medianoche UTC y se corran un día hacia atrás en horario de México.
+  var soloFecha = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if(soloFecha) return new Date(Number(soloFecha[1]), Number(soloFecha[2])-1, Number(soloFecha[3]));
+  var d = new Date(iso);
+  if(isNaN(d)) return null;
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function isoLocal(d){
+  var m = String(d.getMonth()+1).padStart(2,"0"), day = String(d.getDate()).padStart(2,"0");
+  return d.getFullYear()+"-"+m+"-"+day;
+}
+
+function renderKPIsCalidad(ordenes, tareas){
+  renderCalEntrega(ordenes);
+  renderCalRetrabajos(ordenes);
+  renderCalMateriales(ordenes);
+  renderCalPlanDiario(tareas || []);
+}
+
+/* ---- Panel 1: Cumplimiento de entrega (fechaEntregaReal vs fechaEntregaProgramada) ---- */
+function renderCalEntrega(ordenes){
+  var aTiempo = 0, tarde = 0, diffsTarde = [], entregasConDiff = [];
+  ordenes.forEach(function(o){
+    if(!o.fechaEntregaReal || !o.fechaEntregaProgramada) return;
+    var real = fechaSoloDia(o.fechaEntregaReal);
+    var prog = fechaSoloDia(o.fechaEntregaProgramada);
+    if(!real || !prog) return;
+    var diffDias = Math.round((real - prog) / 86400000);
+    if(diffDias > 0){ tarde++; diffsTarde.push(diffDias); } else { aTiempo++; }
+    entregasConDiff.push({ folio: idOrden(o), dias: diffDias, real: real });
+  });
+  var sinFecha = ordenes.filter(function(o){ return o.fechaEntregaReal && !o.fechaEntregaProgramada; }).length;
+  var total = aTiempo + tarde + sinFecha;
+  var pct = total ? Math.round((aTiempo/total)*100) : null;
+
+  var datos = [
+    { label:"A tiempo", val:aTiempo, color:"#0e7a3c" },
+    { label:"Tarde", val:tarde, color:"#991b1b" },
+    { label:"Sin fecha programada", val:sinFecha, color:"#9ca3af" },
+  ];
+  document.getElementById("donutEntrega").innerHTML = donutSvgHtml(datos, total ? pct+"%" : "", "#0e7a3c");
+  document.getElementById("legendEntrega").innerHTML = total
+    ? datos.filter(function(d){ return d.val>0; }).map(function(d){
+        return '<div class="li"><div class="dot" style="background:'+d.color+'"></div><span class="lbl">'+d.label+'</span><span class="val">'+d.val+'</span></div>';
+      }).join("")
+    : '<div class="cal-empty">Aún sin entregas registradas con el campo nuevo.</div>';
+
+  var statEl = document.getElementById("statDesviacion");
+  if(diffsTarde.length){
+    var prom = (diffsTarde.reduce(function(a,b){ return a+b; },0)/diffsTarde.length).toFixed(1);
+    statEl.innerHTML = '<b style="color:#991b1b">+'+prom+' días</b> de retraso promedio en las entregas tarde';
+  } else {
+    statEl.innerHTML = total ? '<b style="color:#0e7a3c">Sin entregas tarde</b> en el periodo — buen ritmo.' : "";
+  }
+
+  var ultimas = entregasConDiff.sort(function(a,b){ return b.real - a.real; }).slice(0,6);
+  var divEl = document.getElementById("divlistEntregas");
+  if(!ultimas.length){
+    divEl.innerHTML = '<div class="cal-empty">Sin datos todavía — se va llenando conforme se marquen entregas.</div>';
+  } else {
+    var maxAbs = Math.max.apply(null, ultimas.map(function(e){ return Math.abs(e.dias); }).concat([1]));
+    divEl.innerHTML = ultimas.map(function(e){
+      var pctBar = Math.round((Math.abs(e.dias)/maxAbs)*48);
+      var late = e.dias > 0;
+      var color = e.dias===0 ? "#9ca3af" : (late ? "#991b1b" : "#0e7a3c");
+      var barStyle = e.dias===0
+        ? "left:calc(50% - 2px);width:4px;background:"+color+";"
+        : late ? "left:50%;width:"+pctBar+"%;background:"+color+";" : "right:50%;width:"+pctBar+"%;background:"+color+";";
+      var val = e.dias===0 ? "a tiempo" : (late ? "+"+e.dias+"d" : e.dias+"d");
+      var folioCorto = e.folio.length > 9 ? e.folio.slice(0,8)+"…" : e.folio;
+      return '<div class="cal-divrow" title="'+esc(e.folio)+'"><div class="folio">'+esc(folioCorto)+'</div>'
+        + '<div class="cal-divtrack"><div class="cal-divzero"></div><div class="cal-divbar" style="'+barStyle+'"></div></div>'
+        + '<div class="cal-divval" style="color:'+color+'">'+val+'</div></div>';
+    }).join("");
+  }
+}
+
+/* ---- Panel 2: Retrabajos (correcciones + ediciones post-entrega) ---- */
+function renderCalRetrabajos(ordenes){
+  var totalCorrecciones = 0, ordenesConCorreccion = 0;
+  var totalEdiciones = 0, ordenesConEdicion = 0;
+  var eventosCorreccion = [], detalle = [];
+
+  ordenes.forEach(function(o){
+    if(o.vecesCorregido > 0){
+      totalCorrecciones += o.vecesCorregido;
+      ordenesConCorreccion++;
+      var hist = [];
+      try{ hist = JSON.parse(o.historialCorreccion || "[]"); }catch(e){}
+      hist.forEach(function(h){
+        var d = new Date(h.fecha);
+        if(!isNaN(d)) eventosCorreccion.push(d);
+        detalle.push({ folio: idOrden(o), motivo: h.motivo || "—", fecha: d });
+      });
+    }
+    var edicionesOrden = (o.edicionesReporte||0) + (o.edicionesMateriales||0);
+    if(edicionesOrden > 0){ totalEdiciones += edicionesOrden; ordenesConEdicion++; }
+  });
+
+  var terminadasYEntregadas = ordenes.filter(function(o){ return ["terminado","entregado"].indexOf(normEstado(o.estado)) >= 0; });
+  var entregadas = ordenes.filter(function(o){ return normEstado(o.estado) === "entregado"; });
+
+  document.getElementById("statCorrecciones").textContent = totalCorrecciones || "0";
+  document.getElementById("statCorreccionesP").textContent = terminadasYEntregadas.length
+    ? Math.round((ordenesConCorreccion/terminadasYEntregadas.length)*100)+"% de las terminadas" : "";
+
+  document.getElementById("statEdiciones").textContent = totalEdiciones || "0";
+  document.getElementById("statEdicionesP").textContent = entregadas.length
+    ? Math.round((ordenesConEdicion/entregadas.length)*100)+"% de las entregadas" : "";
+
+  // Tendencia semanal: solo correcciones tienen fecha por evento (las ediciones solo llevan contador)
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var semanas = [];
+  for(var i=7;i>=0;i--){
+    var inicio = new Date(hoy); inicio.setDate(hoy.getDate() - hoy.getDay() - (i*7));
+    var fin = new Date(inicio); fin.setDate(inicio.getDate()+7);
+    semanas.push({ inicio: inicio, fin: fin, count:0 });
+  }
+  eventosCorreccion.forEach(function(fecha){
+    for(var i=0;i<semanas.length;i++){
+      if(fecha >= semanas[i].inicio && fecha < semanas[i].fin){ semanas[i].count++; break; }
+    }
+  });
+  var maxCount = Math.max.apply(null, semanas.map(function(s){ return s.count; }).concat([1]));
+  document.getElementById("trendRetrabajos").innerHTML = semanas.map(function(s){
+    var h = s.count>0 ? Math.max(Math.round((s.count/maxCount)*100), 10) : 3;
+    return '<div class="cal-trend-bar" style="height:'+h+'%;background:#c2410c" title="'+s.count+' corrección(es) desde '+isoLocal(s.inicio)+'"></div>';
+  }).join("");
+  document.getElementById("trendRetrabajosLabels").innerHTML = semanas.map(function(s){
+    return '<span>'+(s.inicio.getMonth()+1)+'/'+s.inicio.getDate()+'</span>';
+  }).join("");
+
+  var detalleOrdenado = detalle.sort(function(a,b){ return b.fecha - a.fecha; }).slice(0,6);
+  document.getElementById("detalleRetrabajos").innerHTML = detalleOrdenado.length
+    ? detalleOrdenado.map(function(d){
+        var fechaTxt = !isNaN(d.fecha) ? d.fecha.toLocaleDateString("es-MX",{day:"2-digit",month:"short"}) : "";
+        return '<div class="cal-detail-item"><div class="f">'+esc(d.folio)+'</div><div class="m">'+esc(d.motivo)+' · '+fechaTxt+'</div></div>';
+      }).join("")
+    : '<div class="cal-empty">Sin retrabajos registrados todavía.</div>';
+}
+
+/* ---- Panel 3: Precisión de lista de materiales (solo General, materiales es concepto propio de General) ---- */
+function renderCalMateriales(ordenes){
+  var generalTerminadas = ordenes.filter(function(o){
+    return o.tipoServicio === "General" && (o.reporteGeneralCompletado || ["terminado","entregado"].indexOf(normEstado(o.estado)) >= 0);
+  });
+  var correctasPrimera = generalTerminadas.filter(function(o){ return !o.edicionesMateriales; });
+  var conEdicion = generalTerminadas.filter(function(o){ return o.edicionesMateriales > 0; });
+  var pct = generalTerminadas.length ? Math.round((correctasPrimera.length/generalTerminadas.length)*100) : null;
+
+  document.getElementById("pctMateriales").textContent = pct !== null ? pct+"%" : "—";
+  document.getElementById("gaugeMateriales").innerHTML = generalTerminadas.length
+    ? donutSvgHtml([{val:correctasPrimera.length, color:"#2563a8"},{val:conEdicion.length, color:"#dde3ec"}], "", "")
+    : donutSvgHtml([{val:1, color:"#dde3ec"}], "", "");
+
+  var statEl = document.getElementById("statPromedioEdicionesMat");
+  if(conEdicion.length){
+    var prom = (conEdicion.reduce(function(s,o){ return s+o.edicionesMateriales; },0)/conEdicion.length).toFixed(1);
+    statEl.innerHTML = 'Cuando sí hace falta corregir: <b style="color:#2563a8">'+prom+'</b> ediciones en promedio';
+  } else {
+    statEl.textContent = generalTerminadas.length ? "Ninguna lista se ha tenido que corregir todavía." : "Aún sin reportes de servicios General terminados.";
+  }
+}
+
+/* ---- Panel 4: Cumplimiento del plan diario (ya calculable, sin campos nuevos requeridos para el %) ---- */
+function renderCalPlanDiario(tareas){
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  // Solo días hábiles (lunes a viernes) — sábado y domingo no son días de trabajo,
+  // así que no deben contar como "no cumplido" aunque no haya tareas o no se marquen.
+  var dias = [];
+  var cursor = new Date(hoy);
+  while(dias.length < 14){
+    var dow = cursor.getDay(); // 0=domingo, 6=sábado
+    if(dow !== 0 && dow !== 6) dias.unshift({ fecha:new Date(cursor), iso:isoLocal(cursor), total:0, completadas:0 });
+    cursor.setDate(cursor.getDate()-1);
+  }
+  var diasPorIso = {};
+  dias.forEach(function(d){ diasPorIso[d.iso] = d; });
+  tareas.forEach(function(t){
+    var bucket = t.fecha && diasPorIso[t.fecha];
+    if(!bucket) return;
+    bucket.total++;
+    if(t.completado) bucket.completadas++;
+  });
+
+  var totalG = dias.reduce(function(s,d){ return s+d.total; },0);
+  var compG  = dias.reduce(function(s,d){ return s+d.completadas; },0);
+  var pctG = totalG ? Math.round((compG/totalG)*100) : null;
+  document.getElementById("pctPlanDiario").textContent = pctG !== null ? pctG+"%" : "—";
+
+  document.getElementById("trendPlanDiario").innerHTML = dias.map(function(d){
+    if(d.total === 0) return '<div class="cal-trend-bar" style="height:4%;background:#dde3ec" title="Sin tareas"></div>';
+    var pct = Math.round((d.completadas/d.total)*100);
+    var color = pct>=80 ? "#0e7a3c" : pct>=50 ? "#f59e0b" : "#991b1b";
+    return '<div class="cal-trend-bar" style="height:'+Math.max(pct,6)+'%;background:'+color+'" title="'+pct+'% ('+d.completadas+'/'+d.total+')"></div>';
+  }).join("");
+  document.getElementById("trendPlanDiarioLabels").innerHTML = dias.map(function(d){ return '<span>'+d.fecha.getDate()+'</span>'; }).join("");
 }
 
 /* Barras horizontales con umbral de 4 dias */
@@ -3882,6 +4653,8 @@ function aplicarRestriccionesRol(){
   if(_sesion.rol === "Tecnico"){
     const tabGeneral = document.getElementById("tab-general");
     if(tabGeneral) tabGeneral.style.display = "none";
+    const tabValidacion = document.getElementById("tab-validacion");
+    if(tabValidacion) tabValidacion.style.display = "none";
     const btnPre = document.getElementById("btnPreRegistro");
     if(btnPre) btnPre.style.display = "none";
     cambiarTab("ordenes");
@@ -3894,15 +4667,27 @@ function cerrarSesion(){
 }
 
 /* ============================================================
-   MONITOR NO OK — POLLING CADA 15 SEGUNDOS
+   MONITOR NO OK — POLLING CADA 60 SEGUNDOS (se pausa si la pestaña
+   no está visible, para no gastar llamadas de Airtable de más)
    ============================================================ */
 let _monitorInterval = null;
 let _totalNoOkActivos = 0;
 let _noOkResultados = [];
 
+const MONITOR_NOOK_INTERVALO_MS = 60000; // antes 15000 — reduce llamadas a Airtable 4x
+
 function iniciarMonitorNoOk(){
   ejecutarMonitorNoOk();
-  _monitorInterval = setInterval(ejecutarMonitorNoOk, 15000);
+  _monitorInterval = setInterval(ejecutarMonitorNoOk, MONITOR_NOOK_INTERVALO_MS);
+  document.addEventListener("visibilitychange", () => {
+    if(document.hidden){
+      clearInterval(_monitorInterval);
+      _monitorInterval = null;
+    } else if(!_monitorInterval){
+      ejecutarMonitorNoOk(); // refrescar de inmediato al volver a la pestaña
+      _monitorInterval = setInterval(ejecutarMonitorNoOk, MONITOR_NOOK_INTERVALO_MS);
+    }
+  });
 }
 
 async function ejecutarMonitorNoOk(){
@@ -3917,7 +4702,7 @@ async function ejecutarMonitorNoOk(){
     const rBorr = await fetch(
       `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&returnFieldsByFieldId=true` +
       `&fields[]=${BF_SERIE}&fields[]=${BF_DATOS_JSON}&fields[]=${BF_CLIENTE}&fields[]=${BF_ULTIMA_ACT}&pageSize=50`,
-      {}
+      { headers:{} }
     );
     if(rBorr.ok){
       const dBorr = await rBorr.json();
