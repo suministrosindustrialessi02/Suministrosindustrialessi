@@ -2090,6 +2090,10 @@ function generarDiagnosticoGeneral(){
   }
   function filasResistencia(r, numLineas){
     r = r || {};
+    if(numLineas === "2"){
+      return `
+      <tr><td class="lbl">L1, L2</td><td>${esc(r.l1l2)} Ω</td></tr>`;
+    }
     if(numLineas === "3"){
       return `
       <tr><td class="lbl">L1, L2</td><td>${esc(r.l1l2)} Ω</td></tr>
@@ -2120,22 +2124,28 @@ function generarDiagnosticoGeneral(){
       <tr><th colspan="2" style="background:${colorFondo}!important; color:#000!important;">PUESTA A TIERRA</th></tr>
       <tr><td class="lbl">L1 – Tierra</td><td>${esc(t.l1)} Ω</td></tr>
       <tr><td class="lbl">L2 – Tierra</td><td>${esc(t.l2)} Ω</td></tr>
-      <tr><td class="lbl">L3 – Tierra</td><td>${esc(t.l3)} Ω</td></tr>
+      ${numLineas === "2" ? "" : `<tr><td class="lbl">L3 – Tierra</td><td>${esc(t.l3)} Ω</td></tr>`}
     </table>`;
   }
 
   let pruebasHtml = "";
   if(d.aplicaElectrico && d.pruebasElectricasIniciales){
     const p = d.pruebasElectricasIniciales;
+    const esDos = p.numLineas === "2";
+    const col3 = esDos ? "" : `<th>L3</th>`;
+    const celda3 = arr => esDos ? "" : `<td>${esc(arr?.[2])}</td>`;
+    const filaVoltaje = esDos
+      ? `<tr><td class="lbl">Voltaje (V)</td><td colspan="2">L1,L2: ${esc(p.voltaje?.[0])}</td></tr>`
+      : `<tr><td class="lbl">Voltaje (V)</td><td>${esc(p.voltaje?.[0])}</td><td>${esc(p.voltaje?.[1])}</td>${celda3(p.voltaje)}</tr>`;
     pruebasHtml = `
     <div class="serv-section">V. PRUEBAS ELÉCTRICAS INICIALES</div>
     ${tablaResistenciaTierra(p.resistencia?.valores, p.tierra, colorEstado(p.estado), p.numLineas)}
     ${p.notas ? `<p style="font-size:8pt;margin:6px 0"><strong>Nota:</strong> ${esc(p.notas)}</p>` : ""}
     ${p.omitidoCorrienteVoltaje ? `<p style="font-size:8pt;margin-bottom:8px;color:#c62828"><strong>⚠ No se realizaron pruebas de corriente/voltaje</strong> — estado "Fuera de servicio".</p>` : `
     <table class="adh-tbl">
-      <tr><th></th><th>L1</th><th>L2</th><th>L3</th></tr>
-      <tr><td class="lbl">Corriente (A)</td><td>${esc(p.corriente?.[0])}</td><td>${esc(p.corriente?.[1])}</td><td>${esc(p.corriente?.[2])}</td></tr>
-      <tr><td class="lbl">Voltaje (V)</td><td>${esc(p.voltaje?.[0])}</td><td>${esc(p.voltaje?.[1])}</td><td>${esc(p.voltaje?.[2])}</td></tr>
+      <tr><th></th><th>L1</th><th>L2</th>${col3}</tr>
+      <tr><td class="lbl">Corriente (A)</td><td>${esc(p.corriente?.[0])}</td><td>${esc(p.corriente?.[1])}</td>${celda3(p.corriente)}</tr>
+      ${filaVoltaje}
     </table>`}`;
   }
 
@@ -2320,6 +2330,10 @@ function generarServicioGeneral(){
 
     function filasResistencia(r, numLineas){
       r = r || {};
+      if(numLineas === "2"){
+        return `
+        <tr><td class="lbl">L1, L2</td><td>${esc(r.l1l2)} Ω</td></tr>`;
+      }
       if(numLineas === "3"){
         return `
         <tr><td class="lbl">L1, L2</td><td>${esc(r.l1l2)} Ω</td></tr>
@@ -2351,7 +2365,7 @@ function generarServicioGeneral(){
         <tr><th colspan="2" style="background:${colorFondo}!important; color:#000!important;">PUESTA A TIERRA ${esc(titulo)}</th></tr>
         <tr><td class="lbl">L1 – Tierra</td><td>${esc(t.l1)} Ω</td></tr>
         <tr><td class="lbl">L2 – Tierra</td><td>${esc(t.l2)} Ω</td></tr>
-        <tr><td class="lbl">L3 – Tierra</td><td>${esc(t.l3)} Ω</td></tr>
+        ${numLineas === "2" ? "" : `<tr><td class="lbl">L3 – Tierra</td><td>${esc(t.l3)} Ω</td></tr>`}
       </table>`;
     }
 
@@ -2362,6 +2376,12 @@ function generarServicioGeneral(){
       return obj === undefined || obj === null || String(obj).trim() === "";
     }
     const finVacio = todosVacios(fin.resistencia) && todosVacios(fin.tierra) && todosVacios(fin.corriente) && todosVacios(fin.voltaje);
+    const esDos = pruebas.numLineas === "2";
+    const col3 = esDos ? "" : `<th>L3</th>`;
+    const celda3 = arr => esDos ? "" : `<td>${esc(arr?.[2])}</td>`;
+    const filaVoltaje = (arr, etiqueta) => esDos
+      ? `<tr><td class="lbl">${etiqueta}</td><td colspan="2">L1,L2: ${esc(arr?.[0])}</td></tr>`
+      : `<tr><td class="lbl">${etiqueta}</td><td>${esc(arr?.[0])}</td><td>${esc(arr?.[1])}</td>${celda3(arr)}</tr>`;
 
     pruebasHtml = `
     <div class="serv-section">PRUEBAS ELÉCTRICAS BÁSICAS — INICIAL</div>
@@ -2369,9 +2389,9 @@ function generarServicioGeneral(){
     ${ini.notas ? `<p style="font-size:8pt;margin:6px 0"><strong>Nota:</strong> ${esc(ini.notas)}</p>` : ""}
     ${ini.omitidoCorrienteVoltaje ? `<p style="font-size:8pt;margin-bottom:8px;color:#c62828"><strong>⚠ No se realizaron pruebas de corriente/voltaje iniciales</strong> — estado "Fuera de servicio".</p>` : `
     <table class="adh-tbl">
-      <tr><th></th><th>L1</th><th>L2</th><th>L3</th></tr>
-      <tr><td class="lbl">Corriente inicial (A)</td><td>${esc(ini.corriente?.[0])}</td><td>${esc(ini.corriente?.[1])}</td><td>${esc(ini.corriente?.[2])}</td></tr>
-      <tr><td class="lbl">Voltaje inicial (V)</td><td>${esc(ini.voltaje?.[0])}</td><td>${esc(ini.voltaje?.[1])}</td><td>${esc(ini.voltaje?.[2])}</td></tr>
+      <tr><th></th><th>L1</th><th>L2</th>${col3}</tr>
+      <tr><td class="lbl">Corriente inicial (A)</td><td>${esc(ini.corriente?.[0])}</td><td>${esc(ini.corriente?.[1])}</td>${celda3(ini.corriente)}</tr>
+      ${filaVoltaje(ini.voltaje, "Voltaje inicial (V)")}
     </table>`}
 
     <div class="serv-section">PRUEBAS ELÉCTRICAS BÁSICAS — FINAL</div>
@@ -2379,9 +2399,9 @@ function generarServicioGeneral(){
     ${tablaResistenciaTierra(fin.resistencia, fin.tierra, "", colorEstado(fin.estado), pruebas.numLineas)}
     ${fin.notas ? `<p style="font-size:8pt;margin:6px 0"><strong>Nota:</strong> ${esc(fin.notas)}</p>` : ""}
     <table class="adh-tbl">
-      <tr><th></th><th>L1</th><th>L2</th><th>L3</th></tr>
-      <tr><td class="lbl">Corriente final (A)</td><td>${esc(fin.corriente?.[0])}</td><td>${esc(fin.corriente?.[1])}</td><td>${esc(fin.corriente?.[2])}</td></tr>
-      <tr><td class="lbl">Voltaje final (V)</td><td>${esc(fin.voltaje?.[0])}</td><td>${esc(fin.voltaje?.[1])}</td><td>${esc(fin.voltaje?.[2])}</td></tr>
+      <tr><th></th><th>L1</th><th>L2</th>${col3}</tr>
+      <tr><td class="lbl">Corriente final (A)</td><td>${esc(fin.corriente?.[0])}</td><td>${esc(fin.corriente?.[1])}</td>${celda3(fin.corriente)}</tr>
+      ${filaVoltaje(fin.voltaje, "Voltaje final (V)")}
     </table>`}`;
   }
 

@@ -418,6 +418,7 @@
         <div class="field" style="margin-bottom:12px;">
           <label>Número de líneas del motor</label>
           <select id="numLineas" onchange="renderResistenciaBobinas()">
+            <option value="2">2 líneas (L1, L2)</option>
             <option value="3">3 líneas (L1, L2, L3)</option>
             <option value="6" selected>6 líneas (U, V, W)</option>
             <option value="9">9 líneas</option>
@@ -431,7 +432,7 @@
         <div class="field-row">
           <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1 – Tierra</label><input type="text" id="tierraL1_ini" placeholder="Valor"></div>
           <div class="field"><label style="font-weight:400;font-size:0.8rem;">L2 – Tierra</label><input type="text" id="tierraL2_ini" placeholder="Valor"></div>
-          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L3 – Tierra</label><input type="text" id="tierraL3_ini" placeholder="Valor"></div>
+          <div class="field linea3-field" id="tierraL3wrap_ini"><label style="font-weight:400;font-size:0.8rem;">L3 – Tierra</label><input type="text" id="tierraL3_ini" placeholder="Valor"></div>
         </div>
 
         <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado (resistencia / puesta a tierra)</div>
@@ -455,13 +456,14 @@
           <div class="field-row">
             <input type="text" id="corrL1_ini" placeholder="L1">
             <input type="text" id="corrL2_ini" placeholder="L2">
-            <input type="text" id="corrL3_ini" placeholder="L3">
+            <input type="text" class="linea3-field" id="corrL3_ini" placeholder="L3">
           </div>
           <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:12px 0 6px;">Voltaje (V)</div>
           <div class="field-row">
-            <input type="text" id="voltL1_ini" placeholder="L1">
-            <input type="text" id="voltL2_ini" placeholder="L2">
-            <input type="text" id="voltL3_ini" placeholder="L3">
+            <input type="text" class="volt-individual" id="voltL1_ini" placeholder="L1">
+            <input type="text" class="volt-individual" id="voltL2_ini" placeholder="L2">
+            <input type="text" class="linea3-field" id="voltL3_ini" placeholder="L3">
+            <input type="text" class="volt-combined hidden" id="voltL1L2_ini" placeholder="L1, L2">
           </div>
         </div>
       </div>
@@ -555,20 +557,21 @@
         <div class="field-row">
           <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1 – Tierra</label><input type="text" id="tierraL1_fin" placeholder="Valor"></div>
           <div class="field"><label style="font-weight:400;font-size:0.8rem;">L2 – Tierra</label><input type="text" id="tierraL2_fin" placeholder="Valor"></div>
-          <div class="field"><label style="font-weight:400;font-size:0.8rem;">L3 – Tierra</label><input type="text" id="tierraL3_fin" placeholder="Valor"></div>
+          <div class="field linea3-field" id="tierraL3wrap_fin"><label style="font-weight:400;font-size:0.8rem;">L3 – Tierra</label><input type="text" id="tierraL3_fin" placeholder="Valor"></div>
         </div>
 
         <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:16px 0 6px;">Corriente (A)</div>
         <div class="field-row">
           <input type="text" id="corrL1_fin" placeholder="L1">
           <input type="text" id="corrL2_fin" placeholder="L2">
-          <input type="text" id="corrL3_fin" placeholder="L3">
+          <input type="text" class="linea3-field" id="corrL3_fin" placeholder="L3">
         </div>
         <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:12px 0 6px;">Voltaje (V)</div>
         <div class="field-row">
-          <input type="text" id="voltL1_fin" placeholder="L1">
-          <input type="text" id="voltL2_fin" placeholder="L2">
-          <input type="text" id="voltL3_fin" placeholder="L3">
+          <input type="text" class="volt-individual" id="voltL1_fin" placeholder="L1">
+          <input type="text" class="volt-individual" id="voltL2_fin" placeholder="L2">
+          <input type="text" class="linea3-field" id="voltL3_fin" placeholder="L3">
+          <input type="text" class="volt-combined hidden" id="voltL1L2_fin" placeholder="L1, L2">
         </div>
 
         <div style="font-size:0.85rem; font-weight:700; color:var(--azul); margin:14px 0 6px;">Estado (resistencia / puesta a tierra)</div>
@@ -823,7 +826,7 @@ function construirDatosDiagnostico(){
       estado: estadoIni,
       notas: gv("notasElectricasIni"),
       corriente: [gv("corrL1_ini"), gv("corrL2_ini"), gv("corrL3_ini")],
-      voltaje: [gv("voltL1_ini"), gv("voltL2_ini"), gv("voltL3_ini")],
+      voltaje: obtenerVoltajeArr("ini"),
       omitidoCorrienteVoltaje: estadoIni === "Fuera",
     } : null,
   };
@@ -866,6 +869,12 @@ async function generarDiagnostico(){
     const ordenFields = { [OF.estado]: "En diagnóstico", [OF.diagnosticoTexto]: JSON.stringify(datos) };
     if(datos.materialesPropuestos.length > 0){
       ordenFields[OF.estadoValidacionMateriales] = "Pendiente";
+      ordenFields[OF.validadoPor] = "";
+      ordenFields[OF.fechaValidacion] = null;
+    } else {
+      // Sin materiales no hay nada que Dirección valide — se limpia para que no se quede
+      // huérfano en "Pendiente" (p.ej. si el técnico había agregado materiales y los quitó).
+      ordenFields[OF.estadoValidacionMateriales] = null;
       ordenFields[OF.validadoPor] = "";
       ordenFields[OF.fechaValidacion] = null;
     }
@@ -1315,7 +1324,11 @@ function renderResistenciaBobinas(){
     if(!cont) return;
     const s = suf.toLowerCase();
     let html;
-    if(n === "3"){
+    if(n === "2"){
+      html = `<div class="field-row">
+        <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1, L2</label><input type="text" id="resL1L2_${s}" placeholder="Valor"></div>
+      </div>`;
+    } else if(n === "3"){
       html = `<div class="field-row">
         <div class="field"><label style="font-weight:400;font-size:0.8rem;">L1, L2</label><input type="text" id="resL1L2_${s}" placeholder="Valor"></div>
         <div class="field"><label style="font-weight:400;font-size:0.8rem;">L2, L3</label><input type="text" id="resL2L3_${s}" placeholder="Valor"></div>
@@ -1339,6 +1352,9 @@ function renderResistenciaBobinas(){
     }
     cont.innerHTML = html;
   });
+  document.querySelectorAll(".linea3-field").forEach(el => el.classList.toggle("hidden", n === "2"));
+  document.querySelectorAll(".volt-individual").forEach(el => el.classList.toggle("hidden", n === "2"));
+  document.querySelectorAll(".volt-combined").forEach(el => el.classList.toggle("hidden", n !== "2"));
   guardarBorradorGeneral();
 }
 
@@ -1346,6 +1362,9 @@ function renderResistenciaBobinas(){
 function obtenerResistenciaData(sufijo){
   const n = document.getElementById("numLineas").value;
   const gv = id => document.getElementById(id)?.value || "";
+  if(n === "2"){
+    return { numLineas: "2", valores: { l1l2: gv(`resL1L2_${sufijo}`) } };
+  }
   if(n === "3"){
     return { numLineas: "3", valores: { l1l2: gv(`resL1L2_${sufijo}`), l2l3: gv(`resL2L3_${sufijo}`), l3l1: gv(`resL3L1_${sufijo}`) } };
   }
@@ -1360,15 +1379,38 @@ function obtenerTierraData(sufijo){
   return { l1: gv(`tierraL1_${sufijo}`), l2: gv(`tierraL2_${sufijo}`), l3: gv(`tierraL3_${sufijo}`) };
 }
 
+// El voltaje en motores de 2 líneas es una sola lectura L1-L2 (no un valor por línea)
+function obtenerVoltajeArr(sufijo){
+  const n = document.getElementById("numLineas").value;
+  const gv = id => document.getElementById(id)?.value || "";
+  if(n === "2") return [gv(`voltL1L2_${sufijo}`)];
+  return [gv(`voltL1_${sufijo}`), gv(`voltL2_${sufijo}`), gv(`voltL3_${sufijo}`)];
+}
+
 function textoResistencia(data){
   const v = data.valores;
+  if(data.numLineas === "2") return `L1,L2 ${esc(v.l1l2)} Ω`;
   if(data.numLineas === "3") return `L1,L2 ${esc(v.l1l2)} Ω · L2,L3 ${esc(v.l2l3)} Ω · L3,L1 ${esc(v.l3l1)} Ω`;
   if(data.numLineas === "9") return `1,4 ${esc(v.r14)} Ω · 2,5 ${esc(v.r25)} Ω · 3,6 ${esc(v.r36)} Ω · 7,8,9 ${esc(v.r789)} Ω`;
   return `U1,U2 ${esc(v.u1u2)} Ω · V1,V2 ${esc(v.v1v2)} Ω · W1,W2 ${esc(v.w1w2)} Ω`;
 }
 
-function textoTierra(t){
+function textoTierra(t, numLineas){
+  if(numLineas === "2") return `L1-Tierra ${esc(t.l1)} Ω · L2-Tierra ${esc(t.l2)} Ω`;
   return `L1-Tierra ${esc(t.l1)} Ω · L2-Tierra ${esc(t.l2)} Ω · L3-Tierra ${esc(t.l3)} Ω`;
+}
+
+// Texto de corriente: un valor por línea; omite L3 cuando el motor es de 2 líneas
+function textoCorrVolt(etiqueta, unidad, valores, numLineas){
+  const lineas = numLineas === "2" ? ["L1","L2"] : ["L1","L2","L3"];
+  const partes = lineas.map((l,i) => `${l} ${esc(valores[i])} ${unidad}`).join(" · ");
+  return `${etiqueta}: ${partes}`;
+}
+
+// Texto de voltaje: en motores de 2 líneas es una sola lectura L1,L2 (no un valor por línea)
+function textoVoltaje(valores, numLineas){
+  if(numLineas === "2") return `Voltaje: L1,L2 ${esc(valores[0])} V`;
+  return textoCorrVolt("Voltaje", "V", valores, numLineas);
 }
 
 // true si obj (valor suelto, array o el objeto anidado de resistencia/tierra) no tiene ningún valor cargado
@@ -1525,9 +1567,9 @@ async function guardarBorradorGeneral(){
     tierraIni:           obtenerTierraData("ini"),
     tierraFin:           obtenerTierraData("fin"),
     corrienteIni:        [gv("corrL1_ini"), gv("corrL2_ini"), gv("corrL3_ini")],
-    voltajeIni:          [gv("voltL1_ini"), gv("voltL2_ini"), gv("voltL3_ini")],
+    voltajeIni:          obtenerVoltajeArr("ini"),
     corrienteFin:        [gv("corrL1_fin"), gv("corrL2_fin"), gv("corrL3_fin")],
-    voltajeFin:          [gv("voltL1_fin"), gv("voltL2_fin"), gv("voltL3_fin")],
+    voltajeFin:          obtenerVoltajeArr("fin"),
     bitacoraPuntos:      bitacoraPuntos.slice(),
     fotosBitacora:       fotosBitacora.slice(),
     aplicaPintura:       document.getElementById("aplicaPintura").checked,
@@ -1613,9 +1655,9 @@ function restaurarBorradorGeneral(datos){
   setVal("notasElectricasIni", datos.notasIni);
   setVal("notasElectricasFin", datos.notasFin);
   const ci = datos.corrienteIni || []; setVal("corrL1_ini",ci[0]); setVal("corrL2_ini",ci[1]); setVal("corrL3_ini",ci[2]);
-  const vi = datos.voltajeIni   || []; setVal("voltL1_ini",vi[0]); setVal("voltL2_ini",vi[1]); setVal("voltL3_ini",vi[2]);
+  const vi = datos.voltajeIni   || []; setVal("voltL1_ini",vi[0]); setVal("voltL2_ini",vi[1]); setVal("voltL3_ini",vi[2]); setVal("voltL1L2_ini", vi[0]);
   const cf = datos.corrienteFin || []; setVal("corrL1_fin",cf[0]); setVal("corrL2_fin",cf[1]); setVal("corrL3_fin",cf[2]);
-  const vf = datos.voltajeFin   || []; setVal("voltL1_fin",vf[0]); setVal("voltL2_fin",vf[1]); setVal("voltL3_fin",vf[2]);
+  const vf = datos.voltajeFin   || []; setVal("voltL1_fin",vf[0]); setVal("voltL2_fin",vf[1]); setVal("voltL3_fin",vf[2]); setVal("voltL1L2_fin", vf[0]);
 
   bitacoraPuntos = (datos.bitacoraPuntos || []).slice();
   renderBitacoraPuntos();
@@ -1641,7 +1683,9 @@ function restaurarResistencia(data, sufijo){
   if(!data || !data.valores) return;
   const v = data.valores;
   const setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val ?? ""; };
-  if(data.numLineas === "3"){
+  if(data.numLineas === "2"){
+    setVal(`resL1L2_${sufijo}`, v.l1l2);
+  } else if(data.numLineas === "3"){
     setVal(`resL1L2_${sufijo}`, v.l1l2); setVal(`resL2L3_${sufijo}`, v.l2l3); setVal(`resL3L1_${sufijo}`, v.l3l1);
   } else if(data.numLineas === "9"){
     setVal(`res14_${sufijo}`, v.r14); setVal(`res25_${sufijo}`, v.r25); setVal(`res36_${sufijo}`, v.r36);
@@ -2065,10 +2109,10 @@ function generarVistaPrevia(){
     html += `<div class="ph">V. PRUEBAS ELÉCTRICAS BÁSICAS (INICIAL)</div>`;
     html += `<div class="sec">
       Resistencia entre bobinas (${esc(resIni.numLineas)} líneas): ${textoResistencia(resIni)}<br>
-      Puesta a tierra: ${textoTierra(tierraIni)}<br>
+      Puesta a tierra: ${textoTierra(tierraIni, resIni.numLineas)}<br>
       Estado: <b>${esc(estadoIni) || "—"}</b><br>
       ${esc(notasIni)}
-      ${estadoIni === "Fuera" ? `<br><b style="color:#c62828">⚠ No se realizaron pruebas de corriente/voltaje iniciales.</b>` : `<br>Corriente: L1 ${esc(gv2("corrL1_ini"))} A · L2 ${esc(gv2("corrL2_ini"))} A · L3 ${esc(gv2("corrL3_ini"))} A<br>Voltaje: L1 ${esc(gv2("voltL1_ini"))} V · L2 ${esc(gv2("voltL2_ini"))} V · L3 ${esc(gv2("voltL3_ini"))} V`}
+      ${estadoIni === "Fuera" ? `<br><b style="color:#c62828">⚠ No se realizaron pruebas de corriente/voltaje iniciales.</b>` : `<br>${textoCorrVolt("Corriente","A",[gv2("corrL1_ini"),gv2("corrL2_ini"),gv2("corrL3_ini")],resIni.numLineas)}<br>${textoVoltaje(obtenerVoltajeArr("ini"), resIni.numLineas)}`}
     </div>`;
   }
 
@@ -2093,16 +2137,16 @@ function generarVistaPrevia(){
     const resFin = obtenerResistenciaData("fin");
     const tierraFin = obtenerTierraData("fin");
     const corrFin = [gv3("corrL1_fin"), gv3("corrL2_fin"), gv3("corrL3_fin")];
-    const voltFin = [gv3("voltL1_fin"), gv3("voltL2_fin"), gv3("voltL3_fin")];
+    const voltFin = obtenerVoltajeArr("fin");
     const finVacio = todosVacios(resFin.valores) && todosVacios(tierraFin) && todosVacios(corrFin) && todosVacios(voltFin);
     html += `<div class="ph">VIII. PRUEBAS ELÉCTRICAS BÁSICAS (FINALES)</div>`;
     html += finVacio
       ? `<div class="sec" style="color:#666">No fue requerido realizar pruebas eléctricas finales.</div>`
       : `<div class="sec">
       Resistencia entre bobinas (${esc(resFin.numLineas)} líneas): ${textoResistencia(resFin)}<br>
-      Puesta a tierra: ${textoTierra(tierraFin)}<br>
-      Corriente: L1 ${esc(corrFin[0])} A · L2 ${esc(corrFin[1])} A · L3 ${esc(corrFin[2])} A<br>
-      Voltaje: L1 ${esc(voltFin[0])} V · L2 ${esc(voltFin[1])} V · L3 ${esc(voltFin[2])} V<br>
+      Puesta a tierra: ${textoTierra(tierraFin, resFin.numLineas)}<br>
+      ${textoCorrVolt("Corriente","A",corrFin,resFin.numLineas)}<br>
+      ${textoVoltaje(voltFin, resFin.numLineas)}<br>
       Estado: <b>${esc(estadoFin) || "—"}</b><br>
       ${esc(notasFin)}
     </div>`;
@@ -2184,7 +2228,7 @@ async function enviarReporteGeneral(){
         resistencia: obtenerResistenciaData("ini").valores,
         tierra: obtenerTierraData("ini"),
         corriente: [gv("corrL1_ini"), gv("corrL2_ini"), gv("corrL3_ini")],
-        voltaje: [gv("voltL1_ini"), gv("voltL2_ini"), gv("voltL3_ini")],
+        voltaje: obtenerVoltajeArr("ini"),
         omitidoCorrienteVoltaje: estadoIni === "Fuera",
         estado: estadoIni,
         notas: gv("notasElectricasIni")
@@ -2193,7 +2237,7 @@ async function enviarReporteGeneral(){
         resistencia: obtenerResistenciaData("fin").valores,
         tierra: obtenerTierraData("fin"),
         corriente: [gv("corrL1_fin"), gv("corrL2_fin"), gv("corrL3_fin")],
-        voltaje: [gv("voltL1_fin"), gv("voltL2_fin"), gv("voltL3_fin")],
+        voltaje: obtenerVoltajeArr("fin"),
         estado: estadoFin,
         notas: gv("notasElectricasFin")
       }
@@ -2283,6 +2327,12 @@ async function enviarReporteGeneral(){
     const ordenFields = { [OF.estado]: "Terminado", [OF.reporteGeneralCompletado]: true, [OF.notasCorreccion]: "" };
     if(materialesValidos().length > 0){
       ordenFields[OF.estadoValidacionMateriales] = "Pendiente";
+      ordenFields[OF.validadoPor] = "";
+      ordenFields[OF.fechaValidacion] = null;
+    } else {
+      // Sin materiales no hay nada que Dirección valide — se limpia para que no se quede
+      // huérfano en "Pendiente" (p.ej. si el técnico quitó todos los materiales en una corrección).
+      ordenFields[OF.estadoValidacionMateriales] = null;
       ordenFields[OF.validadoPor] = "";
       ordenFields[OF.fechaValidacion] = null;
     }

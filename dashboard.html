@@ -3687,10 +3687,18 @@ async function abrirValidacion(id, folio){
       ? materiales.map(m => `<tr><td>${esc(m.cantidad||"—")}</td><td>${esc(m.unidad||"—")}</td><td>${esc(m.descripcion||"")}</td><td>${esc(m.nota||"")}</td></tr>`).join("")
       : `<tr><td colspan="4" style="text-align:center;color:var(--gris-texto)">Sin materiales en la lista.</td></tr>`;
 
-    document.getElementById("valFooter").innerHTML = `
+    // Solo Dirección puede validar/rechazar — Admin puede ver la lista pero no actuar sobre ella.
+    // Y si no hay materiales, no hay nada que validar (cubre datos viejos que hayan quedado
+    // en "Pendiente" de antes de este fix, aunque ya no debería volver a pasar).
+    const esDireccion = _sesion && _sesion.rol === "Direccion";
+    const hayMateriales = materiales.length > 0;
+    document.getElementById("valFooter").innerHTML = (esDireccion && hayMateriales) ? `
       <button class="btn-cancelar" onclick="cerrarValidacion()">Cerrar</button>
       <button class="btn-corr" style="background:var(--rojo)" onclick="rechazarMateriales()">↩ Regresar al técnico</button>
       <button class="btn-imprimir" onclick="validarMateriales()">✅ Validar</button>
+    ` : `
+      <span style="font-size:0.8rem;color:var(--gris-texto);margin-right:auto;align-self:center">${!hayMateriales ? "Sin materiales — no hay nada que validar." : "Solo Dirección puede validar esta lista."}</span>
+      <button class="btn-cancelar" onclick="cerrarValidacion()">Cerrar</button>
     `;
 
     document.getElementById("valCargando").classList.add("hidden");
@@ -3701,6 +3709,7 @@ async function abrirValidacion(id, folio){
 }
 
 async function validarMateriales(){
+  if(!_sesion || _sesion.rol !== "Direccion") return;
   const statusEl = document.getElementById("valStatus");
   statusEl.style.color = "var(--gris-texto)";
   statusEl.textContent = "Guardando...";
@@ -3731,6 +3740,7 @@ async function validarMateriales(){
 // reabre el formulario completo para el técnico. La orden sale sola de esta cola porque
 // el filtro de renderValidacionMateriales() excluye estado "En corrección".
 function rechazarMateriales(){
+  if(!_sesion || _sesion.rol !== "Direccion") return;
   cerrarValidacion();
   // La validación puede llegar en dos momentos distintos: en el checkpoint de diagnóstico
   // (antes de que exista reporte final — "En diagnóstico") o después del reporte final
