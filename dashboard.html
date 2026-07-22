@@ -2279,7 +2279,10 @@ function renderTablaPorLlegar(ordenes){
     <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
     <td class="td-num"><button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button></td>
     <td class="td-num">${esAdmin
-      ? `<button class="btn-corr" style="background:#991b1b" onclick="cancelarPreRegistro('${o.id}','${esc(o.folio)}')">&#10005; Cancelar</button>`
+      ? `<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
+           <button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(o.folio)}')">&#128176; Cotizar</button>
+           <button class="btn-corr" style="background:#991b1b" onclick="cancelarPreRegistro('${o.id}','${esc(o.folio)}')">&#10005; Cancelar</button>
+         </div>`
       : `<span style="color:var(--gris-texto);font-size:0.78rem">Esperando llegada</span>`}</td>
   </tr>`).join("");
 }
