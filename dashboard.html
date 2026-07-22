@@ -3958,6 +3958,8 @@ function imprimirCk(){
 }
 
 function imprimirKPIs(){
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
+
   var logoSrc   = document.getElementById("brandLogo").src;
   var fechaTxt  = new Date().toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
   fechaTxt      = fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1);
@@ -3971,6 +3973,93 @@ function imprimirKPIs(){
     return;
   }
 
+  // Clona tarjetas sin tocar el dashboard real, y agranda los SVG internos
+  // (donas/gauges se generan con un tamaño fijo en px que no responde a font-size).
+  function clonarTarjetas(grid){ return Array.prototype.map.call(grid.children, function(c){ return c.cloneNode(true); }); }
+  function agrandarSvgs(nodo, factor){
+    nodo.querySelectorAll("svg").forEach(function(svg){
+      var w = parseFloat(svg.getAttribute("width"))  || 0;
+      var h = parseFloat(svg.getAttribute("height")) || 0;
+      if(w) svg.setAttribute("width",  Math.round(w*factor));
+      if(h) svg.setAttribute("height", Math.round(h*factor));
+    });
+    return nodo;
+  }
+  // En páginas con número impar de tarjetas (3), la última ocupa las 2 columnas
+  // completas para no dejar una celda vacía en el grid horizontal.
+  function htmlDe(lista){
+    return lista.map(function(n, i){
+      if(lista.length % 2 === 1 && i === lista.length - 1) n.classList.add("kpi-span2");
+      return n.outerHTML;
+    }).join("");
+  }
+
+  // Flechas de "meta" (hacia dónde queremos que se mueva cada indicador) —
+  // son fijas por indicador, no calculadas de una tendencia real. Los KPIs que
+  // solo describen volumen/estado actual (activas, en proceso, completadas,
+  // por servicio, entregadas este mes) no llevan flecha a propósito.
+  var DIRECCION_KPI = {
+    kpiPromDias:  "down", // Tiempo promedio en C.S — buscamos que baje
+    kpiFin:       "up",   // Tasa de finalización — buscamos que suba
+    kpiVencidas:  "down", // Activas >4 días
+    kpiBacklog:   "down", // Sin iniciar
+    kpiLeadTime:  "down", // Prom. días — Entregadas
+    kpiDocsInc:   "down", // Terminadas sin documentar
+    kpiDocsPct:   "up",   // Docs. completos %
+    kpiNoOkCount: "down"  // Puntos NO OK activos
+  };
+  // Orden fijo de los 4 paneles de calidad tal como están en el HTML:
+  // Cumplimiento de entrega, Retrabajos, Precisión de materiales, Plan diario.
+  var DIRECCION_CAL = ["up", "down", "up", "up"];
+
+  function badgeMeta(direccion){
+    if(direccion === "down") return '<span class="kpi-meta">&#9660; Meta</span>';
+    if(direccion === "up")   return '<span class="kpi-meta">&#9650; Meta</span>';
+    return "";
+  }
+  function agregarMetaKpi(card){
+    var numEl = card.querySelector(".kpi-number");
+    var dir = numEl && DIRECCION_KPI[numEl.id];
+    if(dir){
+      var head = card.querySelector(".kpi-head");
+      if(head) head.insertAdjacentHTML("beforeend", badgeMeta(dir));
+    }
+    return card;
+  }
+  function agregarMetaCal(panel, idx){
+    var dir = DIRECCION_CAL[idx];
+    if(dir){
+      var head = panel.querySelector(".cal-head");
+      if(head) head.insertAdjacentHTML("beforeend", badgeMeta(dir));
+    }
+    return panel;
+  }
+
+  var claveCards  = clonarTarjetas(kpiClave).map(agregarMetaKpi);
+  var nuevosCards = clonarTarjetas(kpiNuevos).map(agregarMetaKpi);
+  var calPanels   = clonarTarjetas(calidad).map(function(p){ return agrandarSvgs(p, 1.5); }).map(agregarMetaCal);
+
+  function miniHeader(seccion){
+    return '<div class="hoja-header"><img src="'+logoSrc+'" alt="SI">'
+      + '<div class="hoja-header-tit"><b>Suministros Industriales SI</b><span>Centro de Servicio</span></div>'
+      + '<div class="hoja-header-sec">'+seccion+'</div>'
+      + '<div class="hoja-header-fecha">'+fechaTxt+'</div></div>';
+  }
+
+  var paginas = [
+    '<div class="hoja portada">'
+      + '<img class="portada-logo" src="'+logoSrc+'" alt="Suministros Industriales SI">'
+      + '<h1>Suministros Industriales SI</h1>'
+      + '<p class="portada-sub">Indicadores de calidad y desempeño &mdash; Centro de Servicio</p>'
+      + '<p class="portada-fecha">'+fechaTxt+'</p>'
+    + '</div>',
+    '<div class="hoja"><div class="hoja-inner">'+miniHeader("Indicadores clave (1/2)")+'<div class="kpi-stack">'+htmlDe(claveCards.slice(0,3))+'</div></div></div>',
+    '<div class="hoja"><div class="hoja-inner">'+miniHeader("Indicadores clave (2/2)")+'<div class="kpi-stack">'+htmlDe(claveCards.slice(3,6))+'</div></div></div>',
+    '<div class="hoja"><div class="hoja-inner">'+miniHeader("Nuevos indicadores (1/2)")+'<div class="kpi-stack">'+htmlDe(nuevosCards.slice(0,4))+'</div></div></div>',
+    '<div class="hoja"><div class="hoja-inner">'+miniHeader("Nuevos indicadores (2/2)")+'<div class="kpi-stack">'+htmlDe(nuevosCards.slice(4,7))+'</div></div></div>',
+    '<div class="hoja hoja-final"><div class="hoja-inner">'+miniHeader("Calidad y cumplimiento")+'<div class="calidad-grid-print">'+htmlDe(calPanels)+'</div></div></div>'
+  ];
+
   var ventana = window.open("", "_blank");
   ventana.document.write(`<!DOCTYPE html><html lang="es"><head>
     <meta charset="UTF-8"><title>Indicadores — Centro de Servicio SI</title>
@@ -3981,109 +4070,130 @@ function imprimirKPIs(){
         --verde:#0e7a3c; --rojo:#991b1b; --grad-marca: linear-gradient(90deg,#f2741a 0%,#a0228e 52%,#1d5496 100%);
       }
       *{ box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-      body{ font-family: Arial, sans-serif; color:#1f2937; padding:26px 30px; background:#fff; }
+      html, body{ background:#e5e7eb; }
+      body{ font-family: Arial, sans-serif; color:#1f2937; }
 
-      .print-header{ display:flex; align-items:center; gap:16px; border-bottom:3px solid var(--navy); padding-bottom:14px; margin-bottom:24px; }
-      .print-header img{ height:58px; width:auto; }
-      .print-header .tit h1{ font-size:1.25rem; color:var(--navy); }
-      .print-header .tit p{ font-size:0.8rem; color:var(--gris-texto); margin-top:2px; }
-      .print-header .fecha{ margin-left:auto; text-align:right; font-size:0.78rem; color:var(--gris-texto); }
-      .print-header .fecha b{ display:block; font-size:0.85rem; color:var(--navy); }
-
-      .section-label{
-        font-size:0.78rem; font-weight:800; color:var(--navy); text-transform:uppercase; letter-spacing:1.1px;
-        margin: 22px 0 12px; display:flex; align-items:center; gap:9px;
+      /* ===== PÁGINAS (horizontal / landscape) ===== */
+      /* Alto FIJO (no min-height): así cada bloque siempre imprime en exactamente
+         una hoja — si el contenido creciera de más, se recorta en vez de generar
+         una 7ª página, para garantizar siempre 6 páginas en el PDF/impresión. */
+      .hoja{
+        background:#fff; width:11in; height:8.5in; margin:0 auto 18px; overflow:hidden;
+        page-break-after:always; break-after:page;
       }
-      .section-label:first-of-type{ margin-top:0; }
-      .section-label::before{ content:""; width:4px; height:14px; border-radius:2px; background:var(--grad-marca); }
+      .hoja:last-child{ page-break-after:auto; break-after:auto; margin-bottom:0; }
+      .hoja-inner{ padding:0.5in 0.6in; height:7.5in; box-sizing:border-box; display:flex; flex-direction:column; overflow:hidden; }
 
-      /* ===== KPI GRID ===== */
-      .kpi-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:6px; }
+      /* ===== PORTADA ===== */
+      .portada{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:14px; }
+      .portada-logo{ height:130px; width:auto; margin-bottom:14px; }
+      .portada h1{ font-size:2.4rem; color:var(--navy); }
+      .portada-sub{ font-size:1.35rem; color:var(--gris-texto); font-weight:600; }
+      .portada-fecha{ font-size:1.15rem; color:var(--gris-texto); margin-top:34px; padding-top:18px; border-top:2px solid var(--gris); }
+
+      /* ===== MINI-HEADER DE CADA HOJA ===== */
+      .hoja-header{ display:flex; align-items:center; gap:14px; border-bottom:3px solid var(--navy); padding-bottom:10px; margin-bottom:18px; flex-shrink:0; }
+      .hoja-header img{ height:34px; width:auto; }
+      .hoja-header-tit{ display:flex; flex-direction:column; line-height:1.2; }
+      .hoja-header-tit b{ font-size:0.9rem; color:var(--navy); }
+      .hoja-header-tit span{ font-size:0.74rem; color:var(--gris-texto); }
+      .hoja-header-sec{ margin-left:auto; font-size:1rem; font-weight:800; color:var(--navy); text-transform:uppercase; letter-spacing:0.5px; }
+      .hoja-header-fecha{ font-size:0.78rem; color:var(--gris-texto); margin-left:20px; white-space:nowrap; }
+
+      /* ===== KPI — tarjetas grandes en grid de 2 columnas =====
+         En horizontal sobra ancho y falta alto, así que las tarjetas se acomodan
+         en 2 columnas (en vez de apiladas) para aprovechar el ancho de la hoja.
+         min-height:0 en el grid y en la tarjeta es necesario: sin eso, una fila
+         "1fr" no se encoge por debajo del contenido mínimo y desborda la página
+         (mismo problema ya resuelto en .calidad-grid-print). */
+      .kpi-stack{ flex:1; min-height:0; display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:14px; }
       .kpi-card{
-        position:relative; background:var(--blanco); border-radius:12px; padding:14px 16px;
-        border:1px solid #e9edf4; display:flex; flex-direction:column; gap:7px; overflow:hidden;
-        page-break-inside:avoid; break-inside:avoid;
+        position:relative; min-height:0; background:var(--blanco); border-radius:16px; padding:16px 24px;
+        border:1px solid #e5e9f0; box-shadow:0 2px 10px rgba(12,30,53,0.06);
+        display:flex; flex-direction:column; justify-content:center; gap:8px; overflow:hidden;
       }
+      .kpi-card.kpi-span2{ grid-column:1 / -1; }
       .kpi-card::after{
-        content:""; position:absolute; right:-32px; top:-32px; width:100px; height:100px; border-radius:50%;
-        background: color-mix(in srgb, var(--kpi-color,#2563a8) 8%, transparent); pointer-events:none;
+        content:""; position:absolute; right:-30px; top:-30px; width:110px; height:110px; border-radius:50%;
+        background: color-mix(in srgb, var(--kpi-color,#2563a8) 9%, transparent); pointer-events:none;
       }
-      .kpi-head{ display:flex; align-items:center; gap:10px; position:relative; z-index:1; }
+      .kpi-head{ display:flex; align-items:center; flex-wrap:wrap; gap:16px; position:relative; z-index:1; }
+      /* Badge "▲/▼ Meta" — hacia dónde queremos que se mueva el número. Se
+         empuja al extremo derecho de kpi-head/cal-head con margin-left:auto,
+         usando el mismo color de acento de la tarjeta (--kpi-color en KPIs,
+         --cal-accent en paneles de calidad) para no meter un color nuevo. */
+      .kpi-meta{
+        margin-left:auto; display:flex; align-items:center; gap:4px; flex-shrink:0;
+        font-size:0.72rem; font-weight:800; letter-spacing:0.3px; white-space:nowrap;
+        padding:3px 10px; border-radius:20px;
+        background: color-mix(in srgb, var(--kpi-color, var(--cal-accent, #2563a8)) 14%, white);
+        color: var(--kpi-color, var(--cal-accent, #2563a8));
+        border:1px solid color-mix(in srgb, var(--kpi-color, var(--cal-accent, #2563a8)) 35%, transparent);
+      }
       .kpi-ico{
-        width:38px; height:38px; border-radius:11px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+        width:56px; height:56px; border-radius:16px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
         background: linear-gradient(135deg, var(--kpi-color,#2563a8), color-mix(in srgb, var(--kpi-color,#2563a8) 68%, #000));
       }
-      .kpi-ico svg{ width:19px; height:19px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+      .kpi-ico svg{ width:28px; height:28px; stroke:#fff; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
       .kpi-ico svg.fill{ fill:#fff; stroke:none; }
-      .kpi-tag{ font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--gris-texto); line-height:1.2; }
-      .kpi-number{ font-size:1.9rem; font-weight:800; color:var(--navy); line-height:1; letter-spacing:-0.5px; margin-top:1px; position:relative; z-index:1; }
-      .kpi-label{ font-size:0.76rem; font-weight:700; color:var(--gris-oscuro); position:relative; z-index:1; }
-      .kpi-sub{ font-size:0.68rem; color:var(--gris-texto); line-height:1.3; position:relative; z-index:1; }
+      .kpi-tag{ font-size:1rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color:var(--gris-texto); line-height:1.2; }
+      .kpi-number{ font-size:3.1rem; font-weight:800; color:var(--navy); line-height:1; letter-spacing:-1px; position:relative; z-index:1; }
+      .kpi-label{ font-size:1.05rem; font-weight:700; color:var(--gris-oscuro); position:relative; z-index:1; }
+      .kpi-sub{ font-size:0.92rem; color:var(--gris-texto); line-height:1.3; position:relative; z-index:1; }
 
-      /* ===== CALIDAD Y CUMPLIMIENTO ===== */
-      .calidad-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
-      .cal-panel{ background:var(--blanco); border-radius:11px; padding:14px 16px 16px; border:1px solid #e9edf4; border-top:3px solid var(--cal-accent); page-break-inside:avoid; break-inside:avoid; }
-      .cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
-      .cal-title{ font-size:0.86rem; font-weight:800; color:var(--gris-oscuro); }
-      .cal-sub{ font-size:0.68rem; color:var(--gris-texto); margin-bottom:11px; }
-      .cal-row{ display:flex; gap:14px; align-items:center; }
-      .cal-legend{ display:flex; flex-direction:column; gap:6px; font-size:0.72rem; }
-      .cal-legend .li{ display:flex; align-items:center; gap:7px; }
-      .cal-legend .dot{ width:9px; height:9px; border-radius:3px; flex-shrink:0; }
+      /* ===== CALIDAD Y CUMPLIMIENTO — última hoja, 2x2 a toda página =====
+         min-height:0 en .cal-panel es necesario: sin eso, un grid con filas "1fr"
+         nunca se encoge por debajo del contenido mínimo de cada tarjeta y la hoja
+         se desbordaba (7ª página fantasma). Con min-height:0 + overflow:hidden en
+         el panel, cada tarjeta se ajusta siempre al alto disponible de su celda. */
+      .calidad-grid-print{ flex:1; min-height:0; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:14px; }
+      .cal-panel{
+        height:100%; min-height:0; box-sizing:border-box; background:var(--blanco); border-radius:16px; padding:12px 18px 14px;
+        border:1px solid #e5e9f0; border-top:5px solid var(--cal-accent); box-shadow:0 2px 10px rgba(12,30,53,0.06);
+        display:flex; flex-direction:column; overflow:hidden;
+      }
+      .cal-head{ display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:6px; margin-bottom:2px; }
+      .cal-title{ font-size:1rem; font-weight:800; color:var(--gris-oscuro); }
+      .cal-sub{ font-size:0.86rem; color:var(--gris-texto); margin-bottom:7px; }
+      .cal-row{ display:flex; gap:20px; align-items:center; }
+      .cal-legend{ display:flex; flex-direction:column; gap:7px; font-size:0.98rem; }
+      .cal-legend .li{ display:flex; align-items:center; gap:9px; }
+      .cal-legend .dot{ width:12px; height:12px; border-radius:4px; flex-shrink:0; }
       .cal-legend .lbl{ color:var(--gris-texto); flex:1; }
       .cal-legend .val{ font-weight:800; color:var(--gris-oscuro); }
-      .cal-stat-line{ margin-top:9px; font-size:0.73rem; color:var(--gris-texto); background:var(--fondo); padding:6px 9px; border-radius:7px; }
-      .cal-stat-pair{ display:flex; gap:9px; }
-      .cal-stat-tile{ flex:1; background:var(--fondo); border-radius:9px; padding:9px 11px; }
-      .cal-stat-tile .n{ font-size:1.4rem; font-weight:800; line-height:1; }
-      .cal-stat-tile .l{ font-size:0.62rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:4px; }
-      .cal-stat-tile .p{ font-size:0.66rem; color:var(--gris-texto); margin-top:2px; }
-      .cal-trend-label{ font-size:0.64rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:11px; }
-      .cal-trend{ display:flex; align-items:flex-end; gap:3px; height:48px; margin-top:6px; }
-      .cal-trend-bar{ flex:1; border-radius:2px 2px 0 0; min-height:2px; }
-      .cal-trend-labels{ display:flex; gap:3px; margin-top:3px; }
-      .cal-trend-labels span{ flex:1; text-align:center; font-size:0.5rem; color:var(--gris-texto); }
-      .cal-detail-list{ margin-top:9px; display:flex; flex-direction:column; gap:5px; }
-      .cal-detail-item{ font-size:0.68rem; padding:6px 8px; background:var(--fondo); border-radius:7px; border-left:3px solid var(--cal-accent); }
+      .cal-stat-line{ margin-top:6px; font-size:0.92rem; color:var(--gris-texto); background:var(--fondo); padding:6px 10px; border-radius:9px; }
+      .cal-stat-pair{ display:flex; gap:13px; }
+      .cal-stat-tile{ flex:1; background:var(--fondo); border-radius:12px; padding:9px 12px; }
+      .cal-stat-tile .n{ font-size:1.8rem; font-weight:800; line-height:1; }
+      .cal-stat-tile .l{ font-size:0.8rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:4px; }
+      .cal-stat-tile .p{ font-size:0.85rem; color:var(--gris-texto); margin-top:2px; }
+      .cal-trend-label{ font-size:0.8rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.3px; margin-top:7px; }
+      .cal-trend{ display:flex; align-items:flex-end; gap:4px; height:40px; margin-top:5px; }
+      .cal-trend-bar{ flex:1; border-radius:3px 3px 0 0; min-height:2px; }
+      .cal-trend-labels{ display:flex; gap:4px; margin-top:3px; }
+      .cal-trend-labels span{ flex:1; text-align:center; font-size:0.68rem; color:var(--gris-texto); }
+      .cal-detail-list{ margin-top:6px; display:flex; flex-direction:column; gap:5px; overflow:hidden; }
+      .cal-detail-item{ font-size:0.85rem; padding:6px 9px; background:var(--fondo); border-radius:9px; border-left:4px solid var(--cal-accent); }
       .cal-detail-item .f{ font-weight:700; color:var(--gris-oscuro); }
-      .cal-detail-item .m{ color:var(--gris-texto); margin-top:1px; }
-      .cal-gauge-wrap{ display:flex; align-items:center; gap:14px; }
-      .cal-gauge-num{ font-size:1.6rem; font-weight:800; }
-      .cal-divlist{ margin-top:9px; display:flex; flex-direction:column; gap:5px; }
-      .cal-divrow{ display:grid; grid-template-columns:56px 1fr 42px; align-items:center; gap:7px; font-size:0.66rem; }
+      .cal-detail-item .m{ color:var(--gris-texto); margin-top:2px; }
+      .cal-gauge-wrap{ display:flex; align-items:center; gap:20px; }
+      .cal-gauge-num{ font-size:2.1rem; font-weight:800; }
+      .cal-divlist{ margin-top:6px; display:flex; flex-direction:column; gap:5px; overflow:hidden; }
+      .cal-divrow{ display:grid; grid-template-columns:72px 1fr 54px; align-items:center; gap:9px; font-size:0.92rem; }
       .cal-divrow .folio{ font-weight:700; color:var(--gris-oscuro); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-      .cal-divtrack{ position:relative; height:13px; background:var(--gris); border-radius:4px; overflow:hidden; }
+      .cal-divtrack{ position:relative; height:17px; background:var(--gris); border-radius:5px; overflow:hidden; }
       .cal-divzero{ position:absolute; left:50%; top:0; bottom:0; width:1px; background:rgba(0,0,0,0.15); }
-      .cal-divbar{ position:absolute; top:2px; bottom:2px; border-radius:3px; }
+      .cal-divbar{ position:absolute; top:2px; bottom:2px; border-radius:4px; }
       .cal-divval{ text-align:right; font-weight:700; }
-      .cal-empty{ font-size:0.72rem; color:var(--gris-texto); padding:8px 0; }
-
-      .print-footer{ margin-top:26px; padding-top:10px; border-top:1px solid var(--gris); font-size:0.66rem; color:var(--gris-texto); text-align:center; }
+      .cal-empty{ font-size:0.98rem; color:var(--gris-texto); padding:10px 0; }
 
       @media print{
-        @page{ size: letter landscape; margin: 1.2cm; }
+        @page{ size: letter landscape; margin: 0; }
+        html, body{ background:#fff; }
+        .hoja{ margin:0; width:auto; min-height:0; }
       }
-      @media(max-width:900px){ .calidad-grid{ grid-template-columns:1fr; } .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
     </style></head><body>
-    <div class="print-header">
-      <img src="${logoSrc}" alt="Suministros Industriales SI">
-      <div class="tit">
-        <h1>Suministros Industriales SI — Centro de Servicio</h1>
-        <p>Indicadores de calidad y desempeño</p>
-      </div>
-      <div class="fecha"><b>${fechaTxt}</b>Reporte generado desde el dashboard</div>
-    </div>
-
-    <div class="section-label">Indicadores clave</div>
-    ${kpiClave.outerHTML}
-
-    <div class="section-label">Nuevos indicadores</div>
-    ${kpiNuevos.outerHTML}
-
-    <div class="section-label">Calidad y cumplimiento</div>
-    ${calidad.outerHTML}
-
-    <div class="print-footer">Suministros Industriales SI &middot; Sistema de gestión del Centro de Servicio</div>
+    ${paginas.join("")}
     </body></html>`);
   ventana.document.close();
   ventana.focus();
@@ -4668,6 +4778,8 @@ function aplicarRestriccionesRol(){
     if(tabValidacion) tabValidacion.style.display = "none";
     const btnPre = document.getElementById("btnPreRegistro");
     if(btnPre) btnPre.style.display = "none";
+    const btnImprimirKPIs = document.getElementById("btnImprimirKPIs");
+    if(btnImprimirKPIs) btnImprimirKPIs.style.display = "none";
     cambiarTab("ordenes");
   }
 }

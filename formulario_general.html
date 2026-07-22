@@ -788,11 +788,16 @@ function mostrarPantalla(n){
    y la orden queda pausada esperando que administración confirme
    que el cliente autorizó continuar con el servicio.
    ============================================================ */
+// Algunos textos del catálogo ya traen "Servicio de..." incluido (ej. "Servicio de pintura") — evita duplicar el prefijo.
+function formatearServicioCatalogo(s){
+  return /^servicio de /i.test(s) ? s : `Servicio de ${s.toLowerCase()}`;
+}
+
 function construirDatosDiagnostico(){
   const gv = id => document.getElementById(id).value;
   const aplicaElectrico = document.getElementById("aplicaElectricoInicial").checked;
   const serviciosPropuestos = [
-    ...[...serviciosSeleccionados].map(s => `Servicio de ${s.toLowerCase()}`),
+    ...[...serviciosSeleccionados].map(formatearServicioCatalogo),
     ...serviciosOtros.filter(s=>s)
   ];
 
@@ -2089,7 +2094,7 @@ function generarVistaPrevia(){
 
   html += `<div class="ph">IV. REQUERIMIENTO</div>`;
   html += `<div class="sec"><ul>
-    ${[...serviciosSeleccionados].map(s => `<li>Servicio de ${esc(s.toLowerCase())}</li>`).join("")}
+    ${[...serviciosSeleccionados].map(s => `<li>${esc(formatearServicioCatalogo(s))}</li>`).join("")}
     ${serviciosOtros.filter(s=>s).map(s => `<li>${esc(s)}</li>`).join("")}
   </ul></div>`;
 
