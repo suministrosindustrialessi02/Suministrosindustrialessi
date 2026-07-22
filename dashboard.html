@@ -2374,10 +2374,10 @@ function datosFila(o, esAdmin){
       ${o.checklist && !o.correccionesCompletadas
         ? `<button class="btn-corr" onclick="abrirCorrecciones('${o.id}','${esc(o.serie)}')">&#9998; Correcciones</button>`
         : ''}
-      ${o.checklist && o.correccionesCompletadas && !o.pintura
-        ? `<button class="btn-corr" style="background:#1d5496" onclick="abrirPintura('${o.id}','${esc(o.serie)}')">&#128396; Pintura</button>`
+      ${!o.pintura
+        ? `<button class="btn-corr" style="background:#1d5496" onclick="abrirPintura('${o.id}','${esc(o.serie)}')" title="${o.checklist ? '' : 'Se puede hacer antes que el Checklist Sulzer'}">&#128396; Pintura</button>`
         : ''}
-      ${o.pintura
+      ${o.checklist && o.correccionesCompletadas && o.pintura
         ? `<button class="btn-corr btn-corr-done" disabled title="Proceso completado">&#10003; Completo</button>`
         : ''}
     `;
@@ -3786,12 +3786,12 @@ function cerrarValidacionSiFuera(e){ if(e.target.id === "modalValidacion") cerra
 
 function abrirCorrecciones(ordenId, serie){
   // El flujo ahora es dentro del formulario_maestro.html unificado
-  window.open(`formulario_maestro.html`, '_blank');
+  window.open(`formulario_maestro.html?serie=${encodeURIComponent(serie)}`, '_blank');
 }
 
 function abrirPintura(ordenId, serie){
   // El flujo ahora es dentro del formulario_maestro.html unificado
-  window.open(`formulario_maestro.html`, '_blank');
+  window.open(`formulario_maestro.html?serie=${encodeURIComponent(serie)}`, '_blank');
 }
 
 let _ckOrdenIdActual = null;

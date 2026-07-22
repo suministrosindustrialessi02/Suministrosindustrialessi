@@ -673,6 +673,13 @@
       <button class="btn-nav btn-prev" onclick="irA(0)">← Anterior</button>
       <button class="btn-nav btn-next" onclick="avanzar(1)">Siguiente: Checklist →</button>
     </div>
+    <div style="text-align:center;margin-top:10px">
+      <button type="button" onclick="saltarChecklistIrAPintura()"
+        style="background:none;border:none;color:var(--azul);font-size:0.85rem;cursor:pointer;text-decoration:underline;padding:6px">
+        Ir directo a Pintura y Adherencia (Checklist después) →
+      </button>
+      <div style="font-size:0.75rem;color:var(--gris-texto);margin-top:2px">Úsalo si el equipo ya está listo para pintura pero el Checklist Sulzer se hará más tarde</div>
+    </div>
   </div>
 
   <!-- ======================================================
@@ -729,6 +736,13 @@
       <button class="btn-nav btn-prev" onclick="irA(1)">← Anterior</button>
     </div>
     <button class="btn-submit-final" onclick="avanzar(2)">✅ ENVIAR CHECKLIST</button>
+    <div style="text-align:center;margin-top:10px">
+      <button type="button" onclick="saltarChecklistIrAPintura()"
+        style="background:none;border:none;color:var(--azul);font-size:0.85rem;cursor:pointer;text-decoration:underline;padding:6px">
+        Ir directo a Pintura y Adherencia (Checklist después) →
+      </button>
+      <div style="font-size:0.75rem;color:var(--gris-texto);margin-top:2px">Úsalo si el equipo ya está listo para pintura pero el Checklist Sulzer se hará más tarde</div>
+    </div>
   </div>
 
   <!-- ======================================================
@@ -810,7 +824,7 @@
     </div>
 
     <div style="margin-top:8px">
-      <button class="btn-next" onclick="avanzar(4)">Continuar a Evidencia Final →</button>
+      <button class="btn-next" id="btnAvanzar4" onclick="avanzar(4)">Continuar a Evidencia Final →</button>
     </div>
   </div>
 
@@ -874,6 +888,7 @@
     <div id="resultIcon" class="icon"></div>
     <h2 id="resultTitle"></h2>
     <p id="resultMessage"></p>
+    <button class="btn-submit-final hidden" id="btnChecklistAhora" onclick="continuarConChecklist()">Hacer el Checklist ahora →</button>
     <button class="btn-submit-final hidden" id="btnReiniciar" onclick="location.reload()">Nuevo formulario</button>
   </div>
 
@@ -1002,6 +1017,8 @@ let pantallaActual = 0;
 let evidenciaRecordIdGlobal = null;
 let ckRecordIdGlobal        = null; // ID del registro CHECKLIST ya guardado
 let checklistYaEnviado      = false; // true cuando ya se hizo PATCH a Airtable
+let checklistOmitido        = false; // true cuando el técnico eligió ir directo a Pintura sin hacer el Checklist aún
+let pinturaEnviada          = false; // true cuando ya se hizo POST del registro de Pintura a Airtable
 // correcciones (screen3)
 let corrNoOkPoints = []; // array de puntos NO OK con fotos "después"
 // pintura/adherencia (screen4)
@@ -1190,8 +1207,16 @@ async function avanzar(desde){
     return;
   }
 
-  // Pantalla 4 (Pintura) → validar y verificar correcciones pendientes
+  // Pantalla 4 (Pintura) → guardar Pintura en Airtable (independiente del Checklist), luego seguir
   if(desde === 4){
+    const ok = await enviarPintura();
+    if(!ok) return;
+
+    if(checklistOmitido){
+      mostrarResultadoPinturaSola();
+      return;
+    }
+
     const hayNoOk = CHECKLIST_ITEMS.some((_,i) => respuestasChecklist[i]?.resultado === "NO OK");
     const corrSinDatos = corrNoOkPoints.length === 0 ||
       corrNoOkPoints.every(p => !p.nuevasFotos?.length && !p.accionRealizada);
@@ -1829,6 +1854,8 @@ async function guardarBorrador(){
     evidenciaRecordIdGlobal,
     ordenRecordId,
     checklistYaEnviado,
+    checklistOmitido,
+    pinturaEnviada,
     etapasDesc: ETAPAS.map((e, i) => {
       const el = document.getElementById("etapa_" + i + "_desc");
       return el ? el.value : "";
@@ -1936,6 +1963,8 @@ function restaurarBorradorCompleto(datos){
   if(datos.evidenciaRecordIdGlobal) evidenciaRecordIdGlobal = datos.evidenciaRecordIdGlobal;
   if(datos.ordenRecordId)           ordenRecordId           = datos.ordenRecordId;
   if(datos.checklistYaEnviado)      checklistYaEnviado      = datos.checklistYaEnviado;
+  if(datos.checklistOmitido)        checklistOmitido        = datos.checklistOmitido;
+  if(datos.pinturaEnviada)          pinturaEnviada          = datos.pinturaEnviada;
 
   // Restaurar mediciones en resumen
   actualizarResumenMed();
@@ -1975,8 +2004,16 @@ function restaurarBorradorCompleto(datos){
       renderCorreccionesCK();
       mostrarPantalla(3);
     } else {
-      // Sin NO OK → ir directo a pintura
+      // Sin NO OK → ir directo a pintura (o a evidencia si la pintura ya se guardó antes)
+      irAPinturaOEvidenciaTrasChecklist();
+    }
+  } else if(checklistOmitido){
+    if(pinturaEnviada){
+      // Pintura ya se guardó antes; lo pendiente ahora es el Checklist
+      mostrarPantalla(2);
+    } else {
       construirEscalas4();
+      actualizarBotonPintura4();
       mostrarPantalla(4);
     }
   }
@@ -2956,8 +2993,76 @@ function guardarAccionCorr(pi, val){
 
 // Salta a Pintura sin guardar correcciones (se harán después de la pintura)
 function saltarAPintura(){
+  irAPinturaOEvidenciaTrasChecklist();
+}
+
+// Ajusta el texto del botón de la pantalla de Pintura según si el Checklist se omitió o no
+function actualizarBotonPintura4(){
+  const btn = document.getElementById("btnAvanzar4");
+  if(!btn) return;
+  btn.textContent = checklistOmitido ? "Guardar Pintura y Adherencia →" : "Continuar a Evidencia Final →";
+}
+
+// Tras terminar Checklist/Correcciones: si Pintura ya se guardó (se hizo antes), saltar a Evidencia Final
+function irAPinturaOEvidenciaTrasChecklist(){
+  if(pinturaEnviada){
+    mostrarPantalla(5);
+  } else {
+    construirEscalas4();
+    actualizarBotonPintura4();
+    mostrarPantalla(4);
+  }
+}
+
+// Salta el Checklist Sulzer por completo: la Pintura se hace ahora, el Checklist se hace después
+async function saltarChecklistIrAPintura(){
+  const errores = validarRecepcion();
+  const errorDiv = document.getElementById("validationError1");
+  if(errores.length > 0){
+    errorDiv.classList.remove("hidden");
+    errorDiv.innerHTML = "<strong>Faltan datos por completar:</strong><ul>" +
+      errores.map(e => `<li>${e}</li>`).join("") + "</ul>";
+    errorDiv.scrollIntoView({ behavior:"smooth", block:"start" });
+    return;
+  }
+  errorDiv.classList.add("hidden");
+
+  if(ordenRecordId){
+    fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
+      { method:"PATCH", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields:{ [ORDENES_FIELDS.estado]: "En proceso" } }) }).catch(()=>{});
+  }
+
+  checklistOmitido = true;
   construirEscalas4();
+  actualizarBotonPintura4();
   mostrarPantalla(4);
+  guardarBorrador();
+}
+
+// Muestra la pantalla de éxito cuando se guardó Pintura sin haber hecho el Checklist todavía
+function mostrarResultadoPinturaSola(){
+  document.getElementById("screen4").classList.add("hidden");
+  document.getElementById("sendingScreen").classList.add("hidden");
+  const resultScreen = document.getElementById("resultScreen");
+  resultScreen.classList.remove("hidden","error");
+  document.getElementById("resultIcon").textContent = "✅";
+  document.getElementById("resultTitle").textContent = "Pintura y Adherencia guardada";
+  document.getElementById("resultMessage").textContent = "Se guardó la Inspección de Pintura y la Prueba de Adherencia. Puedes hacer el Checklist Sulzer ahora mismo, o más tarde desde \"Continuar\" en el panel.";
+  document.getElementById("stepLabel").textContent = "Pintura guardada";
+  const btnCk = document.getElementById("btnChecklistAhora");
+  btnCk.classList.remove("hidden");
+  const btnR = document.getElementById("btnReiniciar");
+  btnR.classList.remove("hidden");
+  btnR.textContent = "Cerrar";
+  btnR.onclick = () => window.close();
+}
+
+// Desde la pantalla de éxito de Pintura, ir directo al Checklist Sulzer
+function continuarConChecklist(){
+  document.getElementById("resultScreen").classList.add("hidden");
+  document.getElementById("btnChecklistAhora").classList.add("hidden");
+  mostrarPantalla(2);
 }
 
 // Modal de aviso: correcciones pendientes al salir de Pintura hacia Evidencia
@@ -3098,8 +3203,7 @@ async function enviarChecklist(){
       await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
         { method:"PATCH", headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({ fields:{ "fldnQ6DxpfYANoE8p": true } }) }).catch(()=>{});
-      construirEscalas4();
-      mostrarPantalla(4);
+      irAPinturaOEvidenciaTrasChecklist();
     }
 
   } catch(err){
@@ -3197,8 +3301,7 @@ async function guardarCorrecciones(){
         body: JSON.stringify({ fields:{ "fldnQ6DxpfYANoE8p": true } }) }).catch(()=>{});
 
     document.getElementById("sendingScreen").classList.add("hidden");
-    construirEscalas4();
-    mostrarPantalla(4);
+    irAPinturaOEvidenciaTrasChecklist();
 
   } catch(err){
     document.getElementById("sendingScreen").classList.add("hidden");
@@ -3210,7 +3313,86 @@ async function guardarCorrecciones(){
 }
 
 /* ============================================================
-   ENVIAR FINAL — Pintura + Evidencia + Terminado (pantalla 5)
+   ENVIAR PINTURA — independiente del Checklist (pantalla 4)
+   Se llama al salir de la pantalla 4, sin importar si el Checklist
+   ya se hizo o no. Devuelve true/false según si se pudo guardar.
+   ============================================================ */
+async function enviarPintura(){
+  if(pinturaEnviada) return true; // ya se guardó, evita duplicar el registro
+
+  const btn = document.getElementById("btnAvanzar4");
+  if(btn) btn.disabled = true;
+
+  const serie = document.getElementById("numSerie").value.trim();
+  const fechaTermino = document.getElementById("fechaTermino").value;
+  const errorDiv = document.getElementById("validationError4");
+
+  try{
+    if(!ordenRecordId){
+      ordenRecordId = await buscarOCrearOrden(serie);
+    }
+    if(!ordenRecordId) throw new Error("No se encontró la orden de servicio para la serie " + serie + ". Verifica que el número de serie sea correcto.");
+
+    const escalaObj = ESCALAS.find(e => e.valor === escalaSel4);
+    const resultadoPintura = escalaObj?.cumple ? "Cumple" : "No cumple";
+    const hoy = new Date().toISOString().split("T")[0];
+    const inspectorNombre = obtenerInspectorNombre();
+    const pinturaFields = {
+      [FIELDS_PINTURA.idRegistro]:       `${serie} | ${hoy}`,
+      [FIELDS_PINTURA.ordenServicio]:    [ordenRecordId],
+      [FIELDS_PINTURA.medicion1]:        parseFloat(document.getElementById("m1").value) || 0,
+      [FIELDS_PINTURA.medicion2]:        parseFloat(document.getElementById("m2").value) || 0,
+      [FIELDS_PINTURA.medicion3]:        parseFloat(document.getElementById("m3").value) || 0,
+      [FIELDS_PINTURA.medicion4]:        parseFloat(document.getElementById("m4").value) || 0,
+      [FIELDS_PINTURA.medicion5]:        parseFloat(document.getElementById("m5").value) || 0,
+      [FIELDS_PINTURA.medicion6]:        parseFloat(document.getElementById("m6").value) || 0,
+      [FIELDS_PINTURA.escala]:           escalaSel4,
+      [FIELDS_PINTURA.resultado]:        resultadoPintura,
+      [FIELDS_PINTURA.metodo]:           document.getElementById("metodo").value,
+      [FIELDS_PINTURA.inspector]:        inspectorNombre,
+      [FIELDS_PINTURA.inspectorCalidad]: document.getElementById("responsableCalidad").value.trim(),
+      [FIELDS_PINTURA.fechaRecibo]:      document.getElementById("fechaRecibo").value,
+      [FIELDS_PINTURA.fechaTermino]:     fechaTermino,
+      [FIELDS_PINTURA.comentarios]:      document.getElementById("comentariosPintura").value.trim(),
+    };
+    const rPintura = await fetch(`/.netlify/functions/airtable?table=${TABLA_PINTURA}`,
+      { method:"POST", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ records:[{ fields: pinturaFields }] }) });
+    const dPintura = await rPintura.json();
+    if(!rPintura.ok) throw new Error("Pintura: " + (dPintura?.error?.message || rPintura.status));
+    const pinturaRecordId = dPintura.records[0].id;
+
+    for(let i = 0; i < fotosAdherencia.length; i++){
+      const f = fotosAdherencia[i];
+      await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
+        { method:"POST", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
+    }
+
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
+      { method:"PATCH", headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true } }) }).catch(()=>{});
+
+    pinturaEnviada = true;
+    guardarBorrador();
+    return true;
+  } catch(err){
+    const msg = err?.message || (err?.toString ? err.toString() : "") || "Error desconocido";
+    if(errorDiv){
+      errorDiv.classList.remove("hidden");
+      errorDiv.innerHTML = `❌ Error al guardar Pintura: ${esc(msg)}<br><small style="font-weight:400">Revisa tu conexión e intenta de nuevo.</small>`;
+      errorDiv.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+    return false;
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+/* ============================================================
+   ENVIAR FINAL — Evidencia + Terminado (pantalla 5)
+   La Pintura ya se guardó al salir de la pantalla 4 (enviarPintura);
+   aquí solo se crea como respaldo si por algún motivo no se guardó antes.
    ============================================================ */
 async function enviarFinal(){
   // Resetear header por si quedó de un intento anterior
@@ -3257,51 +3439,54 @@ async function enviarFinal(){
       }catch(e){}
     }
 
-    // 1) Crear registro PINTURA
-    setP("Guardando inspección de pintura...", 8);
-    const escalaObj = ESCALAS.find(e => e.valor === escalaSel4);
-    const resultadoPintura = escalaObj?.cumple ? "Cumple" : "No cumple";
-    const hoy = new Date().toISOString().split("T")[0];
-    const inspectorNombre = obtenerInspectorNombre();
-    const pinturaFields = {
-      [FIELDS_PINTURA.idRegistro]:       `${serie} | ${hoy}`,
-      [FIELDS_PINTURA.ordenServicio]:    [ordenRecordId],
-      [FIELDS_PINTURA.medicion1]:        parseFloat(document.getElementById("m1").value) || 0,
-      [FIELDS_PINTURA.medicion2]:        parseFloat(document.getElementById("m2").value) || 0,
-      [FIELDS_PINTURA.medicion3]:        parseFloat(document.getElementById("m3").value) || 0,
-      [FIELDS_PINTURA.medicion4]:        parseFloat(document.getElementById("m4").value) || 0,
-      [FIELDS_PINTURA.medicion5]:        parseFloat(document.getElementById("m5").value) || 0,
-      [FIELDS_PINTURA.medicion6]:        parseFloat(document.getElementById("m6").value) || 0,
-      [FIELDS_PINTURA.escala]:           escalaSel4,
-      [FIELDS_PINTURA.resultado]:        resultadoPintura,
-      [FIELDS_PINTURA.metodo]:           document.getElementById("metodo").value,
-      [FIELDS_PINTURA.inspector]:        inspectorNombre,
-      [FIELDS_PINTURA.inspectorCalidad]: document.getElementById("responsableCalidad").value.trim(),
-      [FIELDS_PINTURA.fechaRecibo]:      document.getElementById("fechaRecibo").value,
-      [FIELDS_PINTURA.fechaTermino]:     fechaTermino,
-      [FIELDS_PINTURA.comentarios]:      document.getElementById("comentariosPintura").value.trim(),
-    };
-    const rPintura = await fetch(`/.netlify/functions/airtable?table=${TABLA_PINTURA}`,
-      { method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ records:[{ fields: pinturaFields }] }) });
-    const dPintura = await rPintura.json();
-    if(!rPintura.ok) throw new Error("Pintura: " + (dPintura?.error?.message || rPintura.status));
-    const pinturaRecordId = dPintura.records[0].id;
-
-    // 2) Subir fotos adherencia
-    for(let i = 0; i < fotosAdherencia.length; i++){
-      const f = fotosAdherencia[i];
-      setP(`Subiendo fotos adherencia (${i+1}/${fotosAdherencia.length})...`, 18 + (i/Math.max(fotosAdherencia.length,1))*18);
-      await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
+    // 1-3) Crear registro PINTURA + fotos + checkbox — solo si no se guardó ya al salir de pantalla 4
+    if(!pinturaEnviada){
+      setP("Guardando inspección de pintura...", 8);
+      const escalaObj = ESCALAS.find(e => e.valor === escalaSel4);
+      const resultadoPintura = escalaObj?.cumple ? "Cumple" : "No cumple";
+      const hoy = new Date().toISOString().split("T")[0];
+      const inspectorNombre = obtenerInspectorNombre();
+      const pinturaFields = {
+        [FIELDS_PINTURA.idRegistro]:       `${serie} | ${hoy}`,
+        [FIELDS_PINTURA.ordenServicio]:    [ordenRecordId],
+        [FIELDS_PINTURA.medicion1]:        parseFloat(document.getElementById("m1").value) || 0,
+        [FIELDS_PINTURA.medicion2]:        parseFloat(document.getElementById("m2").value) || 0,
+        [FIELDS_PINTURA.medicion3]:        parseFloat(document.getElementById("m3").value) || 0,
+        [FIELDS_PINTURA.medicion4]:        parseFloat(document.getElementById("m4").value) || 0,
+        [FIELDS_PINTURA.medicion5]:        parseFloat(document.getElementById("m5").value) || 0,
+        [FIELDS_PINTURA.medicion6]:        parseFloat(document.getElementById("m6").value) || 0,
+        [FIELDS_PINTURA.escala]:           escalaSel4,
+        [FIELDS_PINTURA.resultado]:        resultadoPintura,
+        [FIELDS_PINTURA.metodo]:           document.getElementById("metodo").value,
+        [FIELDS_PINTURA.inspector]:        inspectorNombre,
+        [FIELDS_PINTURA.inspectorCalidad]: document.getElementById("responsableCalidad").value.trim(),
+        [FIELDS_PINTURA.fechaRecibo]:      document.getElementById("fechaRecibo").value,
+        [FIELDS_PINTURA.fechaTermino]:     fechaTermino,
+        [FIELDS_PINTURA.comentarios]:      document.getElementById("comentariosPintura").value.trim(),
+      };
+      const rPintura = await fetch(`/.netlify/functions/airtable?table=${TABLA_PINTURA}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
-    }
+          body: JSON.stringify({ records:[{ fields: pinturaFields }] }) });
+      const dPintura = await rPintura.json();
+      if(!rPintura.ok) throw new Error("Pintura: " + (dPintura?.error?.message || rPintura.status));
+      const pinturaRecordId = dPintura.records[0].id;
 
-    // 3) Marcar checkbox pintura
-    setP("Marcando pintura completada...", 38);
-    await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
-      { method:"PATCH", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true } }) }).catch(()=>{});
+      // 2) Subir fotos adherencia
+      for(let i = 0; i < fotosAdherencia.length; i++){
+        const f = fotosAdherencia[i];
+        setP(`Subiendo fotos adherencia (${i+1}/${fotosAdherencia.length})...`, 18 + (i/Math.max(fotosAdherencia.length,1))*18);
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
+      }
+
+      // 3) Marcar checkbox pintura
+      setP("Marcando pintura completada...", 38);
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
+        { method:"PATCH", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true } }) }).catch(()=>{});
+      pinturaEnviada = true;
+    }
 
     // 4) Subir fotos Trabajo Terminado
     const FEV_TRAB = "fldQkyldQQ6nndhsE";
