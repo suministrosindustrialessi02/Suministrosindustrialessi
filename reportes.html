@@ -217,6 +217,12 @@ input[type="file"].hidden-input{ display:none; }
     </div>
   </div>
   <div class="rep-grid" id="repGridSulzer">
+    <button class="rep-btn" id="btn-recepcion" onclick="generarReportePrevio()">
+      <span class="rep-btn-icon">📥</span>
+      <span class="rep-btn-name">Reporte Previo de Recepción</span>
+      <span class="rep-btn-desc">Condición de embalaje, estado físico y evidencia — disponible antes del Checklist</span>
+      <span class="rep-btn-status" id="st-recepcion">—</span>
+    </button>
     <button class="rep-btn" id="btn-checklist" onclick="generarChecklist()">
       <span class="rep-btn-icon">📋</span>
       <span class="rep-btn-name">Checklist Sulzer</span>
@@ -478,6 +484,8 @@ const FE = {
   fDurante:      "fldNjlcFnC40eWvY3",
   fDespues:      "fldQkyldQQ6nndhsE",
   fFinal:        "fldNDOFLmW2yf7EM1",
+  recepcionJson: "fldGcduRkXBrWjxwg",
+  fDanos:        "fldtKLG1lcjw6Pn4U",
 };
 
 /* ============================================================
@@ -781,6 +789,8 @@ function actualizarUI(){
   const ok  = '<span class="status-ok">✓ Datos disponibles</span>';
   const pend= '<span class="status-pend">⚠ Sin datos</span>';
 
+  const stRecep = document.getElementById("st-recepcion");
+  if(stRecep) stRecep.innerHTML = G.evidencia ? ok : pend;
   document.getElementById("st-checklist").innerHTML  = G.checklist ? ok : pend;
   document.getElementById("st-pintura").innerHTML    = G.pintura    ? ok : pend;
   document.getElementById("st-adherencia").innerHTML = G.pintura    ? ok : pend;
@@ -808,20 +818,24 @@ function actualizarUI(){
    ============================================================ */
 function headerDatos(){
   const of = G.orden?.fields || {};
+  let recep = {};
+  if(G.evidencia){
+    try{ recep = JSON.parse(fv(G.evidencia, FE.recepcionJson) || "{}"); }catch(e){}
+  }
   const serie    = of["fldj245KNDJ2B5jxG"] || (G.checklist ? fv(G.checklist,FCK.idRegistro)?.split("|")[0]?.trim() : "—") || "—";
-  const cliente  = of["fldUkOvdOHTXMDWX7"] || "—";
-  const hp       = of["fldjyFFAaL0dIFWIE"]  != null ? String(of["fldjyFFAaL0dIFWIE"]) : "—";
-  const frame    = of["fldSvMeOGe98aT2e0"]  || "—";
-  const volts    = of["fldLxVAorFAGaboOF"]  != null ? String(of["fldLxVAorFAGaboOF"]) : "—";
-  const spec     = of["fldkkXFzqKeGSIqJQ"]  || "—";
+  const cliente  = of["fldUkOvdOHTXMDWX7"] || recep.cliente || "—";
+  const hp       = of["fldjyFFAaL0dIFWIE"]  != null ? String(of["fldjyFFAaL0dIFWIE"]) : (recep.motorHP || "—");
+  const frame    = of["fldSvMeOGe98aT2e0"]  || recep.motorFrame || "—";
+  const volts    = of["fldLxVAorFAGaboOF"]  != null ? String(of["fldLxVAorFAGaboOF"]) : (recep.motorVolts || "—");
+  const spec     = of["fldkkXFzqKeGSIqJQ"]  || recep.motorSpec || "—";
   const catNo    = of["fld4BE7lLXKOu48LR"]  || "—";
-  const servicio = of["fldE3gDF6mRR71Vnk"]  || "—";
+  const servicio = of["fldE3gDF6mRR71Vnk"]  || recep.servicioSolicitado || "—";
   const fRecibo  = fmtFecha(of["fldxXn7E5ypw06ga8"]) !== "—" ? fmtFecha(of["fldxXn7E5ypw06ga8"])
-                   : (G.pintura ? fmtFecha(fv(G.pintura,FP.fechaRecibo)) : "—");
+                   : (G.pintura ? fmtFecha(fv(G.pintura,FP.fechaRecibo)) : (recep.fechaRecibo ? fmtFecha(recep.fechaRecibo) : "—"));
   const fTermino = fmtFecha(of["fldYMhFagnexfxdPq"]) !== "—" ? fmtFecha(of["fldYMhFagnexfxdPq"])
-                   : (G.pintura ? fmtFecha(fv(G.pintura,FP.fechaTermino)) : "—");
-  const inspector   = G.checklist ? (fv(G.checklist,FCK.inspector)||"—")         : (G.pintura ? (fv(G.pintura,FP.inspector)||"—") : "—");
-  const calidad     = G.checklist ? (fv(G.checklist,FCK.inspectorCalidad)||"—")   : (G.pintura ? (fv(G.pintura,FP.inspectorCalidad)||"—") : "—");
+                   : (G.pintura ? fmtFecha(fv(G.pintura,FP.fechaTermino)) : (recep.fechaTermino ? fmtFecha(recep.fechaTermino) : "—"));
+  const inspector   = G.checklist ? (fv(G.checklist,FCK.inspector)||"—")         : (G.pintura ? (fv(G.pintura,FP.inspector)||"—") : (recep.inspector || "—"));
+  const calidad     = G.checklist ? (fv(G.checklist,FCK.inspectorCalidad)||"—")   : (G.pintura ? (fv(G.pintura,FP.inspectorCalidad)||"—") : (recep.responsableCalidad || "—"));
   const ordenCompra = G.checklist ? (fv(G.checklist,FCK.ordenCompra)||"—")        : "—";
   const numDibujo   = G.checklist ? (fv(G.checklist,FCK.numDibujo)||"—")          : "—";
   const numRev      = G.checklist ? (String(fv(G.checklist,FCK.numRevisiones)||"—")) : "—";
@@ -1049,6 +1063,62 @@ function abrirVentana(htmlContent, titulo){
     <\/script>
   </body></html>`);
   w.document.close();
+}
+
+/* ============================================================
+   REPORTE PREVIO — RECEPCIÓN DEL MOTOR (disponible antes del Checklist)
+   ============================================================ */
+async function generarReportePrevio(){
+  // Re-fetch evidencia por si hay fotos/datos más recientes
+  try{
+    const p2 = new URLSearchParams(location.search);
+    const ordenId2 = p2.get("id");
+    const serie2   = p2.get("serie");
+    const evFormula2 = encodeURIComponent(`OR(FIND("${ordenId2}",ARRAYJOIN({${FE.ordenServicio}})),FIND("${serie2} |",{fldMJu2xXvuYOIhMQ}))`);
+    const evRecs2 = await at(T_EVIDENCIA, `filterByFormula=${evFormula2}`);
+    if(evRecs2[0]) G.evidencia = evRecs2[0];
+  }catch(e){ /* usar datos cacheados si falla */ }
+
+  if(!G.evidencia){ alert("Todavía no se ha guardado la Recepción del Motor para esta orden."); return; }
+
+  const d = headerDatos();
+
+  let recepcion = {};
+  try{ recepcion = JSON.parse(fv(G.evidencia, FE.recepcionJson) || "{}"); }catch(e){}
+
+  const recepHtml = recepcion.condicionEmbalaje ? `
+    <table class="adh-tbl">
+      <tr><td class="lbl">Condición del Embalaje:</td><td>${esc(recepcion.condicionEmbalaje)}</td></tr>
+      ${recepcion.descripcionEmbalaje?`<tr><td class="lbl">Descripción del Embalaje:</td><td>${esc(recepcion.descripcionEmbalaje)}</td></tr>`:""}
+      <tr><td class="lbl">Estado Físico del Motor:</td><td>${esc(recepcion.estadoFisicoMotor||"—")}</td></tr>
+      ${recepcion.descripcionDanos?`<tr><td class="lbl">Descripción de Daños:</td><td>${esc(recepcion.descripcionDanos)}</td></tr>`:""}
+      ${recepcion.observaciones?`<tr><td class="lbl">Observaciones:</td><td>${esc(recepcion.observaciones)}</td></tr>`:""}
+    </table>` : "<p style='font-size:7.5pt;color:#666;'>Sin datos de recepción.</p>";
+
+  function secFotosPrevio(arr, titulo){
+    if(!arr || arr.length === 0) return "";
+    const imgs = arr.map((a,i) => fotoItemHtml(a.thumbnails?.large?.url||a.url, `${titulo} ${i+1}`, i+1)).join("");
+    return `<div class="serv-section">${esc(titulo)}</div><div class="fotos-grid">${imgs}</div>`;
+  }
+
+  const fotosRecibido = fv(G.evidencia, FE.fRecibido) || [];
+  const fotosDanos     = fv(G.evidencia, FE.fDanos) || [];
+  const fotosPlaca      = fv(G.orden, FO.fotosPlaca) || [];
+
+  const html = `
+  ${logoHtml()}
+  ${headerTablaHtml(d, "REPORTE PREVIO DE RECEPCIÓN")}
+
+  <div class="serv-section">CONDICIÓN DE RECIBO</div>
+  ${recepHtml}
+
+  ${secFotosPrevio(fotosRecibido, "FOTOGRAFÍAS DE RECEPCIÓN")}
+  ${secFotosPrevio(fotosDanos, "EVIDENCIA DE DAÑOS")}
+  ${secFotosPrevio(fotosPlaca, "PLACA DE DATOS DEL MOTOR")}
+
+  ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
+
+  abrirVentana(html, `Reporte Previo de Recepción — ${d.serie}`);
 }
 
 /* ============================================================
@@ -1344,7 +1414,11 @@ async function generarServicio(){
     try{ ckData = JSON.parse(fv(G.checklist, FCK.checklistJson) || "{}"); } catch(e){}
   }
 
-  const recepcion   = ckData.recepcion || {};
+  let recepcionEv = {};
+  if(G.evidencia){
+    try{ recepcionEv = JSON.parse(fv(G.evidencia, FE.recepcionJson) || "{}"); }catch(e){}
+  }
+  const recepcion   = (ckData.recepcion && ckData.recepcion.condicionEmbalaje) ? ckData.recepcion : recepcionEv;
   const observCK    = fv(G.checklist, FCK.observaciones) || "";
   const resultadoCK = fv(G.checklist, FCK.resultado) || "—";
   const evDesc      = fv(G.evidencia, FE.descripcion) || "";
@@ -1395,16 +1469,18 @@ async function generarServicio(){
   ${recepHtml}
 
   ${secFotos2col(FE.fRecibido, "III. FOTOGRAFÍA DE RECIBIDO")}
-  ${secFotos2col(FE.fAntes,    "IV. EVIDENCIA ANTES DEL SERVICIO")}
-  ${secFotos2col(FE.fDurante,  "V. EVIDENCIA DURANTE EL SERVICIO")}
-  ${secFotos2col(FE.fDespues,  "VI. TRABAJO TERMINADO")}
+  ${secFotos2col(FE.fDanos,    "IV. EVIDENCIA DE DAÑOS EN RECEPCIÓN")}
+  ${(fv(G.orden, FO.fotosPlaca)||[]).length ? `<div class="serv-section">V. PLACA DE DATOS DEL MOTOR</div><div class="fotos-grid">${(fv(G.orden, FO.fotosPlaca)||[]).map((a,i)=>fotoItemHtml(a.thumbnails?.large?.url||a.url, `Placa ${i+1}`, i+1)).join("")}</div>` : ""}
+  ${secFotos2col(FE.fAntes,    "VI. EVIDENCIA ANTES DEL SERVICIO")}
+  ${secFotos2col(FE.fDurante,  "VII. EVIDENCIA DURANTE DEL SERVICIO")}
+  ${secFotos2col(FE.fDespues,  "VIII. TRABAJO TERMINADO")}
 
-  <div class="serv-section">VII. RESULTADO GENERAL</div>
+  <div class="serv-section">IX. RESULTADO GENERAL</div>
   <div style="margin:6px 0 10px;font-size:8pt;">
     Resultado Checklist: <strong style="${(resultadoCK==='OK'||resultadoCK==='APROBADO'||corrComp)?'color:#2e7d32':'color:#c62828'}">${corrComp&&resultadoCK==='NO OK'?'OK — Corregido':esc(resultadoCK)}</strong>
   </div>
 
-  ${secFotos2col(FE.fFinal, "VIII. EVIDENCIA FINAL — EMBALAJE")}
+  ${secFotos2col(FE.fFinal, "X. EVIDENCIA FINAL — EMBALAJE")}
 
   ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
 

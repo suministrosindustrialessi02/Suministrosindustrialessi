@@ -649,6 +649,16 @@
       <div class="field hidden" id="danosWrap">
         <label>Descripción de Daños / Golpes <span class="required-mark">*</span></label>
         <textarea id="descripcionDanos" placeholder="Describe los daños observados: ubicación, tipo de golpe, área afectada, magnitud..." oninput="guardarBorrador()"></textarea>
+        <label style="margin-top:10px;display:block">Fotos de los Daños <span class="required-mark">*</span></label>
+        <div class="photo-block">
+          <div class="foto-btn-row">
+            <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotosDanosInput','camara')">📷 Tomar foto</button>
+            <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotosDanosInput','galeria')">🖼️ Galería</button>
+          </div>
+          <input type="file" accept="image/*" multiple id="fotosDanosInput" onchange="manejarFotosDanos(this)" style="display:none">
+        </div>
+        <div class="photo-counter" id="fotosDanosCounter">0 fotos seleccionadas</div>
+        <div class="photo-grid" id="fotosDanosGrid"></div>
       </div>
 
       <div class="field">
@@ -669,9 +679,21 @@
       <div class="photo-grid" id="fotosRecepcionGrid"></div>
     </div>
 
+    <div class="card">
+      <h2>Foto de la Placa de Datos (si aplica)</h2>
+      <p class="card-desc">Fotografía la placa de datos del motor (marca, modelo, serie, especificaciones).</p>
+      <div class="foto-btn-row">
+        <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotosPlacaInput','camara')">📷 Tomar foto</button>
+        <button type="button" class="photo-btn" onclick="abrirSelectorFoto('fotosPlacaInput','galeria')">🖼️ Elegir de galería</button>
+      </div>
+      <input type="file" accept="image/*" multiple id="fotosPlacaInput" onchange="manejarFotosPlaca(this)" style="display:none">
+      <div class="photo-counter" id="fotosPlacaCounter">0 fotos seleccionadas</div>
+      <div class="photo-grid" id="fotosPlacaGrid"></div>
+    </div>
+
     <div class="nav-buttons">
       <button class="btn-nav btn-prev" onclick="irA(0)">← Anterior</button>
-      <button class="btn-nav btn-next" onclick="avanzar(1)">Siguiente: Checklist →</button>
+      <button class="btn-nav btn-next" id="btnAvanzar1" onclick="avanzar(1)">Siguiente: Checklist →</button>
     </div>
     <div style="text-align:center;margin-top:10px">
       <button type="button" onclick="saltarChecklistIrAPintura()"
@@ -918,6 +940,7 @@ const ORDENES_FIELDS = {
   frame:   "fldSvMeOGe98aT2e0",
   volts:   "fldLxVAorFAGaboOF",
   spec:    "fldkkXFzqKeGSIqJQ",
+  fotosPlaca: "fldNUJRgVWwI6JRjH",
 };
 
 const FIELDS_CHECKLIST = {
@@ -961,6 +984,8 @@ const FIELDS_EVIDENCIA = {
   idRegistro:    "fldMJu2xXvuYOIhMQ",
   ordenServicio: "fldvzrPRmSWSWKh9y",
   descripcion:   "fldN3lUyE69RzaRBL",
+  recepcionJson: "fldGcduRkXBrWjxwg",
+  fotosDanos:    "fldtKLG1lcjw6Pn4U",
 };
 
 const FOTOS_FIELD_MAP = {
@@ -1019,6 +1044,7 @@ let ckRecordIdGlobal        = null; // ID del registro CHECKLIST ya guardado
 let checklistYaEnviado      = false; // true cuando ya se hizo PATCH a Airtable
 let checklistOmitido        = false; // true cuando el técnico eligió ir directo a Pintura sin hacer el Checklist aún
 let pinturaEnviada          = false; // true cuando ya se hizo POST del registro de Pintura a Airtable
+let recepcionEnviada        = false; // true cuando ya se guardó Recepción (Evidencia) en Airtable, independiente del Checklist
 // correcciones (screen3)
 let corrNoOkPoints = []; // array de puntos NO OK con fotos "después"
 // pintura/adherencia (screen4)
@@ -1047,6 +1073,8 @@ const fotosEvidencia = ETAPAS.map(() => []); // vacío — evidencia final ahora
 
 // Recepción (Paso 2 — fotos van al campo 'Recibido' en Airtable)
 let fotosRecepcion = [];
+let fotosDanosRecepcion = [];
+let fotosPlacaRecepcion = [];
 
 /* ============================================================
    CHECKLIST ITEMS (56 puntos)
@@ -1184,8 +1212,11 @@ async function avanzar(desde){
     return;
   }
 
-  // Pantalla 1 (Recepción) → al abrir el checklist, marcar orden como "En proceso"
+  // Pantalla 1 (Recepción) → guardar Recepción en Airtable, marcar orden "En proceso", abrir Checklist
   if(desde === 1){
+    const ok = await enviarRecepcion();
+    if(!ok) return;
+
     if(ordenRecordId){
       fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
         { method:"PATCH", headers:{ "Content-Type":"application/json" },
@@ -1260,9 +1291,12 @@ function validarRecepcion(){
   const estadoFisico = document.getElementById("estadoFisicoMotor").value;
   if(!condicion) errores.push("Condición del Embalaje");
   if(!estadoFisico) errores.push("Estado Físico del Motor");
-  if((estadoFisico === "Daños menores" || estadoFisico === "Daños mayores") &&
-     !document.getElementById("descripcionDanos").value.trim())
-    errores.push("Descripción de Daños (requerida cuando hay daños)");
+  if(estadoFisico === "Daños menores" || estadoFisico === "Daños mayores"){
+    if(!document.getElementById("descripcionDanos").value.trim())
+      errores.push("Descripción de Daños (requerida cuando hay daños)");
+    if(!fotosDanosRecepcion.length)
+      errores.push("Foto de los Daños (requerida cuando hay daños)");
+  }
   return errores;
 }
 
@@ -1837,6 +1871,15 @@ async function guardarBorrador(){
       base64: f.base64, contentType: f.contentType,
       dataUrl: f.dataUrl, filename: f.filename
     })),
+    fotosDanosRecepcion: fotosDanosRecepcion.map(f => ({
+      base64: f.base64, contentType: f.contentType,
+      dataUrl: f.dataUrl, filename: f.filename
+    })),
+    fotosPlacaRecepcion: fotosPlacaRecepcion.map(f => ({
+      base64: f.base64, contentType: f.contentType,
+      dataUrl: f.dataUrl, filename: f.filename
+    })),
+    recepcionEnviada,
     fotosAdherencia: fotosAdherencia.map(f => ({
       base64: f.base64, contentType: f.contentType,
       dataUrl: f.dataUrl, filename: f.filename
@@ -1928,9 +1971,21 @@ function restaurarBorradorCompleto(datos){
     toggleDanosMotor();
   }
   if(datos.fotosRecepcion && datos.fotosRecepcion.length){
+    fotosRecepcion.length = 0;
     fotosRecepcion.push(...datos.fotosRecepcion);
     renderizarGridRecepcion();
   }
+  if(datos.fotosDanosRecepcion && datos.fotosDanosRecepcion.length){
+    fotosDanosRecepcion.length = 0;
+    fotosDanosRecepcion.push(...datos.fotosDanosRecepcion);
+    renderizarGridDanos();
+  }
+  if(datos.fotosPlacaRecepcion && datos.fotosPlacaRecepcion.length){
+    fotosPlacaRecepcion.length = 0;
+    fotosPlacaRecepcion.push(...datos.fotosPlacaRecepcion);
+    renderizarGridPlaca();
+  }
+  if(datos.recepcionEnviada) recepcionEnviada = datos.recepcionEnviada;
 
   // Mediciones pintura
   ["m1","m2","m3","m4","m5","m6"].forEach(id => setVal(id, datos[id]));
@@ -2637,6 +2692,90 @@ function eliminarFotoRecepcion(i){
   guardarBorrador();
 }
 
+function manejarFotosDanos(inputEl){
+  const files = Array.from(inputEl.files || []);
+  if(files.length === 0) return;
+  let pendientes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const dataUrl = e.target.result;
+      fotosDanosRecepcion.push({
+        filename: `danos_foto_${fotosDanosRecepcion.length + 1}.jpg`,
+        base64: dataUrl.split(",")[1],
+        contentType: file.type || "image/jpeg",
+        dataUrl
+      });
+      pendientes--;
+      if(pendientes === 0){ renderizarGridDanos(); guardarBorrador(); }
+    };
+    reader.readAsDataURL(file);
+  });
+  inputEl.value = "";
+}
+
+function renderizarGridDanos(){
+  const grid    = document.getElementById("fotosDanosGrid");
+  const counter = document.getElementById("fotosDanosCounter");
+  const n = fotosDanosRecepcion.length;
+  counter.textContent = `${n} foto${n === 1 ? "" : "s"} seleccionada${n === 1 ? "" : "s"}`;
+  grid.innerHTML = fotosDanosRecepcion.map((foto, i) => `
+    <div class="photo-thumb">
+      <img src="${foto.dataUrl}" alt="Foto daño ${i+1}">
+      <button type="button" class="remove-btn" onclick="eliminarFotoDanos(${i})">✕</button>
+    </div>
+  `).join("");
+  fotosDanosRecepcion.forEach((foto, i) => { foto.filename = `danos_foto_${i+1}.jpg`; });
+}
+
+function eliminarFotoDanos(i){
+  fotosDanosRecepcion.splice(i, 1);
+  renderizarGridDanos();
+  guardarBorrador();
+}
+
+function manejarFotosPlaca(inputEl){
+  const files = Array.from(inputEl.files || []);
+  if(files.length === 0) return;
+  let pendientes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e){
+      const dataUrl = e.target.result;
+      fotosPlacaRecepcion.push({
+        filename: `placa_foto_${fotosPlacaRecepcion.length + 1}.jpg`,
+        base64: dataUrl.split(",")[1],
+        contentType: file.type || "image/jpeg",
+        dataUrl
+      });
+      pendientes--;
+      if(pendientes === 0){ renderizarGridPlaca(); guardarBorrador(); }
+    };
+    reader.readAsDataURL(file);
+  });
+  inputEl.value = "";
+}
+
+function renderizarGridPlaca(){
+  const grid    = document.getElementById("fotosPlacaGrid");
+  const counter = document.getElementById("fotosPlacaCounter");
+  const n = fotosPlacaRecepcion.length;
+  counter.textContent = `${n} foto${n === 1 ? "" : "s"} seleccionada${n === 1 ? "" : "s"}`;
+  grid.innerHTML = fotosPlacaRecepcion.map((foto, i) => `
+    <div class="photo-thumb">
+      <img src="${foto.dataUrl}" alt="Foto placa ${i+1}">
+      <button type="button" class="remove-btn" onclick="eliminarFotoPlaca(${i})">✕</button>
+    </div>
+  `).join("");
+  fotosPlacaRecepcion.forEach((foto, i) => { foto.filename = `placa_foto_${i+1}.jpg`; });
+}
+
+function eliminarFotoPlaca(i){
+  fotosPlacaRecepcion.splice(i, 1);
+  renderizarGridPlaca();
+  guardarBorrador();
+}
+
 /* ============================================================
    INSPECTOR OTRO
    ============================================================ */
@@ -3015,6 +3154,122 @@ function irAPinturaOEvidenciaTrasChecklist(){
 }
 
 // Salta el Checklist Sulzer por completo: la Pintura se hace ahora, el Checklist se hace después
+/* ============================================================
+   ENVIAR RECEPCIÓN — independiente del Checklist (pantalla 1)
+   Guarda en Airtable los datos de Datos Generales + Recepción
+   (condición de embalaje, estado físico, daños, fotos) apenas se
+   termina la pantalla 1, para que el "Reporte Previo de Recepción"
+   esté disponible aunque el Checklist Sulzer no se haya hecho.
+   ============================================================ */
+async function enviarRecepcion(){
+  if(recepcionEnviada) return true; // ya se guardó, evita duplicar el registro
+
+  const btn = document.getElementById("btnAvanzar1");
+  if(btn) btn.disabled = true;
+
+  const serie = document.getElementById("numSerie").value.trim();
+  const fechaTermino = document.getElementById("fechaTermino").value;
+  const errorDiv = document.getElementById("validationError1");
+
+  try{
+    if(!ordenRecordId){
+      ordenRecordId = await buscarOCrearOrden(serie);
+    }
+    if(!ordenRecordId) throw new Error("No se encontró la orden de servicio para la serie " + serie + ". Verifica que el número de serie sea correcto.");
+
+    // Actualizar datos del motor y cliente en ORDENES
+    const mPatch = {};
+    const _hp = parseFloat(document.getElementById("motorHP").value);
+    const _frame = document.getElementById("motorFrame").value.trim();
+    const _volts = parseFloat(document.getElementById("motorVolts").value);
+    const _spec  = document.getElementById("motorSpec").value.trim();
+    const _cliente = document.getElementById("cliente").value.trim();
+    if(!isNaN(_hp))    mPatch[ORDENES_FIELDS.hp]      = _hp;
+    if(_frame)         mPatch[ORDENES_FIELDS.frame]   = _frame;
+    if(!isNaN(_volts)) mPatch[ORDENES_FIELDS.volts]   = _volts;
+    if(_spec)          mPatch[ORDENES_FIELDS.spec]    = _spec;
+    if(_cliente)       mPatch[ORDENES_FIELDS.cliente] = _cliente;
+    if(Object.keys(mPatch).length){
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
+        { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ fields: mPatch }) }).catch(()=>{});
+    }
+
+    // Subir foto(s) de placa a la Orden (campo compartido con el sistema General) —
+    // solo la primera vez que se guarda Recepción, para no duplicar en reintentos
+    if(!evidenciaRecordIdGlobal){
+      for(let i = 0; i < fotosPlacaRecepcion.length; i++){
+        const f = fotosPlacaRecepcion[i];
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${ordenRecordId}&fieldId=${ORDENES_FIELDS.fotosPlaca}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+      }
+    }
+
+    // Crear registro EVIDENCIA (o reutilizar el ya creado) con los datos de recepción
+    if(!evidenciaRecordIdGlobal){
+      const recepcionJson = JSON.stringify({
+        cliente: _cliente,
+        motorHP: document.getElementById("motorHP").value,
+        motorFrame: _frame,
+        motorVolts: document.getElementById("motorVolts").value,
+        motorSpec: _spec,
+        inspector: obtenerInspectorNombre(),
+        responsableCalidad: document.getElementById("responsableCalidad").value.trim(),
+        fechaRecibo: document.getElementById("fechaRecibo").value,
+        fechaTermino: fechaTermino,
+        servicioSolicitado: document.getElementById("servicioSolicitado").value.trim(),
+        condicionEmbalaje: document.getElementById("condicionEmbalaje").value,
+        descripcionEmbalaje: document.getElementById("descripcionEmbalaje").value.trim(),
+        estadoFisicoMotor: document.getElementById("estadoFisicoMotor").value,
+        descripcionDanos: document.getElementById("descripcionDanos").value.trim(),
+        observaciones: document.getElementById("observacionesRecepcion").value.trim(),
+      });
+
+      const respEv = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
+        { method:"POST", headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ records:[{ fields:{
+            [FIELDS_EVIDENCIA.idRegistro]:    `${serie} | ${fechaTermino}`,
+            [FIELDS_EVIDENCIA.ordenServicio]: [ordenRecordId],
+            [FIELDS_EVIDENCIA.recepcionJson]: recepcionJson,
+          } }] }) });
+      const dataEv = await respEv.json();
+      if(!respEv.ok) throw new Error("Recepción: " + (dataEv?.error?.message || respEv.status));
+      evidenciaRecordIdGlobal = dataEv.records[0].id;
+
+      // Subir fotos de recepción (embalaje / estado general) — solo junto con la creación del registro
+      const fieldIdRecibido = FOTOS_FIELD_MAP["Recibido"];
+      for(let i = 0; i < fotosRecepcion.length; i++){
+        const f = fotosRecepcion[i];
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+      }
+
+      // Subir fotos de daños (si hay)
+      for(let i = 0; i < fotosDanosRecepcion.length; i++){
+        const f = fotosDanosRecepcion[i];
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${FIELDS_EVIDENCIA.fotosDanos}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+      }
+    }
+
+    recepcionEnviada = true;
+    guardarBorrador();
+    return true;
+  } catch(err){
+    const msg = err?.message || (err?.toString ? err.toString() : "") || "Error desconocido";
+    if(errorDiv){
+      errorDiv.classList.remove("hidden");
+      errorDiv.innerHTML = `❌ Error al guardar Recepción: ${esc(msg)}<br><small style="font-weight:400">Revisa tu conexión e intenta de nuevo.</small>`;
+      errorDiv.scrollIntoView({ behavior:"smooth", block:"start" });
+    }
+    return false;
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
 async function saltarChecklistIrAPintura(){
   const errores = validarRecepcion();
   const errorDiv = document.getElementById("validationError1");
@@ -3026,6 +3281,9 @@ async function saltarChecklistIrAPintura(){
     return;
   }
   errorDiv.classList.add("hidden");
+
+  const ok = await enviarRecepcion();
+  if(!ok) return;
 
   if(ordenRecordId){
     fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
@@ -3161,23 +3419,25 @@ async function enviarChecklist(){
       { method:"PATCH", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.checklist]: true, [ORDENES_FIELDS.estado]: "En proceso" } }) }).catch(()=>{});
 
-    // Crear registro EVIDENCIA
-    setP("Creando registro de evidencia...", 42);
-    const regEv = construirRegistroEvidencia(ordenRecordId, serie, fechaTermino);
-    const respEv = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
-      { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ records:[regEv] }) });
-    const dataEv = await respEv.json();
-    if(!respEv.ok) throw new Error("Evidencia: " + (dataEv?.error?.message || respEv.status));
-    evidenciaRecordIdGlobal = dataEv.records[0].id;
+    // Crear registro EVIDENCIA — solo si Recepción (pantalla 1) no lo creó ya
+    if(!evidenciaRecordIdGlobal){
+      setP("Creando registro de evidencia...", 42);
+      const regEv = construirRegistroEvidencia(ordenRecordId, serie, fechaTermino);
+      const respEv = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
+        { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ records:[regEv] }) });
+      const dataEv = await respEv.json();
+      if(!respEv.ok) throw new Error("Evidencia: " + (dataEv?.error?.message || respEv.status));
+      evidenciaRecordIdGlobal = dataEv.records[0].id;
 
-    // Subir fotos de recepción
-    const fieldIdRecibido = FOTOS_FIELD_MAP["Recibido"];
-    for(let f = 0; f < fotosRecepcion.length; f++){
-      const foto = fotosRecepcion[f];
-      setP(`Subiendo fotos recepción (${f+1}/${fotosRecepcion.length})...`, 46 + (f/Math.max(fotosRecepcion.length,1))*5);
-      await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
-        { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }).catch(()=>{});
+      // Subir fotos de recepción
+      const fieldIdRecibido = FOTOS_FIELD_MAP["Recibido"];
+      for(let f = 0; f < fotosRecepcion.length; f++){
+        const foto = fotosRecepcion[f];
+        setP(`Subiendo fotos recepción (${f+1}/${fotosRecepcion.length})...`, 46 + (f/Math.max(fotosRecepcion.length,1))*5);
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }).catch(()=>{});
+      }
     }
 
     const clienteVal = document.getElementById("cliente").value.trim();
