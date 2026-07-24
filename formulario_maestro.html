@@ -927,6 +927,7 @@ const LOGO_SI_B64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgG
 // Escapa HTML para prevenir XSS al insertar texto dinámico en innerHTML
 function esc(s){ const d = document.createElement("div"); d.textContent = String(s || ""); return d.innerHTML; }
 
+
 const TABLA_ORDENES   = "tblcyGwDeOORxELJg";
 const TABLA_CHECKLIST = "tbl1yAx029Em12QDG";
 const TABLA_PINTURA   = "tbl6fY01T6q69BVN0";
@@ -1059,6 +1060,27 @@ let _autoSaveInterval = null;
 let _borradorYaRestaurado = false;
 let _bfRecordId = null; // ID del registro en TABLA_BORRADORES de Airtable
 
+/* ============================================================
+   FASE 4 (continuidad multidispositivo) — SUBIDA PROGRESIVA DE FOTOS
+   Mismo patrón que formulario_general.html: cada foto se sube a
+   BORRADORES en cuanto se toma, apoyándose en el ciclo de sync de la
+   Fase 3 (_ejecutarSyncBorradorAT) en vez de un timer aparte.
+   Fotos de CORRECCIÓN (corrNoOkPoints) quedan FUERA de esta fase:
+   hoy tampoco son parte del borrador persistido (ni local ni Airtable,
+   ver guardarBorrador()) — mismo límite que ya existía, no es nuevo.
+   ============================================================ */
+const BF_FOTOS_MAESTRO = { // categoría → campo de adjuntos en BORRADORES
+  checklist:  "fldIGehBQ9fD9inrf", // Fotos Checklist (compartido entre los 56 puntos, se distingue por nombre de archivo)
+  adherencia: "fldMeri4fb3dAtOwZ", // Fotos Adherencia
+  recepcion:  "fld9mRG6J2qYQHUf8", // Fotos Recibido
+  trabajo:    "fldauS3LyVWtOouLP", // Fotos Después (Trabajo Terminado)
+  embalaje:   "fldLxK7lAKcj1geqO", // Fotos Final (Embalaje Final)
+  danos:      "fldEyTPbc0Oy427wD", // Sulzer Fotos Daños (campo nuevo, no había equivalente)
+  placa:      "fld2WpAv4E3gyHFgD", // Sulzer Fotos Placa (campo nuevo, no había equivalente)
+};
+let _colaFotosBorradorMaestro = []; // [{key, foto}] pendientes de subir a BORRADORES
+let _procesandoColaFotosMaestro = false;
+
 // Checklist
 const respuestasChecklist = {};
 const TOTAL_ITEMS_CK = 56;
@@ -1084,56 +1106,56 @@ const CHECKLIST_ITEMS = [
   { section:"SECCIÓN 1 — Dibujo y Documentación",               num:"1.1.-",  text:"Se aplicaron todos los comentarios." },
   { section:"SECCIÓN 2-3 — Placas de Datos",                    num:"2.-",    text:"Revisión de placas de datos de acuerdo a dibujo aprobado", photo:"always" },
   { section:"SECCIÓN 2-3 — Placas de Datos",                    num:"3.-",    text:"Revisión de placa de datos de acuerdo a hoja de datos aprobada." },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.1.-",  text:"Placa con número de TAG.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.2.-",  text:"Placa de sentido de rotación (metálica).", photo:"okOrNoOk" },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.3.-",  text:"Placa de conexiones eléctrica.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.4.-",  text:"Placa de clasificación de áreas.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.5.-",  text:"Placas de seguridad.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.6.-",  text:"Placas de resistencias calefactoras", photo:"okOrNoOk" },
-  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.7.-",  text:"Placa de RTD.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.1.-",  text:"Distancia Total", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.2.-",  text:"Medir distancia entre centros de barrenos de anclaje en cada pata del motor y longitud total de las patas de motor.", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.3.-",  text:"Medir distancia entre centros de barrenos de anclaje de ancho de motor y longitud total.", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.4.-",  text:"Medir diámetro de barrenos de anclaje de motor, validando contra dibujo", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.5.-",  text:"Medir diámetro de flecha. longitudes de motor y cuñero contra dibujo", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.6.-",  text:"Medir altura desde la base hasta el centro de la flecha del motor.", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.7.-",  text:"Verificar dimensiones de caja de conexiones principal y auxiliar si aplica,", photo:"always" },
-  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.8.-",  text:"Verificar el run-out de eje.", extra:["Especificación","Real"], photo:"always" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.1.-",  text:"Tapones de graseras.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.2.-",  text:"Ventilador si el motor es lubricado por grasa, cuando es lubricado por niebla no lo lleva.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.3.-",  text:"Verificar diagrama de conexión eléctrico para caja auxiliar (cuando aplique).", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.4.-",  text:"Verificar que el motor tenga oreja(s) de izaje o cáncamos de izaje.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.5.-",  text:"Verificar tuberías si aplica.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.6.-",  text:"Verificar de proteción para conexiones NPT (tapón de plástico)", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.7.-",  text:"Verificacion de zapatas o terminales en los cables de conexión.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.8.-",  text:"Verificacion de tornillos de nivelación si aplica.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.9.-",  text:"Vericacion de terminales de puesta a tierra", photo:"okOrNoOk" },
-  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.1.-",  text:"Ausencia de poros.", photo:"onlyNoOk" },
-  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.2.-",  text:"Ausencia de Agujeros", photo:"onlyNoOk" },
-  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.3.-",  text:"Ausencia de penetración de metal", photo:"onlyNoOk" },
-  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.4.-",  text:"Ausencia de contracciones.", photo:"onlyNoOk" },
-  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.5.-",  text:"Ausencia de fracturas.", photo:"onlyNoOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.1.-",  text:"Color.", photo:"onlyNoOk", colorField:true },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.2.-",  text:"espesor de pintura si aplica." },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.3.-",  text:"ausencia de escurrimientos.", photo:"onlyNoOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.4.-",  text:"ausencia de cascara de naranja.", photo:"noOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.5.-",  text:"Ausencia de ampollas.", photo:"noOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.6.-",  text:"Ausencia de puntas de alfiler.", photo:"noOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.7.-",  text:"Ausencia de ojos de pescado.", photo:"noOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.8.-",  text:"Ausencia de Oxido", photo:"noOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.9.-",  text:"Ausencia de desprendimiento de pintura", photo:"noOk" },
-  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.10.-", text:"Ausencia de áreas con falta de pintura.", photo:"noOk" },
-  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.1.-",   text:"Identificacion de cables.", photo:"always" },
-  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.2.-",   text:"Secuencia de cableado.", photo:"always" },
-  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.3.-",   text:"codigos de colores.", photo:"always" },
-  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.4.-",   text:"revisión de soldadura se aplica.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.4.1.-", text:"HAZ de soldadura limpia si es INOX.", photo:"okOrNoOk" },
-  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.5.-",   text:"Empaque sin daños si aplica.", photo:"okOrNoOk" },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.1.-",  text:"Placa con número de TAG.", photo:"always" },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.2.-",  text:"Placa de sentido de rotación (metálica)." },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.3.-",  text:"Placa de conexiones eléctrica." },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.4.-",  text:"Placa de clasificación de áreas." },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.5.-",  text:"Placas de seguridad." },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.6.-",  text:"Placas de resistencias calefactoras" },
+  { section:"SECCIÓN 4 — Placas Auxiliares",                    num:"4.7.-",  text:"Placa de RTD." },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.1.-",  text:"Distancia Total", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.2.-",  text:"Medir distancia entre centros de barrenos de anclaje en cada pata del motor y longitud total de las patas de motor.", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.3.-",  text:"Medir distancia entre centros de barrenos de anclaje de ancho de motor y longitud total.", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.4.-",  text:"Medir diámetro de barrenos de anclaje de motor, validando contra dibujo", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.5.-",  text:"Medir diámetro de flecha. longitudes de motor y cuñero contra dibujo", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.6.-",  text:"Medir altura desde la base hasta el centro de la flecha del motor.", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.7.-",  text:"Verificar dimensiones de caja de conexiones principal y auxiliar si aplica,", photo:"opcional" },
+  { section:"SECCIÓN 5 — Verificación Dimensional",             num:"5.8.-",  text:"Verificar el run-out de eje.", extra:["Especificación","Real"], photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.1.-",  text:"Tapones de graseras.", photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.2.-",  text:"Ventilador si el motor es lubricado por grasa, cuando es lubricado por niebla no lo lleva." },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.3.-",  text:"Verificar diagrama de conexión eléctrico para caja auxiliar (cuando aplique)." },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.4.-",  text:"Verificar que el motor tenga oreja(s) de izaje o cáncamos de izaje.", photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.5.-",  text:"Verificar tuberías si aplica.", photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.6.-",  text:"Verificar de proteción para conexiones NPT (tapón de plástico)", photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.7.-",  text:"Verificacion de zapatas o terminales en los cables de conexión.", photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.8.-",  text:"Verificacion de tornillos de nivelación si aplica.", photo:"opcional" },
+  { section:"SECCIÓN 6 — Accesorios del Motor",                 num:"6.9.-",  text:"Vericacion de terminales de puesta a tierra", photo:"opcional" },
+  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.1.-",  text:"Ausencia de poros.", photo:"opcional" },
+  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.2.-",  text:"Ausencia de Agujeros", photo:"opcional" },
+  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.3.-",  text:"Ausencia de penetración de metal", photo:"opcional" },
+  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.4.-",  text:"Ausencia de contracciones.", photo:"opcional" },
+  { section:"SECCIÓN 7 — Inspección Visual de Fundición",       num:"7.5.-",  text:"Ausencia de fracturas.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.1.-",  text:"Color.", photo:"opcional", colorField:true },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.2.-",  text:"espesor de pintura si aplica.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.3.-",  text:"ausencia de escurrimientos.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.4.-",  text:"ausencia de cascara de naranja.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.5.-",  text:"Ausencia de ampollas.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.6.-",  text:"Ausencia de puntas de alfiler.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.7.-",  text:"Ausencia de ojos de pescado.", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.8.-",  text:"Ausencia de Oxido", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.9.-",  text:"Ausencia de desprendimiento de pintura", photo:"opcional" },
+  { section:"SECCIÓN 8 — Inspección de Recubrimiento (Pintura)",num:"8.10.-", text:"Ausencia de áreas con falta de pintura.", photo:"opcional" },
+  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.1.-",   text:"Identificacion de cables.", photo:"opcional" },
+  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.2.-",   text:"Secuencia de cableado.", photo:"opcional" },
+  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.3.-",   text:"codigos de colores.", photo:"opcional" },
+  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.4.-",   text:"revisión de soldadura se aplica.", photo:"opcional" },
+  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.4.1.-", text:"HAZ de soldadura limpia si es INOX.", photo:"opcional" },
+  { section:"SECCIÓN 9 — Revisión de Caja de Conexiones",       num:"9.5.-",   text:"Empaque sin daños si aplica.", photo:"opcional" },
   { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.1.-",  text:"Reporte completo." },
   { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.2.-",  text:"Reporte de rutina." },
   { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.3.-",  text:"Pruebas Completas" },
   { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.4.-",  text:"Certificaciones si aplica." },
-  { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.5.-",  text:"Reporte de planicidad de soportes.", photo:"okOrNoOk" },
+  { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.5.-",  text:"Reporte de planicidad de soportes." },
   { section:"SECCIÓN 10 — Revisión Documental",                 num:"10.6.-",  text:"Reporte de recubrimiento." },
   { section:"SECCIÓN 11 — Centro Magnético",                    num:"11.1.-",  text:"verificacion de placa de identificación de centro magnético" },
   { section:"SECCIÓN 11 — Centro Magnético",                    num:"11.2.-",  text:"Verificacion de marca de Centro Magnético" },
@@ -1341,19 +1363,15 @@ function validarChecklist(){
         erroresCK.push(`Falta descripción del problema en punto ${item.num}`);
         incompleto = true;
       }
-      if(item.photo === "always" && (!r.fotos || r.fotos.length === 0)){
+      if(item.photo === "always" && r.resultado !== "N/A" && (!r.fotos || r.fotos.length === 0)){
         erroresCK.push(`Falta foto en punto ${item.num}`);
         incompleto = true;
       }
-      if(item.photo === "okOrNoOk" && (r.resultado === "OK" || r.resultado === "NO OK") && (!r.fotos || r.fotos.length === 0)){
+      if(item.photo === "opcional" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)){
         erroresCK.push(`Falta foto de evidencia en punto: ${item.num}`);
         incompleto = true;
       }
-      if(item.photo === "onlyNoOk" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)){
-        erroresCK.push(`Falta foto de evidencia en punto: ${item.num}`);
-        incompleto = true;
-      }
-      if(item.photo !== "always" && item.photo !== "okOrNoOk" && item.photo !== "onlyNoOk" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)){
+      if(item.photo !== "always" && item.photo !== "opcional" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)){
         erroresCK.push(`Falta foto de evidencia en punto: ${item.num}`);
         incompleto = true;
       }
@@ -1415,7 +1433,7 @@ async function buscarOCrearOrden(serie){
   try{
     const formula = encodeURIComponent(`({${ORDENES_FIELDS.serie}}="${serie}")`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}`;
-    const resp = await fetch(url, { headers:{ } });
+    const resp = await fetch(url, { headers:{} });
     if(resp.ok){
       const data = await resp.json();
       if(data.records && data.records.length > 0) return data.records[0].id;
@@ -1581,6 +1599,7 @@ function iniciarNuevoMotor(){
    Permite que el dashboard muestre % real aunque no haya submit final.
    ============================================================ */
 let _atSyncTimer = null;
+let _ultimoSyncMaestro = null; // firma de los últimos campos ya escritos en Airtable, evita PATCH repetidos sin cambios
 
 // Wrapper debounced: evita race condition cuando el técnico corrige
 // un punto de NO OK → OK rápidamente antes de que el PATCH anterior llegue.
@@ -1611,6 +1630,21 @@ async function _ejecutarSyncBorradorAT(){
     }
   });
 
+  // FASE 3 (continuidad multidispositivo): datosJson ahora también lleva TODO el
+  // estado de texto del formulario (datos generales, recepción, checklist sin fotos,
+  // pintura, etapas de evidencia, flags de progreso) — antes solo llevaba "noOk" para
+  // el monitor en vivo del dashboard, que se conserva igual (no renombrar esa clave).
+  // Las fotos (base64 locales) se excluyen a propósito: eso es la Fase 4, aparte.
+  const checklistTexto = Object.fromEntries(
+    Object.entries(respuestasChecklist).map(([k,v]) => [k, {
+      resultado:        v.resultado        || "",
+      descripcion:       v.descripcion       || "",
+      accionCorrectiva: v.accionCorrectiva || "",
+      color81:          v.color81          || "",
+      extra:            v.extra            || {},
+    }])
+  );
+
   const campos = {
     [BF.serie]:               serie,
     [BF.porcentaje]:          pct,
@@ -1618,8 +1652,67 @@ async function _ejecutarSyncBorradorAT(){
     [BF.ultimaActualizacion]: new Date().toISOString().split("T")[0],
     [BF.inspector]:           document.getElementById("inspector").value || "",
     [BF.cliente]:             document.getElementById("cliente").value.trim() || "",
-    [BF.datosJson]:           JSON.stringify({ noOk: noOkList }),
+    [BF.datosJson]:           JSON.stringify({
+      noOk: noOkList,
+
+      numSerie:            document.getElementById("numSerie").value,
+      motorHP:             document.getElementById("motorHP").value,
+      motorFrame:          document.getElementById("motorFrame").value,
+      motorVolts:          document.getElementById("motorVolts").value,
+      motorSpec:           document.getElementById("motorSpec").value,
+      cliente:             document.getElementById("cliente").value,
+      inspector:           document.getElementById("inspector").value,
+      inspectorOtro:       document.getElementById("inspectorOtro").value,
+      responsableCalidad:  document.getElementById("responsableCalidad").value,
+      fechaRecibo:         document.getElementById("fechaRecibo").value,
+      fechaTermino:        document.getElementById("fechaTermino").value,
+      servicioSolicitado:  document.getElementById("servicioSolicitado").value,
+      ordenCompra:         document.getElementById("ordenCompra").value,
+      numDibujo:           document.getElementById("numDibujo").value,
+      numRevisiones:       document.getElementById("numRevisiones").value,
+      norma:               document.getElementById("norma").value,
+      refProveedor:        document.getElementById("refProveedor").value,
+      comentariosGenerales: document.getElementById("comentariosGenerales").value,
+      checklistRespuestas: checklistTexto,
+      m1: document.getElementById("m1").value,
+      m2: document.getElementById("m2").value,
+      m3: document.getElementById("m3").value,
+      m4: document.getElementById("m4").value,
+      m5: document.getElementById("m5").value,
+      m6: document.getElementById("m6").value,
+      metodo:              document.getElementById("metodo").value,
+      escalaSeleccionada:  escalaSeleccionada,
+      comentariosPintura:  document.getElementById("comentariosPintura").value,
+      recepcion: {
+        condicionEmbalaje:      document.getElementById("condicionEmbalaje")?.value || "",
+        descripcionEmbalaje:    document.getElementById("descripcionEmbalaje")?.value || "",
+        estadoFisicoMotor:      document.getElementById("estadoFisicoMotor")?.value || "",
+        descripcionDanos:       document.getElementById("descripcionDanos")?.value || "",
+        observacionesRecepcion: document.getElementById("observacionesRecepcion")?.value || "",
+      },
+      recepcionEnviada,
+      escalaSel4,
+      ckRecordIdGlobal,
+      evidenciaRecordIdGlobal,
+      ordenRecordId,
+      checklistYaEnviado,
+      checklistOmitido,
+      pinturaEnviada,
+      etapasDesc: ETAPAS.map((e, i) => {
+        const el = document.getElementById("etapa_" + i + "_desc");
+        return el ? el.value : "";
+      }),
+    }),
   };
+
+  // Evita escribir a Airtable si nada cambió desde el último sync — el autoguardado
+  // cada 15s llama a esta función aunque el técnico no haya tocado nada en ese lapso.
+  const { [BF.ultimaActualizacion]: _omit, ...camposComparables } = campos;
+  const firma = JSON.stringify(camposComparables);
+  if(firma === _ultimoSyncMaestro && _bfRecordId){
+    procesarColaFotosBorradorMaestro(); // FASE 4: el texto no cambió, pero puede haber fotos nuevas pendientes
+    return;
+  }
 
   try{
     if(!_bfRecordId){
@@ -1627,7 +1720,7 @@ async function _ejecutarSyncBorradorAT(){
       const formula = encodeURIComponent(`{${BF.serie}}="${serie}"`);
       const busca = await fetch(
         `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
-        { headers:{ }}
+        { headers:{}}
       );
       const bd = await busca.json();
       if(bd.records?.length) _bfRecordId = bd.records[0].id;
@@ -1648,7 +1741,104 @@ async function _ejecutarSyncBorradorAT(){
       const cd = await crea.json();
       if(cd.records?.[0]) _bfRecordId = cd.records[0].id;
     }
+    _ultimoSyncMaestro = firma;
   } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
+
+  procesarColaFotosBorradorMaestro(); // FASE 4: ya hay (o no se pudo crear) _bfRecordId, intenta subir lo pendiente
+}
+
+/* FASE 4: reintenta ante fallos de red Y ante 429 (límite de 5 llamadas/seg de Airtable)
+   o 5xx — antes no existía ningún reintento para las subidas de fotos de Sulzer. */
+async function fetchConReintentoMaestro(url, opciones, intentos = 3, esperaMs = 1500){
+  for(let i = 0; i < intentos; i++){
+    try{
+      const resp = await fetch(url, opciones);
+      if(!resp.ok && (resp.status === 429 || resp.status >= 500) && i < intentos - 1){
+        await new Promise(r => setTimeout(r, esperaMs * (i + 1)));
+        continue;
+      }
+      return resp;
+    }catch(err){
+      if(i === intentos - 1) throw err;
+      await new Promise(r => setTimeout(r, esperaMs * (i + 1)));
+    }
+  }
+}
+
+// FASE 4: agrega una foto a la cola de subida y dispara el intento (no bloqueante).
+function encolarFotoBorradorMaestro(key, foto){
+  _colaFotosBorradorMaestro.push({ key, foto });
+  procesarColaFotosBorradorMaestro();
+}
+
+/* FASE 4: sube en fila (una a la vez) las fotos pendientes a su campo de adjuntos en
+   BORRADORES. Si no hay _bfRecordId todavía, o si una subida falla, se detiene y se
+   reintenta en el próximo ciclo de sync sin perder lo que ya se subió. Mismo patrón
+   que procesarColaFotosBorradorGeneral() en formulario_general.html. */
+async function procesarColaFotosBorradorMaestro(){
+  if(_procesandoColaFotosMaestro || !_bfRecordId) return;
+  _procesandoColaFotosMaestro = true;
+  try{
+    while(_colaFotosBorradorMaestro.length > 0){
+      const item = _colaFotosBorradorMaestro[0];
+      const fieldId = BF_FOTOS_MAESTRO[item.key];
+      if(!fieldId || item.foto._subidoBorrador){
+        _colaFotosBorradorMaestro.shift();
+        continue;
+      }
+      let resp;
+      try{
+        resp = await fetchConReintentoMaestro(`/.netlify/functions/airtable-upload?recordId=${_bfRecordId}&fieldId=${fieldId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contentType: item.foto.contentType || "image/jpeg",
+            filename: item.foto.filename,
+            file: item.foto.base64 || item.foto.dataUrl.split(",")[1]
+          })
+        });
+      } catch(e){ break; } // sin conexión — se reintenta en el próximo ciclo
+      if(!resp || !resp.ok) break; // falló a pesar de los reintentos — no tronar el resto de la cola
+      const data = await resp.json();
+      const atts = (data.fields && data.fields[fieldId]) || [];
+      const nuevo = atts.find(a => a.filename === item.foto.filename);
+      if(nuevo) item.foto._borradorAttId = nuevo.id;
+      item.foto._subidoBorrador = true;
+      _colaFotosBorradorMaestro.shift();
+    }
+  } finally {
+    _procesandoColaFotosMaestro = false;
+  }
+}
+
+/* FASE 4: Airtable no tiene "borrar un adjunto" — hay que leer los que hay en el campo
+   y volver a mandar el campo completo sin el que se quitó. */
+async function eliminarFotoBorradorMaestro(key, attId){
+  if(!_bfRecordId) return;
+  const fieldId = BF_FOTOS_MAESTRO[key];
+  if(!fieldId) return;
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordId}&returnFieldsByFieldId=true`, {
+      headers:{}
+    });
+    const data = await resp.json();
+    const actuales = (data.fields && data.fields[fieldId]) || [];
+    const restantes = actuales.filter(a => a.id !== attId).map(a => ({ id: a.id }));
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordId}`, {
+      method: "PATCH",
+      headers:{ "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [fieldId]: restantes } })
+    });
+  } catch(e){ /* fallo silencioso — ya se quitó de la UI local */ }
+}
+
+// FASE 4: saca del array local Y de la cola una foto que se está eliminando; si ya
+// estaba subida a Airtable, la borra de allá también. Se llama desde cada
+// eliminarFotoX()/quitarFotoX() antes o después de hacer el splice del array.
+function quitarFotoDeColaYAirtableMaestro(key, foto){
+  if(!foto) return;
+  _colaFotosBorradorMaestro = _colaFotosBorradorMaestro.filter(item => item.foto !== foto);
+  if(foto._borradorAttId) eliminarFotoBorradorMaestro(key, foto._borradorAttId);
 }
 
 async function borrarTodosBorradores(){
@@ -1715,7 +1905,7 @@ async function verificarOrdenLive(){
   try{
     const formula = encodeURIComponent(`({${ORDENES_FIELDS.serie}}="${serie}")`);
     const url = `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url, { headers:{ } });
+    const resp = await fetch(url, { headers:{} });
     if(!resp.ok){ statusEl.classList.add("hidden"); return; }
     const data = await resp.json();
     if(data.records && data.records.length > 0){
@@ -2074,6 +2264,136 @@ function restaurarBorradorCompleto(datos){
   }
 }
 
+/* ============================================================
+   FASE 3 (continuidad multidispositivo) — REENTRADA DESDE AIRTABLE
+   CUANDO NO HAY BORRADOR LOCAL. Si este dispositivo no tiene nada en
+   IndexedDB para esta serie, se busca en BORRADORES (la sync de arriba
+   ya guarda ahí el JSON completo de texto: datos generales, recepción,
+   checklist sin fotos, pintura, etapas y flags de progreso) y se
+   repinta el formulario con eso, reusando toda la lógica de pantallas
+   de restaurarBorradorCompleto(). Las fotos NO se recuperan (eso es
+   la Fase 4) — se avisa al técnico para que las vuelva a agregar.
+   Devuelve true si encontró y restauró algo, false si no había nada
+   útil (para que el llamador caiga a verificarOrdenLive() de siempre).
+   ============================================================ */
+// FASE 4: descarga un adjunto ya subido a Airtable y lo convierte al mismo formato
+// {dataUrl, base64, filename} que usa una foto recién tomada — así renderizarGridCK(),
+// renderGridEv(), etc. y el envío final no necesitan distinguir una foto restaurada de
+// una nueva.
+async function descargarComoDataUrlMaestro(url){
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// FASE 4: baja todas las fotos ya subidas del borrador. El checklist es especial —
+// sus 56 puntos comparten UN campo de Airtable ("Fotos Checklist"), así que hay que
+// repartir cada adjunto de vuelta a su punto según el nombre de archivo
+// (`punto_<numLimpio>_foto_N.jpg`, mismo patrón que ya usa manejarFotosCK()). Las fotos
+// de corrección (`correccion_...`) no se suben en esta fase (ver nota en BF_FOTOS_MAESTRO)
+// y se ignoran aquí si aparecieran.
+async function restaurarFotosBorradorMaestro(rec){
+  const descargar = async (att) => {
+    try{
+      return { dataUrl: await descargarComoDataUrlMaestro(att.url), base64: null,
+        contentType: att.type || "image/jpeg", filename: att.filename,
+        _borradorAttId: att.id, _subidoBorrador: true };
+    } catch(e){ return null; }
+  };
+
+  const resultado = { recepcion:[], danos:[], placa:[], adherencia:[], trabajo:[], embalaje:[], checklistPorIndice:{} };
+  const simples = ["recepcion","danos","placa","adherencia","trabajo","embalaje"];
+  await Promise.all(simples.map(async (key) => {
+    const atts = rec.fields[BF_FOTOS_MAESTRO[key]] || [];
+    const fotos = await Promise.all(atts.map(descargar));
+    resultado[key] = fotos.filter(Boolean);
+  }));
+
+  const numLimpioToIndex = {};
+  CHECKLIST_ITEMS.forEach((item, idx) => {
+    numLimpioToIndex[item.num.replace(/[^0-9]+/g,"_").replace(/^_+|_+$/g,"")] = idx;
+  });
+  const attsCK = rec.fields[BF_FOTOS_MAESTRO.checklist] || [];
+  await Promise.all(attsCK.map(async (att) => {
+    const m = /^punto_(.+)_foto_\d+\.jpg$/.exec(att.filename || "");
+    if(!m) return;
+    const idx = numLimpioToIndex[m[1]];
+    if(idx === undefined) return;
+    const foto = await descargar(att);
+    if(!foto) return;
+    if(!resultado.checklistPorIndice[idx]) resultado.checklistPorIndice[idx] = [];
+    resultado.checklistPorIndice[idx].push(foto);
+  }));
+
+  return resultado;
+}
+
+async function restaurarDesdeAirtableMaestro(serie){
+  try{
+    const formula = encodeURIComponent(`{${BF.serie}}="${serie.toUpperCase()}"`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const resp = await fetch(url, { headers:{} });
+    const data = await resp.json();
+    const rec = (data.records || [])[0];
+    if(!rec || !rec.fields[BF.datosJson]) return false;
+
+    const bd = JSON.parse(rec.fields[BF.datosJson]);
+    // Borradores de antes de la Fase 3 solo traían "noOk" (para el monitor en vivo) —
+    // sin numSerie/ordenRecordId no hay suficiente para reconstruir el formulario.
+    if(!bd.numSerie || !bd.ordenRecordId) return false;
+
+    _bfRecordId = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
+
+    // FASE 4: baja las fotos ya subidas y las mezcla con el checklist de texto.
+    const fotosRestauradas = await restaurarFotosBorradorMaestro(rec);
+    const checklistConFotos = {};
+    Object.entries(bd.checklistRespuestas || {}).forEach(([k, v]) => {
+      checklistConFotos[k] = { ...v, fotos: fotosRestauradas.checklistPorIndice[k] || [] };
+    });
+
+    const datos = {
+      serie: serie.toUpperCase(),
+      numSerie: bd.numSerie, motorHP: bd.motorHP || "", motorFrame: bd.motorFrame || "",
+      motorVolts: bd.motorVolts || "", motorSpec: bd.motorSpec || "",
+      cliente: bd.cliente || "", inspector: bd.inspector || "", inspectorOtro: bd.inspectorOtro || "",
+      responsableCalidad: bd.responsableCalidad || "",
+      fechaRecibo: bd.fechaRecibo || "", fechaTermino: bd.fechaTermino || "",
+      servicioSolicitado: bd.servicioSolicitado || "", ordenCompra: bd.ordenCompra || "",
+      numDibujo: bd.numDibujo || "", numRevisiones: bd.numRevisiones || "", norma: bd.norma || "",
+      refProveedor: bd.refProveedor || "", comentariosGenerales: bd.comentariosGenerales || "",
+      checklistRespuestas: checklistConFotos,
+      m1: bd.m1 || "", m2: bd.m2 || "", m3: bd.m3 || "", m4: bd.m4 || "", m5: bd.m5 || "", m6: bd.m6 || "",
+      metodo: bd.metodo || "", escalaSeleccionada: bd.escalaSeleccionada || "",
+      comentariosPintura: bd.comentariosPintura || "",
+      recepcion: bd.recepcion || {},
+      fotosRecepcion: fotosRestauradas.recepcion,
+      fotosDanosRecepcion: fotosRestauradas.danos,
+      fotosPlacaRecepcion: fotosRestauradas.placa,
+      recepcionEnviada: !!bd.recepcionEnviada,
+      fotosAdherencia: fotosRestauradas.adherencia,
+      fotosTrabajoTerminado: fotosRestauradas.trabajo,
+      fotosEmbalajeFinal: fotosRestauradas.embalaje,
+      escalaSel4: bd.escalaSel4 || "",
+      ckRecordIdGlobal: bd.ckRecordIdGlobal || null,
+      evidenciaRecordIdGlobal: bd.evidenciaRecordIdGlobal || null,
+      ordenRecordId: bd.ordenRecordId,
+      checklistYaEnviado: !!bd.checklistYaEnviado,
+      checklistOmitido: !!bd.checklistOmitido,
+      pinturaEnviada: !!bd.pinturaEnviada,
+      etapasDesc: bd.etapasDesc || [],
+    };
+
+    restaurarBorradorCompleto(datos);
+    alert("Se recuperaron los datos guardados de este equipo (no estaban en este dispositivo, pero sí en el sistema), incluyendo las fotos que ya se habían subido.\n\nOJO: las fotos de correcciones (puntos NO OK reabiertos) y cualquier foto tomada justo antes de cambiar de dispositivo que no alcanzó a subirse, esas sí hay que volver a agregarlas.");
+    return true;
+  } catch(e){ return false; }
+}
+
 function cargarBorrador(){
   if(!_borradorPendiente) return;
   restaurarBorradorCompleto(_borradorPendiente.datos);
@@ -2128,18 +2448,14 @@ function construirChecklist(){
       }).join("") + `</div>`;
     }
 
-    const badge = (item.photo === "always" || item.photo === "okOrNoOk" || item.photo === "onlyNoOk") ? `<span class="photo-badge">📸</span>` : "";
+    const badge = (item.photo === "always") ? `<span class="photo-badge">📸</span>` : "";
 
     let photoAlwaysHtml = "";
     if(item.photo === "always") photoAlwaysHtml = `<div class="ok-or-nook-block visible" id="${itemId}_alwaysBlock">${construirBloqueFotoCK(itemId, index, "📸 Foto requerida para este punto")}</div>`;
 
-    let photoOkOrNoOkHtml = "";
-    if(item.photo === "okOrNoOk")
-      photoOkOrNoOkHtml = `<div class="ok-or-nook-block" id="${itemId}_okNoOkBlock">${construirBloqueFotoCK(itemId, index, "📸 Foto de evidencia (obligatorio)")}</div>`;
-
-    let photoOnlyNoOkHtml = "";
-    if(item.photo === "onlyNoOk")
-      photoOnlyNoOkHtml = `<div class="ok-or-nook-block" id="${itemId}_onlyNoOkBlock">${construirBloqueFotoCK(itemId, index, "📸 Foto de evidencia del problema (obligatorio)")}</div>`;
+    let photoOpcionalHtml = "";
+    if(item.photo === "opcional")
+      photoOpcionalHtml = `<div class="ok-or-nook-block" id="${itemId}_opcionalBlock">${construirBloqueFotoCK(itemId, index, "📷 Foto (opcional)")}</div>`;
 
     let colorFieldHtml = "";
     if(item.colorField){
@@ -2151,7 +2467,7 @@ function construirChecklist(){
     }
 
     let photoNoOkHtml = "";
-    if(item.photo !== "always" && item.photo !== "okOrNoOk" && item.photo !== "onlyNoOk")
+    if(item.photo !== "always" && item.photo !== "opcional")
       photoNoOkHtml = construirBloqueFotoCK(itemId, index, "📸 Foto de evidencia del problema (obligatorio)");
 
     html += `
@@ -2164,8 +2480,7 @@ function construirChecklist(){
         </div>
         ${extraHtml}
         ${photoAlwaysHtml}
-        ${photoOkOrNoOkHtml}
-        ${photoOnlyNoOkHtml}
+        ${photoOpcionalHtml}
         ${colorFieldHtml}
         <div class="problem-desc" id="${itemId}_descWrap">
           <label class="photo-label">⚠️ Describe el problema (obligatorio)</label>
@@ -2244,26 +2559,12 @@ function seleccionarEstadoCK(index, estado){
     }
   }
 
-  const okNoOkBlock = document.getElementById(itemId + "_okNoOkBlock");
-  if(okNoOkBlock){
+  const opcionalBlock = document.getElementById(itemId + "_opcionalBlock");
+  if(opcionalBlock){
     if(estado === "OK" || estado === "NO OK"){
-      okNoOkBlock.classList.add("visible");
+      opcionalBlock.classList.add("visible");
     } else {
-      okNoOkBlock.classList.remove("visible");
-      respuestasChecklist[index].fotos = [];
-      const grid = document.getElementById(itemId + "_photoGrid");
-      if(grid) grid.innerHTML = "";
-      const input = document.getElementById(itemId + "_photoInput");
-      if(input) input.value = "";
-    }
-  }
-
-  const onlyNoOkBlock = document.getElementById(itemId + "_onlyNoOkBlock");
-  if(onlyNoOkBlock){
-    if(estado === "NO OK"){
-      onlyNoOkBlock.classList.add("visible");
-    } else {
-      onlyNoOkBlock.classList.remove("visible");
+      opcionalBlock.classList.remove("visible");
       respuestasChecklist[index].fotos = [];
       const grid = document.getElementById(itemId + "_photoGrid");
       if(grid) grid.innerHTML = "";
@@ -2295,7 +2596,7 @@ function seleccionarEstadoCK(index, estado){
     if(descTa) descTa.value = "";
     const accionClear = document.getElementById(itemId + "_accion");
     if(accionClear) accionClear.value = "";
-    if(item.photo !== "always" && item.photo !== "okOrNoOk" && item.photo !== "onlyNoOk" && respuestasChecklist[index].fotos?.length){
+    if(item.photo !== "always" && item.photo !== "opcional" && respuestasChecklist[index].fotos?.length){
       respuestasChecklist[index].fotos = [];
       const grid = document.getElementById(itemId + "_photoGrid");
       if(grid) grid.innerHTML = "";
@@ -2346,12 +2647,14 @@ function manejarFotosCK(index, inputEl){
       const dataUrl = e.target.result;
       const numLimpio = CHECKLIST_ITEMS[index].num.replace(/[^0-9]+/g,"_").replace(/^_+|_+$/g,"");
       const fotoIdx = respuestasChecklist[index].fotos.length + 1;
-      respuestasChecklist[index].fotos.push({
+      const foto = {
         base64: dataUrl.split(",")[1],
         contentType: file.type || "image/jpeg",
         dataUrl,
         filename: `punto_${numLimpio}_foto_${fotoIdx}.jpg`
-      });
+      };
+      respuestasChecklist[index].fotos.push(foto);
+      encolarFotoBorradorMaestro("checklist", foto); // FASE 4
       pendientes--;
       if(pendientes === 0){
         renombrarFotosCK(index);
@@ -2386,7 +2689,9 @@ function renderizarGridCK(index){
 }
 
 function eliminarFotoCK(index, fi){
+  const foto = respuestasChecklist[index].fotos[fi];
   respuestasChecklist[index].fotos.splice(fi, 1);
+  quitarFotoDeColaYAirtableMaestro("checklist", foto); // FASE 4
   renombrarFotosCK(index);
   renderizarGridCK(index);
   actualizarProgresoCK();
@@ -2397,10 +2702,9 @@ function esCompletoCK(index){
   const r = respuestasChecklist[index];
   if(!r || !r.resultado) return false;
   const item = CHECKLIST_ITEMS[index];
-  if(item.photo === "always" && (!r.fotos || r.fotos.length === 0)) return false;
-  if(item.photo === "okOrNoOk" && (r.resultado === "OK" || r.resultado === "NO OK") && (!r.fotos || r.fotos.length === 0)) return false;
-  if(item.photo === "onlyNoOk" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)) return false;
-  if(item.photo !== "always" && item.photo !== "okOrNoOk" && item.photo !== "onlyNoOk" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)) return false;
+  if(item.photo === "always" && r.resultado !== "N/A" && (!r.fotos || r.fotos.length === 0)) return false;
+  if(item.photo === "opcional" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)) return false;
+  if(item.photo !== "always" && item.photo !== "opcional" && r.resultado === "NO OK" && (!r.fotos || r.fotos.length === 0)) return false;
   if(item.colorField && (r.resultado === "OK" || r.resultado === "NO OK") && (!r.color81 || !r.color81.trim())) return false;
   return true;
 }
@@ -2430,13 +2734,13 @@ function restaurarUIChecklist(){
 
     const item = CHECKLIST_ITEMS[index];
 
-    // okOrNoOk block
-    const okNoOkBlock = document.getElementById(itemId + "_okNoOkBlock");
-    if(okNoOkBlock && (v.resultado === "OK" || v.resultado === "NO OK")) okNoOkBlock.classList.add("visible");
+    // always block — oculto solo cuando N/A
+    const alwaysBlock = document.getElementById(itemId + "_alwaysBlock");
+    if(alwaysBlock && v.resultado === "N/A") alwaysBlock.classList.remove("visible");
 
-    // onlyNoOk block
-    const onlyNoOkBlock = document.getElementById(itemId + "_onlyNoOkBlock");
-    if(onlyNoOkBlock && v.resultado === "NO OK") onlyNoOkBlock.classList.add("visible");
+    // opcional block
+    const opcionalBlock = document.getElementById(itemId + "_opcionalBlock");
+    if(opcionalBlock && (v.resultado === "OK" || v.resultado === "NO OK")) opcionalBlock.classList.add("visible");
 
     // color block
     const colorBlock = document.getElementById(itemId + "_colorBlock");
@@ -2514,7 +2818,9 @@ function manejarFotosAdherencia(inputEl){
     const reader = new FileReader();
     reader.onload = function(e){
       const dataUrl = e.target.result;
-      fotosAdherencia.push({ base64: dataUrl.split(",")[1], contentType: file.type || "image/jpeg", dataUrl, filename: `prueba_adherencia_foto_${fotosAdherencia.length + 1}.jpg` });
+      const foto = { base64: dataUrl.split(",")[1], contentType: file.type || "image/jpeg", dataUrl, filename: `prueba_adherencia_foto_${fotosAdherencia.length + 1}.jpg` };
+      fotosAdherencia.push(foto);
+      encolarFotoBorradorMaestro("adherencia", foto); // FASE 4
       pendientes--;
       if(pendientes === 0){ renombrarFotosAdherencia(); renderizarGridAdherencia(); renderGridAdh(); guardarBorrador(); }
     };
@@ -2540,7 +2846,9 @@ function renderizarGridAdherencia(){
 }
 
 function eliminarFotoAdherencia(i){
+  const foto = fotosAdherencia[i];
   fotosAdherencia.splice(i, 1);
+  quitarFotoDeColaYAirtableMaestro("adherencia", foto); // FASE 4
   renombrarFotosAdherencia();
   renderizarGridAdherencia();
   guardarBorrador();
@@ -2658,12 +2966,14 @@ function manejarFotosRecepcion(inputEl){
     const reader = new FileReader();
     reader.onload = function(e){
       const dataUrl = e.target.result;
-      fotosRecepcion.push({
+      const foto = {
         filename: `recepcion_foto_${fotosRecepcion.length + 1}.jpg`,
         base64: dataUrl.split(",")[1],
         contentType: file.type || "image/jpeg",
         dataUrl
-      });
+      };
+      fotosRecepcion.push(foto);
+      encolarFotoBorradorMaestro("recepcion", foto); // FASE 4
       pendientes--;
       if(pendientes === 0){ renderizarGridRecepcion(); guardarBorrador(); }
     };
@@ -2687,7 +2997,9 @@ function renderizarGridRecepcion(){
 }
 
 function eliminarFotoRecepcion(i){
+  const foto = fotosRecepcion[i];
   fotosRecepcion.splice(i, 1);
+  quitarFotoDeColaYAirtableMaestro("recepcion", foto); // FASE 4
   renderizarGridRecepcion();
   guardarBorrador();
 }
@@ -2700,12 +3012,14 @@ function manejarFotosDanos(inputEl){
     const reader = new FileReader();
     reader.onload = function(e){
       const dataUrl = e.target.result;
-      fotosDanosRecepcion.push({
+      const foto = {
         filename: `danos_foto_${fotosDanosRecepcion.length + 1}.jpg`,
         base64: dataUrl.split(",")[1],
         contentType: file.type || "image/jpeg",
         dataUrl
-      });
+      };
+      fotosDanosRecepcion.push(foto);
+      encolarFotoBorradorMaestro("danos", foto); // FASE 4
       pendientes--;
       if(pendientes === 0){ renderizarGridDanos(); guardarBorrador(); }
     };
@@ -2729,7 +3043,9 @@ function renderizarGridDanos(){
 }
 
 function eliminarFotoDanos(i){
+  const foto = fotosDanosRecepcion[i];
   fotosDanosRecepcion.splice(i, 1);
+  quitarFotoDeColaYAirtableMaestro("danos", foto); // FASE 4
   renderizarGridDanos();
   guardarBorrador();
 }
@@ -2742,12 +3058,14 @@ function manejarFotosPlaca(inputEl){
     const reader = new FileReader();
     reader.onload = function(e){
       const dataUrl = e.target.result;
-      fotosPlacaRecepcion.push({
+      const foto = {
         filename: `placa_foto_${fotosPlacaRecepcion.length + 1}.jpg`,
         base64: dataUrl.split(",")[1],
         contentType: file.type || "image/jpeg",
         dataUrl
-      });
+      };
+      fotosPlacaRecepcion.push(foto);
+      encolarFotoBorradorMaestro("placa", foto); // FASE 4
       pendientes--;
       if(pendientes === 0){ renderizarGridPlaca(); guardarBorrador(); }
     };
@@ -2771,7 +3089,9 @@ function renderizarGridPlaca(){
 }
 
 function eliminarFotoPlaca(i){
+  const foto = fotosPlacaRecepcion[i];
   fotosPlacaRecepcion.splice(i, 1);
+  quitarFotoDeColaYAirtableMaestro("placa", foto); // FASE 4
   renderizarGridPlaca();
   guardarBorrador();
 }
@@ -3001,7 +3321,13 @@ function renderGridAdh(){
   ).join("");
 }
 
-function quitarFotoAdh(i){ fotosAdherencia.splice(i,1); renderGridAdh(); guardarBorrador(); }
+function quitarFotoAdh(i){
+  const foto = fotosAdherencia[i];
+  fotosAdherencia.splice(i,1);
+  quitarFotoDeColaYAirtableMaestro("adherencia", foto); // FASE 4
+  renderGridAdh();
+  guardarBorrador();
+}
 
 /* ============================================================
    PANTALLA 5 — FOTOS EVIDENCIA FINAL
@@ -3015,7 +3341,9 @@ function manejarFotosEv(tipo, inputEl){
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = e => {
-      arr.push({ base64: e.target.result.split(",")[1], contentType: file.type || "image/jpeg", dataUrl: e.target.result, filename: tipo+"_foto_"+(arr.length+1)+".jpg" });
+      const foto = { base64: e.target.result.split(",")[1], contentType: file.type || "image/jpeg", dataUrl: e.target.result, filename: tipo+"_foto_"+(arr.length+1)+".jpg" };
+      arr.push(foto);
+      encolarFotoBorradorMaestro(tipo === "trabajo" ? "trabajo" : "embalaje", foto); // FASE 4
       pendientes--;
       if(!pendientes) renderGridEv(tipo, gridId);
     };
@@ -3036,8 +3364,11 @@ function renderGridEv(tipo, gridId){
 
 function quitarFotoEv(tipo, i){
   const arr = tipo === "trabajo" ? fotosTrabajoTerminado : fotosEmbalajeFinal;
+  const foto = arr[i];
   arr.splice(i,1);
+  quitarFotoDeColaYAirtableMaestro(tipo === "trabajo" ? "trabajo" : "embalaje", foto); // FASE 4
   renderGridEv(tipo);
+  guardarBorrador();
 }
 
 /* ============================================================
@@ -3499,7 +3830,7 @@ async function guardarCorrecciones(){
         const serie = document.getElementById("numSerie").value.trim();
         const formula = encodeURIComponent(`OR(FIND("${ordenRecordId}",ARRAYJOIN({${FIELDS_CHECKLIST.ordenServicio}})),FIND("${serie} |",{${FIELDS_CHECKLIST.idRegistro}}))`);
         const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
-          { headers:{ } });
+          { headers:{} });
         const data = await resp.json();
         if(data.records?.length) ckRecordIdGlobal = data.records[0].id;
       }catch(e){}
@@ -3511,7 +3842,7 @@ async function guardarCorrecciones(){
         const serie = document.getElementById("numSerie").value.trim();
         const formula = encodeURIComponent(`OR(FIND("${ordenRecordId}",ARRAYJOIN({${FIELDS_EVIDENCIA.ordenServicio}})),FIND("${serie} |",{${FIELDS_EVIDENCIA.idRegistro}}))`);
         const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
-          { headers:{ } });
+          { headers:{} });
         const data = await resp.json();
         if(data.records?.length) evidenciaRecordIdGlobal = data.records[0].id;
       }catch(e){}
@@ -3539,7 +3870,7 @@ async function guardarCorrecciones(){
     setP("Actualizando datos...", 75);
     if(ckRecordIdGlobal){
       const ckResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&recordId=${ckRecordIdGlobal}&returnFieldsByFieldId=true`,
-        { headers:{ } });
+        { headers:{} });
       const ckRec = await ckResp.json();
       const rawJson = ckRec.fields?.[FIELDS_CHECKLIST.checklistJson] || "{}";
       let ckJson = {};
@@ -3693,7 +4024,7 @@ async function enviarFinal(){
       try{
         const evFml = encodeURIComponent(`OR(FIND("${ordenRecordId}",ARRAYJOIN({${FIELDS_EVIDENCIA.ordenServicio}})),FIND("${serie} |",{${FIELDS_EVIDENCIA.idRegistro}}))`);
         const evR = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}&filterByFormula=${evFml}&returnFieldsByFieldId=true`,
-          { headers:{ } });
+          { headers:{} });
         const evD = await evR.json();
         if(evD.records?.length) evidenciaRecordIdGlobal = evD.records[0].id;
       }catch(e){}
@@ -3783,7 +4114,7 @@ async function enviarFinal(){
     if(serie2) await eliminarDeDB(serie2).catch(()=>{});
     if(_bfRecordId){
       fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordId}`,
-        { method:"DELETE", headers:{ } }).catch(()=>{});
+        { method:"DELETE", headers:{} }).catch(()=>{});
       _bfRecordId = null;
     }
     localStorage.removeItem("maestro_ultima_serie");
@@ -3982,7 +4313,7 @@ async function enviarTodo(){
     if(serie2) await eliminarDeDB(serie2).catch(() => {});
     if(_bfRecordId){
       fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordId}`, {
-        method:"DELETE", headers:{ }
+        method:"DELETE", headers:{}
       }).catch(() => {});
       _bfRecordId = null;
     }
@@ -4062,9 +4393,11 @@ window.addEventListener("DOMContentLoaded", async () => {
       _borradorPendiente = { datos };
       restaurarBorradorCompleto(datos);
     } else {
-      // No hay borrador local en este dispositivo — dejar la serie escrita y verificar en Airtable
+      // No hay borrador local en este dispositivo — antes de rendirse, intentar
+      // reconstruir desde lo que la Fase 3 ya sincronizó a BORRADORES en Airtable.
       _borradorYaRestaurado = false;
-      verificarOrdenLive();
+      const recuperadoDeAirtable = await restaurarDesdeAirtableMaestro(serieDesdeUrl);
+      if(!recuperadoDeAirtable) verificarOrdenLive();
     }
   } else {
     // Mostrar todos los borradores activos (puede haber varios motores en progreso)

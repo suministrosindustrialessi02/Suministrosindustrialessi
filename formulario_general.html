@@ -719,8 +719,30 @@ let modoCorreccion = false; // true cuando se reabrió por "↩ Ajustes" — sal
 let _recIdEnvioActual = null; // ID de REPORTES_GENERAL creado en UN intento previo de enviarReporteGeneral() que falló a medias (ej. "Failed to fetch" subiendo fotos) — si se reintenta, se debe seguir escribiendo en ESTE registro (PATCH) en vez de crear uno nuevo (POST), para no duplicar el reporte
 let _bfRecordIdGeneral = null; // ID del registro en TABLA_BORRADORES de Airtable
 let _bfSyncTimerGeneral = null;
+let _ultimoSyncGeneral = null; // firma de los últimos campos ya escritos en Airtable, evita PATCH repetidos sin cambios
 let _autoSaveIntervalGeneral = null;
 let _dbGeneral = null; // IndexedDB — borrador local completo (incluye fotos)
+
+/* ============================================================
+   FASE 4 (continuidad multidispositivo) — SUBIDA PROGRESIVA DE FOTOS
+   Cada foto se sube a BORRADORES en cuanto se toma, en vez de esperar
+   al botón final "Enviar". Así sobrevive un cambio de dispositivo a
+   medio formulario. Se apoya en el mismo ciclo de sync de la Fase 1
+   (sincronizarProgresoBorradorGeneralAT) para no crear un timer aparte.
+   ============================================================ */
+const BF_FOTOS_GENERAL = { // prefix (mismo que usa manejarFotos/getArrByPrefix) → campo de adjuntos en BORRADORES
+  recibido:           "fld5pT6z4QxcXP9Ye",
+  diagnostico:        "fld9b91JelMxiWRPP",
+  observaciones:      "fldsSZLlBy3FuWc1h",
+  diagnostico_tecnico:"fldJI56DsmEnLG4Pe",
+  placa:              "fldr2JxlogpvEHMXC",
+  bitacora:           "fldxUwg99c587EGHm",
+  pintura_antes:      "fldyHdIXh4LG4SZG8",
+  pintura_despues:    "fldTlnlaeVP5q53UV",
+  final:              "fldJcuIFt6sICqEj2",
+};
+let _colaFotosBorradorGeneral = []; // [{prefix, foto}] pendientes de subir a BORRADORES
+let _procesandoColaFotosGeneral = false;
 
 const STEP_LABELS = [
   "Paso 1 de 7 — Datos generales",
@@ -732,6 +754,11 @@ const STEP_LABELS = [
   "Paso 7 de 7 — Vista previa",
   "Esperando autorización del cliente"
 ];
+
+// Algunos textos del catálogo ya traen "Servicio de..." incluido (ej. "Servicio de pintura") — evita duplicar el prefijo.
+function formatearServicioCatalogo(s){
+  return /^servicio de /i.test(s) ? s : `Servicio de ${s.toLowerCase()}`;
+}
 
 const PREFIJOS = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
 
@@ -788,11 +815,6 @@ function mostrarPantalla(n){
    y la orden queda pausada esperando que administración confirme
    que el cliente autorizó continuar con el servicio.
    ============================================================ */
-// Algunos textos del catálogo ya traen "Servicio de..." incluido (ej. "Servicio de pintura") — evita duplicar el prefijo.
-function formatearServicioCatalogo(s){
-  return /^servicio de /i.test(s) ? s : `Servicio de ${s.toLowerCase()}`;
-}
-
 function construirDatosDiagnostico(){
   const gv = id => document.getElementById(id).value;
   const aplicaElectrico = document.getElementById("aplicaElectricoInicial").checked;
@@ -1242,13 +1264,16 @@ function manejarFotos(inputEl, arr, gridId, prefix){
   files.forEach(file => {
     const reader = new FileReader();
     reader.onload = function(e){
-      arr.push({ dataUrl: e.target.result, filename: `${prefix}_${arr.length + 1}.jpg`, descripcion: "" });
+      const foto = { dataUrl: e.target.result, filename: `${prefix}_${arr.length + 1}.jpg`, descripcion: "" };
+      arr.push(foto);
+      _colaFotosBorradorGeneral.push({ prefix, foto }); // FASE 4: se sube a BORRADORES en cuanto haya registro
       pendientes--;
       if(pendientes === 0) renderizarGrid(arr, gridId, prefix);
     };
     reader.readAsDataURL(file);
   });
   inputEl.value = "";
+  procesarColaFotosBorradorGeneral();
 }
 
 function renderizarGrid(arr, gridId, prefix){
@@ -1289,7 +1314,14 @@ function getArrByPrefix(prefix){
 
 function eliminarFoto(prefix, i){
   const arr = getArrByPrefix(prefix);
+  const foto = arr[i];
   arr.splice(i, 1);
+  if(foto){
+    // FASE 4: si todavía no se subía, basta con sacarla de la cola; si ya estaba en
+    // Airtable (borrador), hay que quitarla de allá también, no solo del array local.
+    _colaFotosBorradorGeneral = _colaFotosBorradorGeneral.filter(item => item.foto !== foto);
+    if(foto._borradorAttId) eliminarFotoBorradorAirtable(prefix, foto._borradorAttId);
+  }
   const gridMap = { recibido:"gridRecibido", diagnostico:"gridDiagnostico", observaciones:"gridObservaciones", diagnostico_tecnico:"gridDiagnosticoTecnico", placa:"gridPlaca", final:"gridFinal", bitacora:"gridBitacora", pintura_antes:"gridPinturaAntes", pintura_despues:"gridPinturaDespues" };
   renderizarGrid(arr, gridMap[prefix], prefix);
 }
@@ -1886,6 +1918,138 @@ function restaurarDesdeRechazoMateriales(ordenRec, motivo){
 }
 
 /* ============================================================
+   FASE 2 (continuidad multidispositivo) — REENTRADA DESDE AIRTABLE
+   CUANDO NO HAY BORRADOR LOCAL. Si este dispositivo no tiene nada
+   en IndexedDB, se busca en BORRADORES (la Fase 1 ya guarda ahí el
+   JSON completo de texto de todas las pantallas) y se repinta el
+   formulario con eso. Las fotos NO se recuperan (la Fase 1 no las
+   sube, eso queda para la Fase 4) — se avisa al técnico para que
+   las vuelva a agregar si hacían falta.
+   Devuelve true si encontró y restauró algo, false si no había nada
+   útil en Airtable tampoco (para que el llamador caiga al aviso
+   genérico de siempre).
+   ============================================================ */
+// FASE 4: convierte un adjunto ya subido a Airtable (solo tiene .url remota) en el mismo
+// formato {dataUrl, filename} que usa el resto del formulario para fotos locales — así
+// renderizarGrid()/subirFotosA()/la vista previa no necesitan saber la diferencia entre
+// una foto recién tomada y una restaurada desde otro dispositivo.
+async function descargarComoDataUrl(url){
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function restaurarFotosBorradorGeneral(rec){
+  const resultado = {};
+  await Promise.all(Object.entries(BF_FOTOS_GENERAL).map(async ([prefix, fieldId]) => {
+    const attachments = rec.fields[fieldId] || [];
+    const fotos = await Promise.all(attachments.map(async (att) => {
+      try{
+        return {
+          dataUrl: await descargarComoDataUrl(att.url),
+          filename: att.filename,
+          descripcion: "",
+          _borradorAttId: att.id,
+          _subidoBorrador: true, // ya está en Airtable — no se vuelve a subir si el técnico no la toca
+        };
+      } catch(e){ return null; }
+    }));
+    resultado[prefix] = fotos.filter(Boolean);
+  }));
+  return resultado;
+}
+
+async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido){
+  if(!ordenRecordIdConocido) return false; // sin orden real en ORDENES no hay a qué ligar el reporte final
+  try{
+    const formula = encodeURIComponent(`{${BF.serie}}="${folioUrl}"`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const resp = await fetch(url, { headers:{} });
+    const data = await resp.json();
+    const rec = (data.records || [])[0];
+    if(!rec || !rec.fields[BF.datosJson]) return false;
+
+    const bd = JSON.parse(rec.fields[BF.datosJson]);
+    // Borradores de antes de la Fase 1 solo traían materiales/nombreCorto/modelo/marca/
+    // color/numParte/descripcionProblema — sin tipoEquipo ni cliente no hay suficiente
+    // para reconstruir el formulario completo, mejor no intentarlo a medias.
+    if(!bd.tipoEquipo && !bd.cliente) return false;
+
+    _bfRecordIdGeneral = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
+
+    // FASE 4: descarga las fotos que ya se habían subido desde el otro dispositivo.
+    const fotosRestauradas = await restaurarFotosBorradorGeneral(rec);
+
+    const datos = {
+      ordenRecordId: ordenRecordIdConocido,
+      reporteEnviado: false,
+      pantallaActual: rec.fields[BF.pantallaActual] || 0,
+
+      tipoEquipo: bd.tipoEquipo || "",
+      descripcionOtro: bd.descripcionOtro || "",
+      folio: folioUrl,
+      cliente: bd.cliente || "",
+      usuario: bd.usuario || "",
+      nombreCorto: bd.nombreCorto || "",
+      marca: bd.marca || "",
+      color: bd.color || "",
+      spec: bd.spec || "",
+      numSerie: bd.numSerie || "",
+      numParte: bd.numParte || "",
+      potencia: bd.potencia || "",
+      frame: bd.frame || "",
+      volts: bd.volts || "",
+      amperaje: bd.amperaje || "",
+
+      descripcionProblema: bd.descripcionProblema || "",
+      diagnosticoTecnico: bd.diagnosticoTecnico || "",
+      observaciones: bd.observaciones || [],
+
+      fotosRecibido: fotosRestauradas.recibido || [],
+      fotosDiagnostico: fotosRestauradas.diagnostico || [],
+      fotosObservaciones: fotosRestauradas.observaciones || [],
+      fotosDiagnosticoTecnico: fotosRestauradas.diagnostico_tecnico || [],
+      fotosPlaca: fotosRestauradas.placa || [],
+      aplicaPlaca: bd.aplicaPlaca !== false,
+
+      serviciosSeleccionados: bd.serviciosSeleccionados || [],
+      serviciosOtros: bd.serviciosOtros || [],
+      materiales: bd.materiales || [],
+
+      numLineas: bd.numLineas || "6",
+      resistenciaIni: bd.resistenciaIni || {},
+      resistenciaFin: bd.resistenciaFin || {},
+      tierraIni: bd.tierraIni || {},
+      tierraFin: bd.tierraFin || {},
+      aplicaElectrico: bd.aplicaElectrico !== false,
+      estadoIni: bd.estadoIni || "",
+      estadoFin: bd.estadoFin || "",
+      notasIni: bd.notasIni || "",
+      notasFin: bd.notasFin || "",
+      corrienteIni: bd.corrienteIni || ["","",""],
+      voltajeIni: bd.voltajeIni || ["","",""],
+      corrienteFin: bd.corrienteFin || ["","",""],
+      voltajeFin: bd.voltajeFin || ["","",""],
+
+      bitacoraPuntos: bd.bitacoraPuntos || [], fotosBitacora: fotosRestauradas.bitacora || [],
+      aplicaPintura: !!bd.aplicaPintura,
+      fotosPinturaAntes: fotosRestauradas.pintura_antes || [],
+      fotosPinturaDespues: fotosRestauradas.pintura_despues || [],
+      fotosFinal: fotosRestauradas.final || [], videoNota: bd.videoNota || "",
+    };
+
+    restaurarBorradorGeneral(datos);
+    alert("Se recuperaron los datos guardados de este equipo (no estaban en este dispositivo, pero sí en el sistema), incluyendo las fotos que ya se habían subido.\n\nOJO: si tomaste alguna foto justo antes de cambiar de dispositivo y todavía no alcanzó a subirse, esa sí hay que volver a agregarla.");
+    return true;
+  } catch(e){ return false; }
+}
+
+/* ============================================================
    SINCRONIZAR PROGRESO CON AIRTABLE (TABLA_BORRADORES)
    Alimenta el dashboard: % de avance, pantalla actual, y los
    datos que necesita el botón "Lista de Materiales" para estar
@@ -1906,6 +2070,11 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     [BF.ultimaActualizacion]: new Date().toISOString().split("T")[0],
     [BF.porcentaje]:          datos._porcentaje,
     [BF.pantallaActual]:      datos.pantallaActual,
+    // FASE 1 (continuidad multidispositivo): datosJson ahora lleva TODO el estado de
+    // texto del formulario (todas las pantallas), no solo lo que necesitaba "Lista de
+    // Materiales". Los primeros 7 campos (materiales..descripcionProblema) son el
+    // contrato viejo que ya leen reportes.html/dashboard.html — no renombrar. Las fotos
+    // (dataUrl locales) se excluyen a propósito: eso es la Fase 4, aparte.
     [BF.datosJson]:           JSON.stringify({
       materiales:  materialesValidos(),
       nombreCorto: datos.nombreCorto || "",
@@ -1914,8 +2083,50 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
       color:       datos.color || "",
       numParte:    datos.numParte || "",
       descripcionProblema: datos.descripcionProblema || "",
+
+      tipoEquipo: datos.tipoEquipo || "",
+      descripcionOtro: datos.descripcionOtro || "",
+      cliente: datos.cliente || "",
+      usuario: datos.usuario || "",
+      spec: datos.spec || "",
+      numSerie: datos.numSerie || "",
+      potencia: datos.potencia || "",
+      frame: datos.frame || "",
+      volts: datos.volts || "",
+      amperaje: datos.amperaje || "",
+      diagnosticoTecnico: datos.diagnosticoTecnico || "",
+      observaciones: datos.observaciones || [],
+      aplicaPlaca: datos.aplicaPlaca !== false,
+      serviciosSeleccionados: datos.serviciosSeleccionados || [],
+      serviciosOtros: datos.serviciosOtros || [],
+      numLineas: datos.numLineas || "6",
+      aplicaElectrico: datos.aplicaElectrico !== false,
+      estadoIni: datos.estadoIni || "",
+      estadoFin: datos.estadoFin || "",
+      notasIni: datos.notasIni || "",
+      notasFin: datos.notasFin || "",
+      resistenciaIni: datos.resistenciaIni || {},
+      resistenciaFin: datos.resistenciaFin || {},
+      tierraIni: datos.tierraIni || {},
+      tierraFin: datos.tierraFin || {},
+      corrienteIni: datos.corrienteIni || ["","",""],
+      voltajeIni: datos.voltajeIni || ["","",""],
+      corrienteFin: datos.corrienteFin || ["","",""],
+      voltajeFin: datos.voltajeFin || ["","",""],
+      bitacoraPuntos: datos.bitacoraPuntos || [],
+      aplicaPintura: !!datos.aplicaPintura,
+      videoNota: datos.videoNota || "",
     }),
   };
+
+  // Evita escribir a Airtable si nada cambió desde el último sync — el autoguardado
+  // cada 15s llama a esta función aunque el técnico no haya tocado nada en ese lapso.
+  const { [BF.ultimaActualizacion]: _omit, ...camposComparables } = campos;
+  const firma = JSON.stringify(camposComparables);
+  if(firma === _ultimoSyncGeneral && _bfRecordIdGeneral){
+    procesarColaFotosBorradorGeneral(); // FASE 4: el texto no cambió, pero puede haber fotos nuevas pendientes
+    return;
+  }
 
   try{
     if(!_bfRecordIdGeneral){
@@ -1931,19 +2142,83 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     if(_bfRecordIdGeneral){
       await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
         method: "PATCH",
-        headers:{ "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields: campos })
       });
     } else {
       const crea = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
         method: "POST",
-        headers:{ "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ records:[{ fields: campos }] })
       });
       const cd = await crea.json();
       if(cd.records?.[0]) _bfRecordIdGeneral = cd.records[0].id;
     }
+    _ultimoSyncGeneral = firma;
   } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
+
+  procesarColaFotosBorradorGeneral(); // FASE 4: ya hay (o no se pudo crear) _bfRecordIdGeneral, intenta subir lo pendiente
+}
+
+/* FASE 4: sube en fila (una a la vez, para no pisarse ni saturar el límite de la API)
+   las fotos pendientes a su campo de adjuntos en BORRADORES. Si no hay _bfRecordIdGeneral
+   todavía, o si una subida falla, se detiene y se reintenta en el próximo ciclo de sync
+   (cada 800ms al editar, o cada 15s de autoguardado) sin perder lo que ya se subió. */
+async function procesarColaFotosBorradorGeneral(){
+  if(_procesandoColaFotosGeneral || !_bfRecordIdGeneral) return;
+  _procesandoColaFotosGeneral = true;
+  try{
+    while(_colaFotosBorradorGeneral.length > 0){
+      const item = _colaFotosBorradorGeneral[0];
+      const fieldId = BF_FOTOS_GENERAL[item.prefix];
+      if(!fieldId || item.foto._subidoBorrador){
+        _colaFotosBorradorGeneral.shift();
+        continue;
+      }
+      let resp;
+      try{
+        resp = await fetchConReintento(`/.netlify/functions/airtable-upload?recordId=${_bfRecordIdGeneral}&fieldId=${fieldId}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contentType: "image/jpeg",
+            filename: item.foto.filename,
+            file: item.foto.dataUrl.split(",")[1]
+          })
+        });
+      } catch(e){ break; } // sin conexión — se reintenta en el próximo ciclo
+      if(!resp || !resp.ok) break; // falló a pesar de los reintentos — no seguir tronando la cola, reintentar después
+      const data = await resp.json();
+      const atts = (data.fields && data.fields[fieldId]) || [];
+      const nuevo = atts.find(a => a.filename === item.foto.filename);
+      if(nuevo) item.foto._borradorAttId = nuevo.id;
+      item.foto._subidoBorrador = true;
+      _colaFotosBorradorGeneral.shift();
+    }
+  } finally {
+    _procesandoColaFotosGeneral = false;
+  }
+}
+
+/* FASE 4: Airtable no tiene "borrar un adjunto" — hay que leer los que hay en el campo
+   y volver a mandar el campo completo sin el que se quitó. */
+async function eliminarFotoBorradorAirtable(prefix, attId){
+  if(!_bfRecordIdGeneral) return;
+  const fieldId = BF_FOTOS_GENERAL[prefix];
+  if(!fieldId) return;
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}&returnFieldsByFieldId=true`, {
+      headers:{}
+    });
+    const data = await resp.json();
+    const actuales = (data.fields && data.fields[fieldId]) || [];
+    const restantes = actuales.filter(a => a.id !== attId).map(a => ({ id: a.id }));
+    await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordIdGeneral}`, {
+      method: "PATCH",
+      headers:{ "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [fieldId]: restantes } })
+    });
+  } catch(e){ /* fallo silencioso — ya se quitó de la UI local, si Airtable no se pudo actualizar queda huérfana pero no bloquea al técnico */ }
 }
 
 async function eliminarBorradorGeneralAirtable(){
@@ -2172,10 +2447,19 @@ function generarVistaPrevia(){
 async function fetchConReintento(url, opciones, intentos = 3, esperaMs = 1500){
   for(let i = 0; i < intentos; i++){
     try{
-      return await fetch(url, opciones);
+      const resp = await fetch(url, opciones);
+      // FASE 4: además de fallos de red, reintenta si Airtable responde 429 (límite de
+      // 5 llamadas/seg) o 5xx (error del lado de Airtable) — antes solo se reintentaba
+      // si fetch() lanzaba una excepción (sin conexión), no si la respuesta llegaba con
+      // error HTTP.
+      if(!resp.ok && (resp.status === 429 || resp.status >= 500) && i < intentos - 1){
+        await new Promise(r => setTimeout(r, esperaMs * (i + 1)));
+        continue;
+      }
+      return resp;
     }catch(err){
       if(i === intentos - 1) throw err;
-      await new Promise(r => setTimeout(r, esperaMs));
+      await new Promise(r => setTimeout(r, esperaMs * (i + 1)));
     }
   }
 }
@@ -2436,7 +2720,12 @@ mostrarPantalla(0);
       restaurarBorradorGeneral(datos);
     } else {
       document.getElementById("folio").value = folioUrl;
-      alert(`No se encontró un borrador local de la orden ${folioUrl} en este dispositivo.\n\nSi el formulario se empezó en otro dispositivo o navegador, continúa desde ese mismo dispositivo.`);
+      // FASE 2: antes de rendirse con el aviso de "no hay borrador aquí", intenta
+      // reconstruir desde lo que la Fase 1 ya sincronizó a BORRADORES en Airtable.
+      const recuperadoDeAirtable = await restaurarDesdeAirtableGeneral(folioUrl, ordenRecordId);
+      if(!recuperadoDeAirtable){
+        alert(`No se encontró un borrador local de la orden ${folioUrl} en este dispositivo.\n\nSi el formulario se empezó en otro dispositivo o navegador, continúa desde ese mismo dispositivo.`);
+      }
     }
   }
 
