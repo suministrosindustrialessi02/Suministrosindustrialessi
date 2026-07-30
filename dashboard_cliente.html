@@ -1,0 +1,1085 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mis Equipos — Suministros Industriales SI</title>
+<style>
+/* ===== VARIABLES (mismas que dashboard.html) ===== */
+:root{
+  --navy:          #0c1e35;
+  --azul:          #12325a;
+  --azul-claro:    #1d5496;
+  --azul-medio:    #2563a8;
+  --azul-acento:   #3b82c4;
+  --azul-bg:       #e8f0fb;
+  --blanco:        #ffffff;
+  --fondo:         #eef1f6;
+  --gris:          #dde3ec;
+  --gris-texto:    #485568;
+  --gris-oscuro:   #3d4a5c;
+  --verde:         #0e7a3c;
+  --verde-bg:      #e3f5ec;
+  --verde-borde:   #a3d9b8;
+  --ambar:         #976010;
+  --ambar-bg:      #fdf3db;
+  --ambar-borde:   #f0c96a;
+  --rojo:          #991b1b;
+  --rojo-bg:       #fde8e8;
+  --rojo-borde:    #f5a5a5;
+  --gris-chip:     #4b5563;
+  --sombra:        0 1px 4px rgba(12,30,53,0.07), 0 4px 12px rgba(12,30,53,0.05);
+  --sombra-hover:  0 2px 8px rgba(12,30,53,0.1), 0 8px 24px rgba(12,30,53,0.08);
+  --radio:         10px;
+  --radio-sm:      6px;
+  --grad-marca:    linear-gradient(90deg, #f2741a 0%, #a0228e 52%, #1d5496 100%);
+}
+*{ box-sizing: border-box; margin:0; padding:0; }
+body{
+  font-family: "Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  background: linear-gradient(180deg, #eef2f8 0%, #e6ebf3 100%);
+  background-attachment: fixed;
+  color: var(--gris-oscuro);
+  min-height: 100vh;
+  font-size: 14px;
+}
+.hidden{ display: none !important; }
+
+/* ===== HEADER ===== */
+header{
+  background: var(--navy); color: var(--blanco);
+  padding: 8px 32px; display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px; min-height: 64px;
+  position: sticky; top: 0; z-index: 200;
+}
+header::after{ content:""; position:absolute; left:0; right:0; bottom:0; height:3px; background:var(--grad-marca); }
+.header-brand{ display: flex; align-items: center; gap: 16px; }
+.header-logo{ background:#fff; border-radius:9px; padding:6px 11px; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 10px rgba(0,0,0,0.22); }
+.header-logo img{ height: 30px; width: auto; display: block; }
+.header-divider{ width: 1px; height: 28px; background: rgba(255,255,255,0.15); }
+.header-brand h1{ font-size: 0.88rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #fff; }
+.header-brand p{ font-size: 0.72rem; color: rgba(255,255,255,0.45); letter-spacing: 0.3px; margin-top: 2px; }
+.header-right{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.saludo-usuario{ font-size: 0.85rem; font-weight: 600; color: #fff; }
+.sync-info{ text-align: right; font-size: 0.72rem; color: rgba(255,255,255,0.45); line-height: 1.6; }
+.sync-info strong{ color: #7eb8f7; }
+.btn-header{ padding: 7px 16px; border-radius: var(--radio-sm); font-size: 0.78rem; font-weight: 600; cursor: pointer; border: 1px solid rgba(255,255,255,0.2); white-space: nowrap; transition: all 0.15s; letter-spacing: 0.3px; color: #fff; background: rgba(255,255,255,0.08); }
+.btn-header:hover{ background: rgba(255,255,255,0.16); border-color: rgba(255,255,255,0.35); }
+.btn-header:disabled{ opacity: 0.35; cursor: default; }
+
+main{ max-width: 1400px; margin: 0 auto; padding: 22px 28px 60px; }
+
+.section-label{ display:flex; align-items:center; gap:8px; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color: var(--gris-texto); margin: 22px 0 10px; }
+.section-label::before{ content:""; width:4px; height:15px; border-radius:2px; background:var(--grad-marca); }
+
+.spinner-wrap{ text-align: center; padding: 100px 20px; }
+.spinner{ width:40px; height:40px; border:4px solid #ddd; border-top-color:var(--azul-medio); border-radius:50%; margin:0 auto 16px; animation:spin .8s linear infinite; }
+@keyframes spin{ to{ transform: rotate(360deg); } }
+.spinner-wrap p{ font-size: 0.88rem; color: var(--gris-texto); font-weight: 500; }
+
+.error-box{ background:#fdecea; border:1px solid var(--rojo-borde); color:var(--rojo); padding:16px 20px; border-radius: var(--radio); margin-bottom:20px; }
+
+.empty-box{ background:#fff; border-radius: var(--radio); padding: 50px 20px; text-align:center; color: var(--gris-texto); box-shadow: var(--sombra); }
+
+/* ===== FILTROS ===== */
+.filtros-bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#fff; border-radius: var(--radio); padding: 12px 16px; margin-bottom: 16px; box-shadow: var(--sombra); }
+.filtros-label{ font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color: var(--gris-texto); }
+.filtros-bar input, .filtros-bar select{
+  padding: 7px 10px; border: 1px solid var(--gris); border-radius: var(--radio-sm);
+  font-size: 0.82rem; font-family: inherit; color: var(--gris-oscuro); background:#fff;
+}
+.filtros-bar input{ min-width: 160px; }
+.filtros-bar input:focus, .filtros-bar select:focus{ outline:none; border-color: var(--azul-medio); }
+.btn-limpiar{ padding:7px 14px; background: var(--fondo); border:1px solid var(--gris); border-radius: var(--radio-sm); font-size:0.78rem; cursor:pointer; color: var(--gris-texto); }
+.btn-limpiar:hover{ background: var(--gris); }
+.filtro-resultado{ font-size:0.78rem; color: var(--gris-texto); margin-left:auto; }
+.vista-toggle{ display:flex; border:1px solid var(--gris); border-radius: var(--radio-sm); overflow:hidden; }
+.vista-btn{ padding:7px 12px; background:#fff; border:none; font-size:0.78rem; cursor:pointer; color: var(--gris-texto); }
+.vista-btn + .vista-btn{ border-left: 1px solid var(--gris); }
+.vista-btn.active{ background: var(--azul); color: #fff; }
+.vista-btn:hover:not(.active){ background: var(--fondo); }
+
+/* ===== TABLA ===== */
+.table-section{ background:#fff; border-radius: var(--radio); box-shadow: var(--sombra); margin-bottom: 18px; overflow:hidden; }
+.section-header{ display:flex; align-items:center; justify-content:space-between; padding: 14px 18px; cursor:pointer; }
+.section-header:hover{ background: var(--fondo); }
+.section-header h2{ font-size:0.92rem; font-weight:700; color: var(--azul); display:flex; align-items:center; gap:8px; }
+.sh-indicator{ width:9px; height:9px; border-radius:50%; background: var(--gris); }
+.sh-indicator.activo{ background: var(--azul-medio); }
+.badge{ background: var(--azul-bg); color: var(--azul-claro); font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:10px; }
+.toggle-icon{ font-size:0.7rem; color: var(--gris-texto); }
+.table-wrap{ overflow-x: auto; }
+.table-wrap.hidden{ display: none; }
+table{ width:100%; border-collapse: collapse; }
+th{ text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.4px; color: var(--gris-texto); padding: 10px 14px; border-bottom: 2px solid var(--fondo); white-space:nowrap; }
+td{ padding: 10px 14px; border-bottom: 1px solid var(--fondo); font-size: 0.84rem; vertical-align: middle; }
+.td-serie{ font-weight:700; color: var(--azul); }
+.td-cliente{ max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.td-num{ text-align:center; }
+.empty-row td{ text-align:center; padding: 30px; color: var(--gris-texto); }
+
+/* CHIPS ESTADO */
+.chip{ display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:0.74rem; font-weight:600; border:1px solid transparent; white-space:nowrap; }
+.chip-dot{ width:6px; height:6px; border-radius:50%; background: currentColor; }
+.chip-recibido  { background: var(--azul-bg);    color: var(--azul-claro);  border-color: #b8d0ee; }
+.chip-proceso   { background: var(--ambar-bg);   color: var(--ambar);       border-color: var(--ambar-borde); }
+.chip-terminado { background: var(--verde-bg);   color: var(--verde);       border-color: var(--verde-borde); }
+.chip-entregado { background: var(--blanco); color: var(--gris-chip); border-color: #d1d5db; }
+.chip-default   { background: var(--blanco); color: var(--gris-texto); border-color: var(--gris); }
+.chip-diagnostico  { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
+.chip-noautorizado { background: #fdecea; color: #991b1b; border-color: #f5b5ac; }
+.chip-correccion   { background: #fff0e0; color: #c2410c; border-color: #fdba8c; }
+
+/* PROGRESO */
+.mini-prog{ display: flex; align-items: center; gap: 7px; min-width: 90px; }
+.mini-track{ flex:1; height:6px; background: var(--fondo); border-radius:3px; overflow:hidden; }
+.mini-fill{ height: 100%; border-radius: 2px; background: var(--rojo); transition: width 0.4s ease; }
+.mini-fill.p33 { background: var(--ambar); }
+.mini-fill.p67 { background: var(--ambar); }
+.mini-fill.full{ background: var(--verde); }
+.mini-lbl{ font-size: 0.72rem; font-weight: 800; color: var(--gris-texto); min-width: 32px; text-align: right; }
+.mini-lbl.pct-full{ color: var(--verde); }
+.mini-lbl.pct-mid { color: var(--ambar); }
+.mini-lbl.pct-low { color: var(--rojo); }
+
+/* BOTONES ACCIÓN */
+.fila-acciones{ display:flex; flex-wrap:wrap; gap:5px; justify-content:center; align-items:center; }
+.btn-ver{ padding:5px 12px; background:#fff; color: var(--azul-claro); border:1px solid var(--azul-claro); border-radius: var(--radio-sm); font-size:0.76rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+.btn-ver:hover{ background: var(--azul-claro); color: #fff; }
+.btn-rep{ padding:5px 12px; background:#fff; color:#2e7d32; border:1px solid #2e7d32; border-radius: var(--radio-sm); font-size:0.76rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+.btn-rep:hover{ background:#2e7d32; color:#fff; }
+
+/* ===== KANBAN ===== */
+.kanban-board{ display:flex; gap:14px; overflow-x:auto; padding-bottom: 10px; }
+.kanban-col{ min-width: 240px; flex: 1; background:#fff; border-radius: var(--radio); box-shadow: var(--sombra); padding: 12px; }
+.kanban-col-hdr{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding-bottom:8px; border-bottom:1px solid var(--fondo); }
+.kanban-col-title{ font-size:0.8rem; font-weight:700; color: var(--azul); display:flex; align-items:center; gap:7px; }
+.kanban-col-dot{ width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.kanban-cards{ display: flex; flex-direction: column; gap: 10px; }
+.kanban-card{ background:#fbfcfe; border:1px solid var(--gris); border-left:4px solid var(--azul-medio); border-radius: var(--radio-sm); padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.kanban-card:hover{ box-shadow: var(--sombra-hover); transform: translateY(-1px); }
+.kanban-card-top{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+.kanban-card-id{ font-weight: 700; color: var(--azul); font-size: 0.86rem; letter-spacing: 0.3px; }
+.kanban-card-equipo{ font-size: 0.8rem; color: var(--gris-oscuro); font-weight: 500; margin-bottom: 2px; }
+.kanban-card .mini-prog{ margin-bottom: 10px; }
+.kanban-card .fila-acciones{ justify-content: flex-start; }
+.kanban-empty{ text-align:center; color: var(--gris-texto); font-size:0.78rem; padding: 20px 0; }
+
+/* ===== MODAL VER DETALLE (Checklist) ===== */
+.modal-overlay{ position:fixed; inset:0; background:rgba(12,30,53,0.55); display:flex; align-items:center; justify-content:center; z-index:1000; padding:20px; }
+.modal-overlay.hidden{ display:none; }
+.ck-modal{ background:#fff; border-radius: var(--radio); max-width:700px; width:100%; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.3); }
+.ck-modal-header{ background: var(--navy); color:#fff; padding: 16px 24px; flex-shrink:0; }
+.ck-modal-header h2{ font-size:1rem; font-weight:700; }
+.modal-close{ background:transparent; border:none; color:#fff; font-size:1.1rem; cursor:pointer; }
+.ck-meta{ display:flex; gap:18px; flex-wrap:wrap; margin-top:10px; font-size:0.78rem; color: rgba(255,255,255,0.85); }
+.ck-meta-item strong{ color:#fff; font-weight:600; }
+.ck-resumen{ display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.ck-badge{ padding:2px 10px; border-radius:12px; font-size:0.72rem; font-weight:700; border:1px solid transparent; }
+.ck-badge-ok   { background: var(--verde-bg);     color: var(--verde);      border-color: var(--verde-borde); }
+.ck-badge-nook { background: var(--rojo-bg);       color: var(--rojo);       border-color: var(--rojo-borde); }
+.ck-badge-na   { background: var(--blanco);  color: var(--gris-chip);  border-color: #d1d5db; }
+.ck-badge-sin  { background: var(--ambar-bg);      color: var(--ambar);      border-color: var(--ambar-borde); }
+.ck-modal-body{ overflow-y: auto; padding: 16px 24px 20px; flex: 1; }
+.ck-seccion{ margin-bottom: 16px; }
+.ck-seccion-titulo{ font-size:0.76rem; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; color: var(--azul); background: var(--azul-bg); padding:6px 10px; border-radius:5px; margin-bottom:6px; }
+.ck-punto{ display:grid; grid-template-columns: 44px 1fr auto; gap:10px; align-items:start; padding: 7px 8px; border-radius:6px; border:1px solid transparent; }
+.ck-punto:hover{ background: var(--fondo); border-color: var(--gris); }
+.ck-punto-num{ font-weight: 700; color: var(--azul-acento); white-space: nowrap; font-size: 0.75rem; }
+.ck-punto-texto{ color: var(--gris-oscuro); line-height: 1.4; font-size:0.82rem; }
+.ck-punto-desc{ font-size: 0.74rem; color: var(--gris-texto); margin-top: 3px; }
+.ck-chip-ok   { background: var(--verde-bg);     color: var(--verde);     padding:2px 8px; border-radius:3px; font-size:0.72rem; font-weight:700; white-space:nowrap; text-transform:uppercase; border:1px solid var(--verde-borde); }
+.ck-chip-nook { background: var(--rojo-bg);       color: var(--rojo);      padding:2px 8px; border-radius:3px; font-size:0.72rem; font-weight:700; white-space:nowrap; text-transform:uppercase; border:1px solid var(--rojo-borde); }
+.ck-chip-na   { background: var(--blanco);  color: var(--gris-chip); padding:2px 8px; border-radius:3px; font-size:0.72rem; font-weight:700; white-space:nowrap; text-transform:uppercase; border:1px solid #d1d5db; }
+.ck-chip-sin  { background: var(--ambar-bg);      color: var(--ambar);     padding:2px 8px; border-radius:3px; font-size:0.72rem; font-weight:700; white-space:nowrap; text-transform:uppercase; border:1px solid var(--ambar-borde); }
+.ck-modal-footer{ padding: 12px 24px; border-top:1px solid var(--fondo); display:flex; justify-content:flex-end; gap:10px; flex-shrink:0; }
+.detalle-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 20px; }
+.detalle-item{ border-bottom:1px solid var(--fondo); padding-bottom:8px; }
+.detalle-item .lbl{ font-size:0.68rem; font-weight:700; color:var(--gris-texto); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+.detalle-item .val{ font-size:0.9rem; font-weight:600; color:var(--gris-oscuro); }
+.detalle-seccion{ font-size:0.72rem; font-weight:700; color:var(--azul); text-transform:uppercase; letter-spacing:0.6px; margin:18px 0 10px; padding-bottom:6px; border-bottom:1.5px solid var(--gris); }
+.detalle-seccion:first-child{ margin-top:0; }
+.btn-cancelar{ padding:8px 16px; background: var(--fondo); border:none; border-radius: var(--radio-sm); cursor:pointer; font-size:0.85rem; color: var(--gris-texto); }
+.btn-imprimir{ padding:8px 18px; background: var(--azul-medio); color:#fff; border:none; border-radius: var(--radio-sm); cursor:pointer; font-weight:700; font-size:0.85rem; }
+
+/* ===== RESUMEN VISUAL — línea de tiempo por equipo ===== */
+.tl-grid{ display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+.tl-card{ background:#fff; border-radius: var(--radio); box-shadow: var(--sombra); padding: 16px 20px; }
+.tl-card-top{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+.tl-card-id{ font-weight:700; font-size:0.95rem; color: var(--azul); }
+.tl-card-equipo{ font-size:0.82rem; color: var(--gris-texto); margin-top:1px; }
+.tl-steps{ display:flex; align-items:flex-start; }
+.tl-step{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:0; }
+.tl-dot{ width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; flex-shrink:0; }
+.tl-dot.done{ background: var(--verde); color:#fff; }
+.tl-dot.actual{ background: var(--ambar); color:#fff; width:28px; height:28px; font-size:0.76rem; }
+.tl-dot.pendiente{ background: var(--fondo); color: var(--gris-texto); }
+.tl-label{ font-size:0.68rem; color: var(--gris-texto); margin-top:5px; text-align:center; line-height:1.2; }
+.tl-label.actual{ color: var(--ambar); font-weight:700; }
+.tl-label.done{ color: var(--gris-oscuro); }
+.tl-line{ flex:1; height:2px; margin-top:12px; background: var(--gris); }
+.tl-line.done{ background: var(--verde); }
+.tl-card-meta{ margin-top:12px; padding-top:10px; border-top:1px solid var(--fondo); display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; font-size:0.76rem; color: var(--gris-texto); }
+
+@media(max-width:640px){
+  header{ padding: 8px 16px; }
+  main{ padding: 16px 12px 40px; }
+  .kanban-col{ min-width: 210px; }
+  .tl-label{ display:none; }
+  .tl-card-id{ font-size:0.88rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <div class="header-logo"><img src="logo_SI.jpg" alt="SI"></div>
+    <div class="header-divider"></div>
+    <div>
+      <h1>Suministros Industriales SI</h1>
+      <p>Mis equipos — Centro de Servicio</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="saludo-usuario" id="saludoUsuario">Hola</span>
+    <div class="sync-info" id="syncInfo" style="display:none">
+      Última actualización<br><strong id="syncTs">—</strong>
+    </div>
+    <button class="btn-header" id="btnRefresh" onclick="cargarDatos()">↻ Actualizar</button>
+    <button class="btn-header" onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+</header>
+
+<main>
+
+  <div class="spinner-wrap" id="spinnerWrap">
+    <div class="spinner"></div>
+    <p>Cargando tus equipos...</p>
+  </div>
+
+  <div class="error-box hidden" id="errorBox">
+    <strong>No se pudo cargar la información.</strong>
+    <div id="errorMsg" style="margin-top:4px;font-size:0.85rem"></div>
+  </div>
+
+  <div id="content" class="hidden">
+
+    <div class="empty-box hidden" id="emptyBox">
+      No tienes equipos asociados a tu usuario todavía. Contacta a Suministros Industriales para más información.
+    </div>
+
+    <div id="conEquipos" class="hidden">
+      <!-- FILTROS -->
+      <div class="filtros-bar">
+        <span class="filtros-label">Filtros</span>
+        <input type="text" id="filtroSerie" placeholder="N° de serie o folio..." oninput="aplicarFiltros()">
+        <select id="filtroEstado" onchange="aplicarFiltros()">
+          <option value="">Todos los estados</option>
+          <option value="porllegar">Por llegar</option>
+          <option value="recibido">Recibido</option>
+          <option value="endiagnostico">En diagnóstico</option>
+          <option value="proceso">En Proceso</option>
+          <option value="encorreccion">En corrección</option>
+          <option value="terminado">Terminado</option>
+          <option value="entregado">Entregado</option>
+        </select>
+        <select id="filtroServicio" onchange="aplicarFiltros()">
+          <option value="">Todos los servicios</option>
+          <option value="Sulzer">Sulzer</option>
+          <option value="General">General</option>
+        </select>
+        <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
+        <span class="filtro-resultado" id="filtroResultado"></span>
+        <div class="vista-toggle">
+          <button class="vista-btn active" id="vistaBtnTabla" onclick="cambiarVistaOrdenes('tabla')">☰ Tabla</button>
+          <button class="vista-btn" id="vistaBtnKanban" onclick="cambiarVistaOrdenes('kanban')">▦ Kanban</button>
+        </div>
+      </div>
+
+      <!-- RESUMEN VISUAL — línea de tiempo por equipo -->
+      <div class="tl-grid" id="tlGrid"></div>
+
+      <!-- TABLERO KANBAN -->
+      <div class="kanban-board hidden" id="kanbanBoard"></div>
+
+      <!-- TABLA ACTIVAS -->
+      <div class="table-section" id="seccionActivasTabla">
+        <div class="section-header" id="hdrActivas" onclick="toggleSec('activas')">
+          <h2><span class="sh-indicator activo"></span>Equipos en Centro de Servicio <span class="badge" id="badgeActivas">0</span></h2>
+          <span class="toggle-icon" id="iconActivas">▼</span>
+        </div>
+        <div class="table-wrap" id="wrapActivas">
+          <table>
+            <thead>
+              <tr>
+                <th>Folio / Serie</th>
+                <th>Servicio</th>
+                <th>Equipo</th>
+                <th>Estado</th>
+                <th>Progreso docs.</th>
+                <th style="text-align:center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyActivas"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- TABLA TERMINADAS/ENTREGADAS -->
+      <div class="table-section" id="seccionTerminadasTabla">
+        <div class="section-header" id="hdrTerminadas" onclick="toggleSec('terminadas')">
+          <h2><span class="sh-indicator"></span>Terminadas / Entregadas <span class="badge" id="badgeTerminadas">0</span></h2>
+          <span class="toggle-icon" id="iconTerminadas">▼</span>
+        </div>
+        <div class="table-wrap" id="wrapTerminadas">
+          <table>
+            <thead>
+              <tr>
+                <th>Folio / Serie</th>
+                <th>Servicio</th>
+                <th>Equipo</th>
+                <th>Estado</th>
+                <th>Progreso docs.</th>
+                <th style="text-align:center">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyTerminadas"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<!-- MODAL VER DETALLE (Checklist Sulzer, solo lectura) -->
+<div class="modal-overlay hidden" id="modalChecklist" onclick="cerrarCkSiFuera(event)">
+  <div class="ck-modal">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Detalle del equipo</h2>
+        <button class="modal-close" onclick="cerrarCk()">✕</button>
+      </div>
+      <div class="ck-meta" id="ckMeta"></div>
+      <div class="ck-resumen" id="ckResumen"></div>
+    </div>
+    <div class="ck-modal-body" id="ckBody">
+      <div style="text-align:center;padding:40px;color:var(--gris-texto)">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <p>Cargando...</p>
+      </div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarCk()">Cerrar</button>
+      <button class="btn-imprimir" id="btnImprimirCk" onclick="imprimirCk()">Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VER DETALLE (equipo General, solo lectura) -->
+<div class="modal-overlay hidden" id="modalDetalleGeneral" onclick="cerrarDetalleGeneralSiFuera(event)">
+  <div class="ck-modal" style="max-width:560px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Detalle del equipo</h2>
+        <button class="modal-close" onclick="cerrarDetalleGeneral()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body" id="detalleGeneralBody">
+      <div style="text-align:center;padding:40px;color:var(--gris-texto)">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <p>Cargando datos del equipo...</p>
+      </div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarDetalleGeneral()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SESIÓN — solo rol Cliente puede estar aquí
+   ============================================================ */
+const _sesion = (() => {
+  try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; }
+})();
+if(!_sesion || _sesion.rol !== "Cliente"){
+  window.location.href = "login.html";
+}
+
+/* ============================================================
+   CONFIG AIRTABLE
+   ============================================================ */
+const TABLE_ID = "tblcyGwDeOORxELJg";
+const TABLA_CHECKLIST  = "tbl1yAx029Em12QDG";
+const F_CK_JSON        = "fldgfHAIaqCWScwC9";
+const F_CK_ORDEN_LINK  = "fldvylNZ5irHPdRM7";
+
+const F = {
+  serie:     "fldj245KNDJ2B5jxG",
+  cliente:   "fldUkOvdOHTXMDWX7",
+  estado:    "fldRtvzailqq6WbQu",
+  checklist:               "flduerG3x3cKkt07p",
+  pintura:                 "fldRDnTfyWt5XmCFr",
+  evidencia:               "fldvJAyOkHXUKfiov",
+  tipoServicio:            "fld0rhBYkk5nAnXcT",
+  hp:                      "fldjyFFAaL0dIFWIE",
+  folio:                   "fldpMUMLpNCGGQcIo",
+  fechaEntregaProgramada:  "fldcWlXUh65ftgFs9",
+  tipoEquipo:              "fldBhqLRYDHl2L2tJ",
+  reporteGeneralCompletado:"fldJgJ2UZ7ufze8C5",
+  frame:                   "fldSvMeOGe98aT2e0",
+  spec:                    "fldkkXFzqKeGSIqJQ",
+  volts:                   "fldLxVAorFAGaboOF",
+};
+
+const T_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+const RGD = {
+  ordenServicio: "fldSIaStYemOiievZ",
+  folio:         "fldKBCvEigK6R8hOQ",
+  nombreCorto:   "fldWoaxMR962Fj2HF",
+  marca:         "fldL9OPmEgJ9XkKoq",
+  color:         "fldl8PsvBF74TgPir",
+  numParte:      "fld9FbgcU4LE2IAe6",
+};
+const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
+const BF_SERIE       = "fldegmWGpcWW7Awzn";
+const BF_DATOS_JSON  = "fldSdxpRwhyvSWEgJ";
+
+const TABLA_USUARIOS = "tblBLOdgolBZWZjyb";
+const UF_USUARIO  = "fldLAG6E7mevdk2Ni";
+const UF_EQUIPOS  = "fldlGNiZWUXVB7v0i";
+
+// La sesión guardada en localStorage congela la lista de equipos vinculados al
+// momento del login — si Admin desvincula un equipo después, el navegador del
+// cliente seguiría mostrándolo hasta que cierre sesión y vuelva a entrar. Por
+// eso aquí se vuelve a consultar Airtable en cada carga, en vez de confiar
+// solo en lo que ya trae `_sesion.equiposAsociados`.
+async function fetchEquiposActuales(){
+  try{
+    const formula = encodeURIComponent(`{${UF_USUARIO}}="${_sesion.usuario}"`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_USUARIOS}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const res = await fetch(url, { headers:{} });
+    if(!res.ok) return null;
+    const data = await res.json();
+    const rec = (data.records || [])[0];
+    return rec ? (rec.fields[UF_EQUIPOS] || []) : null;
+  } catch(e){ return null; }
+}
+
+let allOrdenes = [];
+let filtradas  = [];
+let tsActualizacion = null;
+let cargando = false;
+
+function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+/* ============================================================
+   INIT
+   ============================================================ */
+if(_sesion && _sesion.rol === "Cliente"){
+  document.getElementById("saludoUsuario").textContent = "Hola, " + (_sesion.nombre || "");
+  cargarDatos();
+}
+
+/* ============================================================
+   CARGA — solo las órdenes vinculadas a este usuario (equiposAsociados),
+   Sulzer y General por igual.
+   ============================================================ */
+async function fetchOrdenPorId(id){
+  try{
+    const url = `/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`;
+    const res = await fetch(url, { headers:{} });
+    if(!res.ok) return null;
+    return await res.json();
+  } catch(e){ return null; }
+}
+
+function normEstado(e){
+  const s = (e||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+  if(s.includes("por llegar")||s.includes("porllegar")) return "porllegar";
+  if(s.includes("no autorizado")) return "noautorizado";
+  if(s.includes("correccion")) return "encorreccion";
+  if(s.includes("diagnostico")) return "endiagnostico";
+  if(s.includes("entregado")) return "entregado";
+  if(s.includes("terminado")||s.includes("completado")) return "terminado";
+  if(s.includes("proceso")||s.includes("progreso")||s.includes("activ")) return "proceso";
+  if(s.includes("recibido")||s.includes("nuevo")||s.includes("ingres")) return "recibido";
+  return "otro";
+}
+
+function parsear(rec){
+  const f = rec.fields;
+  const estadoRaw = f[F.estado];
+  const estado = estadoRaw && typeof estadoRaw === "object" ? estadoRaw.name : (estadoRaw || "");
+  const tipoServicioRaw = f[F.tipoServicio];
+  const tipoServicio = (tipoServicioRaw && typeof tipoServicioRaw === "object" ? tipoServicioRaw.name : tipoServicioRaw) || "Sulzer";
+  return {
+    id: rec.id,
+    serie:   f[F.serie]   || "",
+    folio:   f[F.folio]   || "",
+    cliente: f[F.cliente] || "",
+    estado,
+    tipoServicio,
+    hp: (f[F.hp] !== undefined && f[F.hp] !== null && f[F.hp] !== "") ? f[F.hp] : "",
+    checklist: !!f[F.checklist],
+    pintura:   !!f[F.pintura],
+    evidencia: !!f[F.evidencia],
+    fechaEntregaProgramada: f[F.fechaEntregaProgramada] || "",
+    tipoEquipo: (() => { const r = f[F.tipoEquipo]; return (r && typeof r === "object" ? r.name : r) || ""; })(),
+    reporteGeneralCompletado: !!f[F.reporteGeneralCompletado],
+    frame: f[F.frame] || "",
+    spec:  f[F.spec]  || "",
+    volts: (f[F.volts] !== undefined && f[F.volts] !== null && f[F.volts] !== "") ? f[F.volts] : "",
+  };
+}
+
+// Identificador visible: Sulzer usa N° de serie, General usa folio (ej. "MOT-005").
+function identificadorDe(o){ return o.serie || o.folio || "—"; }
+function equipoTxtDe(o){
+  if(o.tipoServicio === "General") return o.tipoEquipo || "Equipo";
+  return (o.hp || o.hp === 0) ? `Motor · ${o.hp} HP` : "Motor";
+}
+
+// Formatea "YYYY-MM-DD" como "2 ago" evitando el corrimiento de un día por zona
+// horaria (new Date("YYYY-MM-DD") se interpreta en UTC y sale un día atrás en México).
+function fmtFechaCorta(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-").map(Number);
+  if(!y || !m || !d) return "";
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${d} ${meses[m-1]}`;
+}
+
+async function cargarDatos(){
+  if(cargando) return;
+  cargando = true;
+  const btnR = document.getElementById("btnRefresh");
+  btnR.disabled = true;
+
+  document.getElementById("spinnerWrap").classList.remove("hidden");
+  document.getElementById("errorBox").classList.add("hidden");
+  document.getElementById("content").classList.add("hidden");
+
+  try{
+    const equiposActuales = await fetchEquiposActuales();
+    const ids = Array.isArray(equiposActuales) ? equiposActuales
+      : (Array.isArray(_sesion.equiposAsociados) ? _sesion.equiposAsociados : []);
+    // Mantiene la sesión guardada al día para que, si algo más la lee, no vea datos viejos.
+    if(Array.isArray(equiposActuales)){
+      _sesion.equiposAsociados = equiposActuales;
+      localStorage.setItem("si_session", JSON.stringify(_sesion));
+    }
+    const recs = ids.length ? (await Promise.all(ids.map(fetchOrdenPorId))).filter(Boolean) : [];
+    allOrdenes = recs.map(parsear);
+
+    document.getElementById("emptyBox").classList.toggle("hidden", allOrdenes.length > 0);
+    document.getElementById("conEquipos").classList.toggle("hidden", allOrdenes.length === 0);
+
+    aplicarFiltros();
+    tsActualizacion = new Date();
+    document.getElementById("syncTs").textContent = tsActualizacion.toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"});
+    document.getElementById("syncInfo").style.display = "";
+    document.getElementById("content").classList.remove("hidden");
+  } catch(err){
+    document.getElementById("errorMsg").textContent = err.message || "Sin conexión.";
+    document.getElementById("errorBox").classList.remove("hidden");
+  } finally {
+    cargando = false;
+    btnR.disabled = false;
+    document.getElementById("spinnerWrap").classList.add("hidden");
+  }
+}
+
+/* ============================================================
+   FILTROS
+   ============================================================ */
+function aplicarFiltros(){
+  const fSerie    = (document.getElementById("filtroSerie")?.value    || "").toLowerCase().trim();
+  const fEstado   = (document.getElementById("filtroEstado")?.value   || "");
+  const fServicio = (document.getElementById("filtroServicio")?.value || "");
+
+  filtradas = allOrdenes.filter(o => {
+    if(fSerie && !identificadorDe(o).toLowerCase().includes(fSerie)) return false;
+    if(fEstado && normEstado(o.estado) !== fEstado) return false;
+    if(fServicio && o.tipoServicio !== fServicio) return false;
+    return true;
+  });
+
+  document.getElementById("filtroResultado").textContent = `${filtradas.length} de ${allOrdenes.length}`;
+
+  const activas    = filtradas.filter(o => !["terminado","entregado"].includes(normEstado(o.estado)));
+  const terminadas = filtradas.filter(o =>  ["terminado","entregado"].includes(normEstado(o.estado)));
+
+  document.getElementById("badgeActivas").textContent    = activas.length;
+  document.getElementById("badgeTerminadas").textContent = terminadas.length;
+
+  renderTabla("tbodyActivas", activas);
+  renderTabla("tbodyTerminadas", terminadas);
+  renderKanban(filtradas);
+  renderTimeline(filtradas);
+}
+
+function limpiarFiltros(){
+  document.getElementById("filtroSerie").value    = "";
+  document.getElementById("filtroEstado").value   = "";
+  document.getElementById("filtroServicio").value = "";
+  aplicarFiltros();
+}
+
+function toggleSec(nombre){
+  const wrap = document.getElementById("wrap" + nombre.charAt(0).toUpperCase() + nombre.slice(1));
+  const icon = document.getElementById("icon" + nombre.charAt(0).toUpperCase() + nombre.slice(1));
+  const abierto = !wrap.classList.contains("hidden");
+  wrap.classList.toggle("hidden", abierto);
+  icon.textContent = abierto ? "▶" : "▼";
+}
+
+/* ============================================================
+   CHIP DE ESTADO
+   ============================================================ */
+function chipEstado(estado){
+  const k = normEstado(estado);
+  const mapa = {
+    porllegar:     { cls:"chip-recibido",     lbl: estado||"Por llegar" },
+    recibido:      { cls:"chip-recibido",     lbl: estado||"Recibido" },
+    proceso:       { cls:"chip-proceso",      lbl: estado||"En Proceso" },
+    endiagnostico: { cls:"chip-diagnostico",  lbl: estado||"En diagnóstico" },
+    noautorizado:  { cls:"chip-noautorizado", lbl: estado||"No autorizado" },
+    encorreccion:  { cls:"chip-correccion",   lbl: estado||"En corrección" },
+    terminado:     { cls:"chip-terminado",    lbl: estado||"Terminado" },
+    entregado:     { cls:"chip-entregado",    lbl: estado||"Entregado" },
+    otro:          { cls:"chip-default",      lbl: estado||"—" },
+  };
+  const d = mapa[k] || mapa.otro;
+  return `<span class="chip ${d.cls}"><span class="chip-dot"></span>${esc(d.lbl)}</span>`;
+}
+
+function servicioBadge(o){
+  return o.tipoServicio === "General"
+    ? `<span class="chip" style="background:#fff3e0;color:#e65100">General</span>`
+    : `<span class="chip" style="background:#e3f2fd;color:#1565c0">Sulzer</span>`;
+}
+
+/* ============================================================
+   TABLA / KANBAN — solo lectura: únicos botones, Reportes y Ver detalle
+   ============================================================ */
+function datosFila(o){
+  const esGeneral = o.tipoServicio === "General";
+  let p;
+  if(esGeneral){
+    const piso = ["proceso","endiagnostico","noautorizado","encorreccion","terminado","entregado"].includes(normEstado(o.estado)) ? 40 : 0;
+    p = o.reporteGeneralCompletado ? 100 : piso;
+  } else {
+    const prog = (o.checklist?1:0)+(o.pintura?1:0)+(o.evidencia?1:0);
+    p = Math.round((prog/3)*100);
+  }
+  const fillCls = p>=100 ? "full" : p>=60 ? "p67" : p>=20 ? "p33" : "";
+  const lblCls  = p>=100 ? "pct-full" : p>=20 ? "pct-mid" : "pct-low";
+  const identificador = identificadorDe(o);
+  const equipoTxt = equipoTxtDe(o);
+  const accionesHtml = `
+    <button class="btn-ver" onclick="verDetalle('${o.id}','${esc(identificador)}',${esGeneral})">Ver detalle</button>
+    <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
+  `;
+  return { p, fillCls, lblCls, identificador, equipoTxt, accionesHtml, servicioBadge: servicioBadge(o) };
+}
+
+function renderTabla(tbodyId, ordenes){
+  const tbody = document.getElementById(tbodyId);
+  if(ordenes.length === 0){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="6">Sin equipos en esta categoría.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = ordenes.map(o => {
+    const d = datosFila(o);
+    return `<tr>
+      <td class="td-serie">${esc(d.identificador)}</td>
+      <td>${d.servicioBadge}</td>
+      <td>${esc(d.equipoTxt)}</td>
+      <td>${chipEstado(o.estado)}</td>
+      <td>
+        <div class="mini-prog">
+          <div class="mini-track"><div class="mini-fill ${d.fillCls}" style="width:${d.p}%"></div></div>
+          <span class="mini-lbl ${d.lblCls}">${d.p}%</span>
+        </div>
+      </td>
+      <td class="td-num"><div class="fila-acciones">${d.accionesHtml}</div></td>
+    </tr>`;
+  }).join("");
+}
+
+const KANBAN_COLS = [
+  { key:"recibido",      label:"Recibido",       dot:"#1d5496" },
+  { key:"endiagnostico", label:"En diagnóstico", dot:"#6b21a8" },
+  { key:"proceso",       label:"En proceso",     dot:"#976010" },
+  { key:"terminado",     label:"Terminado",      dot:"#0e7a3c" },
+  { key:"entregado",     label:"Entregado",      dot:"#6b7280" },
+];
+
+function kanbanBucket(estado){
+  const k = normEstado(estado);
+  if(k === "noautorizado") return "endiagnostico";
+  if(k === "encorreccion") return "proceso";
+  if(k === "otro" || k === "porllegar") return "recibido";
+  return k;
+}
+
+/* ============================================================
+   RESUMEN VISUAL — línea de tiempo por equipo
+   ============================================================ */
+const TL_PASOS = ["recibido","endiagnostico","proceso","terminado","entregado"];
+const TL_LABELS = { recibido:"Recibido", endiagnostico:"Diagnóstico", proceso:"En proceso", terminado:"Terminado", entregado:"Entregado" };
+
+function renderTimeline(ordenes){
+  const grid = document.getElementById("tlGrid");
+  if(ordenes.length === 0){ grid.innerHTML = ""; return; }
+  grid.innerHTML = ordenes.map(tarjetaTimeline).join("");
+}
+
+// "Terminado" no es un paso a medias — el trabajo físico ya se acabó, solo falta
+// la entrega. Por eso, a diferencia de Recibido/Diagnóstico/Proceso, se pinta como
+// completado (verde) en cuanto se alcanza, en vez de "en curso" (ámbar), para no dar
+// la impresión de que el equipo sigue pendiente cuando en realidad ya está listo.
+const TL_PASOS_SIEMPRE_LISTOS = new Set(["terminado","entregado"]);
+
+function tarjetaTimeline(o){
+  const equipoTxt = equipoTxtDe(o);
+  const actual = TL_PASOS.indexOf(kanbanBucket(o.estado));
+
+  const estados = TL_PASOS.map((paso, i) => {
+    if(i < actual) return "done";
+    if(i === actual) return TL_PASOS_SIEMPRE_LISTOS.has(paso) ? "done" : "actual";
+    return "pendiente";
+  });
+
+  const pasosHtml = TL_PASOS.map((paso, i) => {
+    const estadoPaso = estados[i];
+    const dot = estadoPaso === "done"
+      ? `<div class="tl-dot done">&#10003;</div>`
+      : `<div class="tl-dot ${estadoPaso}">${i+1}</div>`;
+    const linea = i < TL_PASOS.length - 1
+      ? `<div class="tl-line ${estados[i] === "done" ? "done" : ""}"></div>`
+      : "";
+    return `<div class="tl-step">${dot}<div class="tl-label ${estadoPaso}">${TL_LABELS[paso]}</div></div>${linea}`;
+  }).join("");
+
+  const fechaTxt = o.fechaEntregaProgramada ? fmtFechaCorta(o.fechaEntregaProgramada) : "";
+
+  return `<div class="tl-card">
+    <div class="tl-card-top">
+      <div>
+        <div class="tl-card-id">${esc(identificadorDe(o))} ${servicioBadge(o)}</div>
+        <div class="tl-card-equipo">${esc(equipoTxt)}</div>
+      </div>
+      ${chipEstado(o.estado)}
+    </div>
+    <div class="tl-steps">${pasosHtml}</div>
+    ${fechaTxt ? `<div class="tl-card-meta">
+      <span>Entrega estimada: ${fechaTxt}</span>
+    </div>` : ""}
+  </div>`;
+}
+
+function renderKanban(ordenes){
+  const board = document.getElementById("kanbanBoard");
+  board.innerHTML = KANBAN_COLS.map(col => {
+    const items = ordenes.filter(o => kanbanBucket(o.estado) === col.key);
+    const cardsHtml = items.length
+      ? items.map(o => tarjetaKanban(o, col)).join("")
+      : `<div class="kanban-empty">Sin equipos</div>`;
+    return `<div class="kanban-col">
+      <div class="kanban-col-hdr">
+        <span class="kanban-col-title"><span class="kanban-col-dot" style="background:${col.dot}"></span>${col.label}</span>
+        <span class="badge">${items.length}</span>
+      </div>
+      <div class="kanban-cards">${cardsHtml}</div>
+    </div>`;
+  }).join("");
+}
+
+function tarjetaKanban(o, col){
+  const d = datosFila(o);
+  const noAutorizado = normEstado(o.estado) === "noautorizado";
+  const enCorreccion = normEstado(o.estado) === "encorreccion";
+  const acento = noAutorizado ? "#991b1b" : enCorreccion ? "#c2410c" : col.dot;
+  return `<div class="kanban-card" style="border-left-color:${acento}">
+    <div class="kanban-card-top">
+      <span class="kanban-card-id">${esc(d.identificador)}</span>
+      ${d.servicioBadge}
+    </div>
+    <div class="kanban-card-equipo">${esc(d.equipoTxt)}</div>
+    ${noAutorizado ? `<div class="chip chip-noautorizado" style="margin-bottom:10px">No autorizado</div>` : ""}
+    ${enCorreccion ? `<div class="chip chip-correccion" style="margin-bottom:10px">En corrección</div>` : ""}
+    <div class="mini-prog">
+      <div class="mini-track"><div class="mini-fill ${d.fillCls}" style="width:${d.p}%"></div></div>
+      <span class="mini-lbl ${d.lblCls}">${d.p}%</span>
+    </div>
+    <div class="fila-acciones">${d.accionesHtml}</div>
+  </div>`;
+}
+
+let vistaOrdenes = "tabla";
+function cambiarVistaOrdenes(v){
+  vistaOrdenes = v;
+  document.getElementById("seccionActivasTabla").classList.toggle("hidden", v !== "tabla");
+  document.getElementById("seccionTerminadasTabla").classList.toggle("hidden", v !== "tabla");
+  document.getElementById("kanbanBoard").classList.toggle("hidden", v !== "kanban");
+  document.getElementById("vistaBtnTabla").classList.toggle("active", v === "tabla");
+  document.getElementById("vistaBtnKanban").classList.toggle("active", v === "kanban");
+}
+
+/* ============================================================
+   REPORTES
+   ============================================================ */
+function abrirReportes(ordenId, serie){
+  window.open(`reportes.html?id=${encodeURIComponent(ordenId)}&serie=${encodeURIComponent(serie)}`, '_blank');
+}
+
+/* ============================================================
+   VER DETALLE — enruta a Sulzer (Checklist) o General (ficha), ambos solo lectura
+   ============================================================ */
+function verDetalle(ordenId, identificador, esGeneral){
+  if(esGeneral) verDetalleGeneral(ordenId, identificador);
+  else verDetalleSulzer(ordenId, identificador);
+}
+
+async function verDetalleSulzer(ordenId, serie){
+  document.getElementById("ckMeta").innerHTML    = "";
+  document.getElementById("ckResumen").innerHTML = "";
+  document.getElementById("ckBody").innerHTML =
+    `<div style="text-align:center;padding:40px;color:var(--gris-texto)">
+       <div class="spinner" style="margin:0 auto 16px"></div>
+       <p>Cargando detalle de <strong>${esc(serie||"tu equipo")}</strong>...</p>
+     </div>`;
+  document.getElementById("modalChecklist").classList.remove("hidden");
+
+  try{
+    const formula = encodeURIComponent(
+      `OR(FIND("${ordenId}", ARRAYJOIN({${F_CK_ORDEN_LINK}})), FIND("${serie} |", {fldHCz04kdMaGhjNR}))`
+    );
+    const url = `/.netlify/functions/airtable?table=${TABLA_CHECKLIST}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const res = await fetch(url, { headers:{} });
+    if(!res.ok) throw new Error(`Error ${res.status}`);
+    const data = await res.json();
+
+    if(!data.records || data.records.length === 0){
+      document.getElementById("ckBody").innerHTML =
+        `<div style="text-align:center;padding:48px;color:var(--gris-texto)">
+           <p><strong>Sin datos de checklist todavía</strong></p>
+           <p style="font-size:0.82rem;margin-top:6px">Este equipo aún no tiene un checklist de inspección enviado.</p>
+         </div>`;
+      document.getElementById("btnImprimirCk").classList.add("hidden");
+      return;
+    }
+    document.getElementById("btnImprimirCk").classList.remove("hidden");
+
+    const jsonRaw = data.records[0].fields[F_CK_JSON];
+    if(!jsonRaw){
+      document.getElementById("ckBody").innerHTML =
+        `<div style="text-align:center;padding:48px;color:var(--gris-texto)">
+           <p><strong>Detalle no disponible</strong></p>
+         </div>`;
+      document.getElementById("btnImprimirCk").classList.add("hidden");
+      return;
+    }
+
+    renderChecklist(JSON.parse(jsonRaw));
+  } catch(e){
+    document.getElementById("ckBody").innerHTML =
+      `<div style="text-align:center;padding:40px;color:#991b1b">
+         <p><strong style="color:var(--rojo)">Error al cargar el detalle</strong></p>
+         <p style="font-size:0.82rem;margin-top:6px">${esc(e.message)}</p>
+       </div>`;
+    document.getElementById("btnImprimirCk").classList.add("hidden");
+  }
+}
+
+function renderChecklist(ck){
+  document.getElementById("ckMeta").innerHTML = `
+    <div class="ck-meta-item"><strong>Serie:</strong> ${esc(ck.serie||"—")}</div>
+    <div class="ck-meta-item"><strong>Fecha:</strong> ${esc(ck.fecha||"—")}</div>
+    <div class="ck-meta-item"><strong>Resultado:</strong> <strong>${esc(ck.resultado||"—")}</strong></div>
+  `;
+  const r = ck.resumen || {};
+  document.getElementById("ckResumen").innerHTML = `
+    <span class="ck-badge ck-badge-ok">OK: ${r.ok||0}</span>
+    <span class="ck-badge ck-badge-nook">NO OK: ${r.noOk||0}</span>
+    <span class="ck-badge ck-badge-na">— N/A: ${r.na||0}</span>
+    ${r.sinMarcar ? `<span class="ck-badge ck-badge-sin">Sin marcar: ${r.sinMarcar}</span>` : ""}
+  `;
+
+  const puntos = ck.puntos || [];
+  const secciones = {};
+  puntos.forEach(p => {
+    const sec = p.seccion || "Sin sección";
+    if(!secciones[sec]) secciones[sec] = [];
+    secciones[sec].push(p);
+  });
+
+  let html = "";
+  Object.entries(secciones).forEach(([sec, pts]) => {
+    html += `<div class="ck-seccion"><div class="ck-seccion-titulo">${esc(sec)}</div>`;
+    pts.forEach(p => {
+      const res = p.resultado;
+      let chip = "";
+      if(res === "OK")    chip = `<span class="ck-chip-ok">OK</span>`;
+      else if(res === "NO OK") chip = `<span class="ck-chip-nook">NO OK</span>`;
+      else if(res === "N/A")   chip = `<span class="ck-chip-na">— N/A</span>`;
+      else                     chip = `<span class="ck-chip-sin">Sin marcar</span>`;
+      const desc = p.descripcion ? `<div class="ck-punto-desc">${esc(p.descripcion)}</div>` : "";
+      const fotos = p.fotos > 0 ? `<div class="ck-punto-desc">${p.fotos} foto${p.fotos>1?"s":""}</div>` : "";
+      html += `<div class="ck-punto">
+        <div class="ck-punto-num">${esc(p.num)}</div>
+        <div><div class="ck-punto-texto">${esc(p.texto)}</div>${desc}${fotos}</div>
+        <div>${chip}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById("ckBody").innerHTML = html;
+}
+
+function cerrarCk(){ document.getElementById("modalChecklist").classList.add("hidden"); }
+function cerrarCkSiFuera(e){ if(e.target.id === "modalChecklist") cerrarCk(); }
+
+function imprimirCk(){
+  const contenido = document.getElementById("ckBody").innerHTML;
+  const meta      = document.getElementById("ckMeta").innerHTML;
+  const resumen   = document.getElementById("ckResumen").innerHTML;
+  const ventana   = window.open("", "_blank");
+  ventana.document.write(`<!DOCTYPE html><html lang="es"><head>
+    <meta charset="UTF-8"><title>Detalle del equipo</title>
+    <style>
+      body{ font-family: Arial, sans-serif; font-size: 12px; margin: 24px; color: #1f2937; }
+      h1{ font-size: 15px; color: #1a3a5c; border-bottom: 2px solid #1a3a5c; padding-bottom: 6px; margin-bottom: 12px; }
+      .meta{ display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 10px; font-size: 11px; }
+      .res{ display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+      .sec-titulo { font-size: 10px; font-weight: 800; color: #1a3a5c; text-transform: uppercase;
+                    background: #f0f3f7; padding: 4px 8px; margin: 10px 0 4px; border-left: 3px solid #3a6fa8; }
+      .punto{ display: grid; grid-template-columns: 50px 1fr 60px; gap: 6px; padding: 4px 6px;
+              border-bottom: 1px solid #f3f4f6; align-items: start; }
+      .num{ font-weight: 700; color: #3a6fa8; font-size: 10px; }
+      .desc{ font-size: 10px; color: #6b7280; font-style: italic; margin-top: 2px; }
+      .chip-ok   { color: #1b7a34; font-weight: 700; }
+      .chip-nook { color: #991b1b; font-weight: 700; }
+      .chip-na   { color: #6b7280; }
+      .chip-sin  { color: #c2410c; }
+      @media print{ @page{ margin: 1.5cm; } }
+    </style></head><body>
+    <h1>Suministros Industriales SI — Detalle del equipo</h1>
+    <div class="meta">${meta}</div>
+    <div class="res">${resumen}</div>
+    ${contenido.replace(/class="ck-seccion-titulo"/g, 'class="sec-titulo"')
+               .replace(/class="ck-punto"/g, 'class="punto"')
+               .replace(/class="ck-punto-num"/g, 'class="num"')
+               .replace(/class="ck-punto-desc"/g, 'class="desc"')
+               .replace(/class="ck-chip-ok"/g, 'class="chip-ok"')
+               .replace(/class="ck-chip-nook"/g, 'class="chip-nook"')
+               .replace(/class="ck-chip-na"/g, 'class="chip-na"')
+               .replace(/class="ck-chip-sin"/g, 'class="chip-sin"')}
+    </body></html>`);
+  ventana.document.close();
+}
+
+/* ============================================================
+   VER DETALLE — ficha de equipo General, solo lectura (sin editar/eliminar,
+   sin autorizar diagnóstico — eso no vive en este dashboard todavía)
+   ============================================================ */
+async function verDetalleGeneral(ordenId, identificador){
+  document.getElementById("detalleGeneralBody").innerHTML =
+    `<div style="text-align:center;padding:40px;color:var(--gris-texto)">
+       <div class="spinner" style="margin:0 auto 16px"></div>
+       <p>Cargando datos de <strong>${esc(identificador||"tu equipo")}</strong>...</p>
+     </div>`;
+  document.getElementById("modalDetalleGeneral").classList.remove("hidden");
+
+  try{
+    const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}&returnFieldsByFieldId=true`, { headers:{} });
+    if(!ordenRes.ok) throw new Error("No se pudo cargar la orden.");
+    const orden = await ordenRes.json();
+    const of = orden.fields || {};
+    const folio = of[F.folio] || identificador || "—";
+
+    // Datos adicionales (marca/color/nombre corto/n° parte/descripción): del reporte final
+    // si ya existe, o si no, del borrador en progreso — mismo patrón que usa Admin.
+    let extra = { nombreCorto:"", marca:"", color:"", numParte:"" };
+    const rgFormula = encodeURIComponent(`OR(FIND("${ordenId}",ARRAYJOIN({${RGD.ordenServicio}})),{${RGD.folio}}="${folio}")`);
+    const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`, { headers:{} });
+    if(rgRes.ok){
+      const rgData = await rgRes.json();
+      const rg = (rgData.records||[])[0];
+      if(rg){
+        extra = {
+          nombreCorto: rg.fields[RGD.nombreCorto] || "",
+          marca:       rg.fields[RGD.marca] || "",
+          color:       rg.fields[RGD.color] || "",
+          numParte:    rg.fields[RGD.numParte] || "",
+        };
+      }
+    }
+    if(!extra.nombreCorto && !extra.marca && !extra.color && !extra.numParte){
+      const bfFormula = encodeURIComponent(`{${BF_SERIE}}="${folio}"`);
+      const bfRes = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, { headers:{} });
+      if(bfRes.ok){
+        const bfData = await bfRes.json();
+        const bf = (bfData.records||[])[0];
+        if(bf && bf.fields[BF_DATOS_JSON]){
+          try{
+            const datos = JSON.parse(bf.fields[BF_DATOS_JSON]);
+            extra = { nombreCorto: datos.nombreCorto||"", marca: datos.marca||"", color: datos.color||"", numParte: datos.numParte||"" };
+          } catch(e){}
+        }
+      }
+    }
+
+    const tipoEquipoRaw = of[F.tipoEquipo];
+    const tipoEquipo = (tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "—";
+    const estadoRaw = of[F.estado];
+    const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "—";
+
+    const item = (lbl, val) => `<div class="detalle-item"><div class="lbl">${esc(lbl)}</div><div class="val">${(val || val === 0) ? esc(String(val)) : "—"}</div></div>`;
+
+    document.getElementById("detalleGeneralBody").innerHTML = `
+      <div class="detalle-seccion">Datos generales</div>
+      <div class="detalle-grid">
+        ${item("Folio", folio)}
+        ${item("Servicio", "General")}
+        ${item("Tipo de equipo", tipoEquipo)}
+        ${item("Estado", estado)}
+      </div>
+      <div class="detalle-seccion">Ficha técnica</div>
+      <div class="detalle-grid">
+        ${item("N° de serie", of[F.serie])}
+        ${item("Modelo / SPEC", of[F.spec])}
+        ${item("Frame", of[F.frame])}
+        ${item("Volts", of[F.volts])}
+        ${item("HP", of[F.hp])}
+        ${item("Marca", extra.marca)}
+        ${item("Color", extra.color)}
+        ${item("N° de parte", extra.numParte)}
+      </div>
+    `;
+  } catch(e){
+    document.getElementById("detalleGeneralBody").innerHTML = `
+      <div style="text-align:center;padding:40px;color:#991b1b">
+        <p><strong style="color:var(--rojo)">Error al cargar el detalle</strong></p>
+        <p style="font-size:0.82rem;margin-top:6px">${esc(e.message)}</p>
+      </div>`;
+  }
+}
+
+function cerrarDetalleGeneral(){ document.getElementById("modalDetalleGeneral").classList.add("hidden"); }
+function cerrarDetalleGeneralSiFuera(e){ if(e.target.id === "modalDetalleGeneral") cerrarDetalleGeneral(); }
+
+function cerrarSesion(){
+  localStorage.removeItem("si_session");
+  window.location.href = "login.html";
+}
+</script>
+
+</body>
+</html>

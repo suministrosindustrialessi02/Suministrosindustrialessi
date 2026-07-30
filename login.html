@@ -112,6 +112,7 @@ const F = {
   contrasena: "fldRGNK2bHWGdHpLz",
   rol: "fldrYhMpiJDQnfyTQ",
   ordenAsociada: "fldhgjiMjy55eyTnk",
+  equiposAsociados: "fldlGNiZWUXVB7v0i",
   activo: "fldhRUxF61z3p5voa"
 };
 
@@ -147,8 +148,9 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     const rol = (rolRaw && typeof rolRaw === "object") ? rolRaw.name : rolRaw;
     const nombre = rec.fields[F.nombre] || usuario;
     const ordenAsociada = rec.fields[F.ordenAsociada] || "";
+    const equiposAsociados = (rec.fields[F.equiposAsociados] || []).slice();
 
-    const sesion = { usuario, nombre, rol, ordenAsociada, ts: Date.now() };
+    const sesion = { usuario, nombre, rol, ordenAsociada, equiposAsociados, ts: Date.now() };
     localStorage.setItem("si_session", JSON.stringify(sesion));
 
     if(rol === "Tecnico"){
@@ -156,7 +158,7 @@ document.getElementById("loginForm").addEventListener("submit", async (e) => {
     } else if(rol === "Admin" || rol === "Direccion"){
       window.location.href = "dashboard.html";
     } else if(rol === "Cliente"){
-      window.location.href = "cliente.html";
+      window.location.href = "dashboard_cliente.html";
     } else {
       errorEl.textContent = "Rol no reconocido. Contacta al administrador.";
       errorEl.style.display = "block";

@@ -165,6 +165,14 @@ input[type="file"].hidden-input{ display:none; }
   </div>
 
   <div class="rep-title">Selecciona el reporte a generar</div>
+  <!-- Reporte Consolidado: solo Admin y Dirección lo ven — Técnico y Cliente no. -->
+  <div class="rep-card-wrap admin-only hidden" id="reporteConsolidadoWrap" style="max-width:460px;margin:0 auto 18px;">
+    <button type="button" id="btn-descargar-todo" class="rep-btn" style="width:100%;background:#0c1e35;border-color:#0c1e35;align-items:center;text-align:center" onclick="descargarTodosLosReportes()">
+      <span class="rep-btn-icon">📦</span>
+      <span class="rep-btn-name" style="color:#fff">Reporte Consolidado (PDF único)</span>
+      <span class="rep-btn-desc" style="color:#c9d4e3">Combina en un solo PDF los que ya tengan datos — omite automáticamente los que aún no aplican</span>
+    </button>
+  </div>
   <div class="rep-grid" id="repGridGeneral" style="display:none">
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-diagnostico-gen" onclick="generarDiagnosticoGeneral()">
@@ -226,11 +234,17 @@ input[type="file"].hidden-input{ display:none; }
       </button>
       <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('recepcion')">✏️</button>
     </div>
-    <button class="rep-btn" id="btn-checklist" onclick="generarChecklist()">
+    <button class="rep-btn" id="btn-checklist" onclick="generarChecklist(false)">
       <span class="rep-btn-icon">📋</span>
-      <span class="rep-btn-name">Checklist Sulzer</span>
+      <span class="rep-btn-name">Checklist Sulzer SI-ABB</span>
       <span class="rep-btn-desc">Inspección de motores — formato oficial ABB</span>
       <span class="rep-btn-status" id="st-checklist">—</span>
+    </button>
+    <button class="rep-btn" id="btn-checklist-cliente" onclick="generarChecklist(true)">
+      <span class="rep-btn-icon">📋</span>
+      <span class="rep-btn-name">Checklist Sulzer ABB-SULZER</span>
+      <span class="rep-btn-desc">Versión final para el cliente — todos los puntos OK, sin mencionar correcciones</span>
+      <span class="rep-btn-status" id="st-checklist-cliente">—</span>
     </button>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-pintura" onclick="generarPintura()">
@@ -506,6 +520,16 @@ const FP = {
   fechaTermino:     "fldi0tqQu6vih6vt8",
   ordenServicio:    "fldEPLjcyH5i50UDj",
   comentarios:      "fldfusnL1nW7i6Yfu",
+  sistemaEsperado:  "fldIrwjcazhLjOmvm",
+};
+
+// Rangos de espesor esperado por sistema de pintura (ISO 12944), en mils.
+// "cumple" = el valor mínimo medido es >= al mínimo del rango. Superar el
+// máximo no es problema — solo falla si queda por debajo del mínimo.
+const SISTEMAS_PINTURA = {
+  "C5-M": { min: 9.0,  max: 13.5 },
+  "C2":   { min: 2.0,  max: 5.5  },
+  "C3":   { min: 5.0,  max: 8.0  },
 };
 
 // Field IDs — Evidencia
@@ -632,6 +656,22 @@ if(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion")){
 if(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion")){
   document.querySelectorAll(".editor-only").forEach(el => el.classList.remove("hidden"));
 }
+// Cliente: solo ve los reportes de inspección/servicio — nada de entrega/remisión ni cotización.
+// El Reporte de Correcciones SÍ lo ve (evidencia antes/después de lo NO OK y su corrección) —
+// a diferencia del Checklist copia cliente, que muestra todo OK sin detalle de qué falló.
+if(_sesion && _sesion.rol === "Cliente"){
+  document.addEventListener("DOMContentLoaded", () => {
+    const repGridComun = document.getElementById("repGridComun");
+    if(repGridComun){
+      repGridComun.style.display = "none";
+      if(repGridComun.previousElementSibling) repGridComun.previousElementSibling.style.display = "none"; // título "Entrega del equipo"
+    }
+    // Lista de Materiales (General) es para armar la cotización — mismo criterio que
+    // ocultarle Cotización, el cliente no debe ver precios/materiales de costeo todavía.
+    const btnMaterialesGen = document.getElementById("btn-materiales-gen");
+    if(btnMaterialesGen) btnMaterialesGen.closest(".rep-card-wrap")?.style.setProperty("display", "none");
+  });
+}
 
 /* ============================================================
    FETCH HELPERS
@@ -642,9 +682,39 @@ async function at(tabla, params){
   if(!r.ok) throw new Error(`Airtable ${r.status}`);
   return (await r.json()).records || [];
 }
+// Cuando la misma serie tiene más de un registro de CHECKLIST (orden duplicada por
+// reenvío del formulario), se usa el más reciente como base de los datos, pero se
+// conservan TODAS las fotos subidas a cualquiera de los duplicados — así ninguna foto
+// de corrección se pierde solo porque quedó en un registro distinto al "principal".
+function mergeChecklistDuplicados(recs){
+  if(!recs || recs.length === 0) return null;
+  if(recs.length === 1) return recs[0];
+  const FOTOS = "fldxoptbN50nGT0ii";
+  const ordenados = [...recs].sort((a,b) => new Date(b.createdTime) - new Date(a.createdTime));
+  const principal = ordenados[0];
+  const vistos = new Set();
+  const fotosFusionadas = [];
+  ordenados.forEach(r => {
+    (r.fields[FOTOS] || []).forEach(f => {
+      if(!vistos.has(f.filename)){ vistos.add(f.filename); fotosFusionadas.push(f); }
+    });
+  });
+  return { ...principal, fields: { ...principal.fields, [FOTOS]: fotosFusionadas } };
+}
 
 function fv(rec, fieldId){ return rec?.fields?.[fieldId]; }
 function esc(s){ return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+// Aviso de "reporte preliminar" — se antepone a los reportes de servicio/inspección cuando la
+// orden todavía no llega a Terminado/Entregado, para que un documento generado a medio proceso
+// no se lea (ni se imprima/guarde como PDF) como si fuera el reporte final.
+function bannerPreliminar(){
+  const estadoRaw = fv(G.orden, FO.estado);
+  const estado = (estadoRaw && (estadoRaw.name || estadoRaw)) || "";
+  const norm = estado.toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim();
+  const completo = norm.includes("terminado") || norm.includes("entregado");
+  if(completo) return "";
+  return `<div style="background:#fff3cd!important;border:1.5px solid #e0a800;border-radius:4px;padding:8px 12px;margin-bottom:12px;font-size:8pt;color:#856404;print-color-adjust:exact;-webkit-print-color-adjust:exact"><strong>Reporte preliminar.</strong> El servicio de este equipo todavía está en proceso — este documento refleja el avance a la fecha. El reporte final se emitirá al concluir el trabajo.</div>`;
+}
 // Parseo tolerante de un campo JSON — regresa {} si está vacío o mal formado.
 function jparseObj(raw){ try{ return JSON.parse(raw || "{}") || {}; }catch(e){ return {}; } }
 // Bloque estándar de foto en los reportes. Usa background-image (no <img style="object-fit">)
@@ -684,8 +754,8 @@ function resolverTipoEquipo(tipoEquipo, descripcionOtro){
 // servicio. Si no hay fotos, se asume que no aplica (no se guarda un flag aparte).
 function placaHtml(){
   const fotos = fv(G.orden, FO.fotosPlaca) || [];
-  if(!fotos.length){
-    return `<div class="serv-section">PLACA DEL EQUIPO</div><p style="font-size:7.5pt;color:#666;margin-bottom:8px;">No aplica / sin foto de placa.</p>`;
+  if(!debeMostrarPlaca(fotos)){
+    return fotos.length ? "" : `<div class="serv-section">PLACA DEL EQUIPO</div><p style="font-size:7.5pt;color:#666;margin-bottom:8px;">No aplica / sin foto de placa.</p>`;
   }
   const descs = jparseObj(fv(G.orden, FO.fotosDescripciones));
   return `<div class="serv-section">PLACA DEL EQUIPO</div><div class="fotos-grid" style="margin-bottom:8px">${fotos.map((a,i)=>fotoItemHtml(a.thumbnails?.large?.url||a.url, `placa ${i+1}`, i+1, descs[a.id])).join("")}</div>`;
@@ -700,6 +770,11 @@ async function cargarDatos(){
   const serie   = p.get("serie");
 
   if(!ordenId){ throw new Error("URL inválida — falta parámetro 'id'"); }
+
+  if(_sesion && _sesion.rol === "Cliente"){
+    const propios = Array.isArray(_sesion.equiposAsociados) ? _sesion.equiposAsociados : [];
+    if(!propios.includes(ordenId)){ throw new Error("No tienes acceso a este equipo."); }
+  }
 
   // 1) Orden
   const ordenRec = await fetch(
@@ -746,7 +821,7 @@ async function cargarDatos(){
   // 2) Checklist — busca por serie en idRegistro (mismo patrón que el dashboard)
   const ckFormula = encodeURIComponent(`OR(FIND("${ordenId}",ARRAYJOIN({fldvylNZ5irHPdRM7})),FIND("${serie} |",{${CK_ID_REG}}))`);
   const ckRecs = await at(T_CHECKLIST, `filterByFormula=${ckFormula}`);
-  G.checklist = ckRecs[0] || null;
+  G.checklist = mergeChecklistDuplicados(ckRecs);
 
   // 3) Pintura
   const ptFormula = encodeURIComponent(`OR(FIND("${ordenId}",ARRAYJOIN({${FP.ordenServicio}})),FIND("${serie} |",{${PT_ID_REG}}))`);
@@ -854,6 +929,14 @@ function actualizarUI(){
       : (nNoOk2>0 ? '<span style="color:#888">Pendiente</span>' : (G.checklist ? '<span style="color:#0e7a3c">Sin NO OK</span>' : pend));
     const btnCorr = document.getElementById("btn-correcciones");
     if(btnCorr) btnCorr.style.opacity = corrComp ? "1" : "0.5";
+    // Checklist copia cliente: lista si no hay NO OK, o si las correcciones ya se marcaron completadas
+    const cliListo = !G.checklist ? false : (nNoOk2===0 || corrComp);
+    const stCliEl = document.getElementById("st-checklist-cliente");
+    if(stCliEl) stCliEl.innerHTML = !G.checklist ? pend
+      : (cliListo ? '<span style="color:#0e7a3c;font-weight:700">✓ Lista</span>'
+                  : '<span style="color:#888">Pendiente de corrección</span>');
+    const btnCli = document.getElementById("btn-checklist-cliente");
+    if(btnCli) btnCli.style.opacity = cliListo ? "1" : "0.5";
   }catch(e2){}
 }
 
@@ -971,6 +1054,9 @@ function printCSS(){
       background:#0c1e35 !important; color:#fff !important;
       padding:6px 10px; margin:14px 0 6px; letter-spacing:0.3px;
       border:none;
+      /* Evita que el título de una sección quede solo al final de una página
+         y el contenido (fotos, tablas) empiece hasta la siguiente. */
+      page-break-after:avoid; break-after:avoid;
     }
 
     /* TABLAS GENERALES */
@@ -1023,7 +1109,31 @@ function printCSS(){
   </style>`;
 }
 
+// Bandera usada por "Reporte Consolidado": mientras está activa,
+// abrirVentana() no abre ninguna ventana — solo guarda el HTML en
+// _htmlCapturado para que descargarTodosLosReportes() lo combine todo en un
+// solo documento al final. Ver _capturarHtmlReporte().
+let _capturaActiva = false;
+let _htmlCapturado = null;
+
+// Varios reportes individuales (Recepción/Servicio en Sulzer, Diagnóstico/Servicio en
+// General) incluyen cada uno su propio bloque de foto de placa — al combinarlos en el
+// Reporte Consolidado, la misma foto se repetía una vez por cada sección que la incluía.
+// Esta bandera solo suprime los duplicados dentro del Consolidado; un reporte abierto
+// individualmente siempre muestra su propia foto de placa sin importar el orden.
+let _placaMostradaEnConsolidado = false;
+// Recibe el array de fotos de placa de ESTA sección: si viene vacío no consume el
+// turno (para no bloquear a una sección posterior que sí traiga la foto).
+function debeMostrarPlaca(fotos){
+  if(!fotos || !fotos.length) return false;
+  if(!_capturaActiva) return true;
+  if(_placaMostradaEnConsolidado) return false;
+  _placaMostradaEnConsolidado = true;
+  return true;
+}
+
 function abrirVentana(htmlContent, titulo){
+  if(_capturaActiva){ _htmlCapturado = htmlContent; return; }
   const w = window.open("","_blank","width=900,height=700");
   w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>${titulo}</title>
     <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"><\/script>
@@ -1057,8 +1167,11 @@ function abrirVentana(htmlContent, titulo){
           restantes--;
           if(restantes <= 0) listo();
         }
-        // Salvaguarda: si alguna imagen nunca dispara load/error, habilitar de todas formas a los 8s
-        setTimeout(listo, 8000);
+        // Salvaguarda: si alguna imagen nunca dispara load/error, habilitar de todas formas.
+        // El PDF combinado ("Reporte Consolidado") puede traer muchas más fotos que
+        // un reporte individual — 8s fijos se quedaban cortos y el usuario imprimía con fotos
+        // a medio cargar. Se escala según cuántas imágenes hay, con 8s como mínimo.
+        setTimeout(listo, Math.max(8000, imgs.length * 1200));
       })();
       function descargarPDF(){
         var btn = document.getElementById("btnDescargarPdf");
@@ -1110,6 +1223,128 @@ function abrirVentana(htmlContent, titulo){
 }
 
 /* ============================================================
+   DESCARGAR TODOS LOS REPORTES — combina en un solo PDF todos los
+   reportes que YA tengan datos disponibles para esta orden. No
+   reemplaza los botones individuales, solo evita ir uno por uno.
+   Cada generarX() ya arma su HTML y llama a abrirVentana() al final —
+   aquí se activa _capturaActiva para que esa misma llamada, en vez de
+   abrir una ventana, deje el HTML en _htmlCapturado (ver abrirVentana()).
+   ============================================================ */
+async function _capturarHtmlReporte(fn){
+  const originalAlert = window.alert;
+  _capturaActiva = true;
+  _htmlCapturado = null;
+  window.alert = function(){ /* silenciado: ya se filtró por hasData antes de llamar */ };
+  try{ await fn(); }
+  catch(e){ /* si algo falla, se omite del combinado en vez de interrumpir el resto */ }
+  finally{
+    _capturaActiva = false;
+    window.alert = originalAlert;
+  }
+  return _htmlCapturado;
+}
+
+async function descargarTodosLosReportes(){
+  const btn = document.getElementById("btn-descargar-todo");
+  const textoOriginal = btn.innerHTML;
+  btn.disabled = true;
+  _placaMostradaEnConsolidado = false;
+
+  let ckData = {};
+  if(G.checklist){ try{ ckData = JSON.parse(fv(G.checklist, FCK.checklistJson) || "{}"); }catch(e){} }
+  const hayNoOks = (ckData.puntos || []).some(p => p.resultado === "NO OK");
+  const esCliente = !!(_sesion && _sesion.rol === "Cliente");
+
+  let candidatos;
+  if(G.esGeneral){
+    candidatos = [
+      { nombre:"Diagnóstico",         hasData: !!fv(G.orden, FO.diagnosticoTexto),      fn: () => generarDiagnosticoGeneral() },
+      { nombre:"Reporte de Servicio", hasData: !!G.general,                             fn: () => generarServicioGeneral() },
+      { nombre:"Lista de Materiales", hasData: !!(G.general || G.materialesBorrador),   fn: () => generarListaMaterialesGeneral() },
+    ];
+  } else {
+    candidatos = [
+      { nombre:"Reporte Previo de Recepción", hasData: !!G.evidencia, fn: () => generarReportePrevio() },
+    ];
+    // El cliente nunca ve la copia interna del checklist (muestra los NO OK) —
+    // solo la copia limpia. Los demás roles ven ambas, igual que los botones.
+    if(!esCliente){
+      candidatos.push({ nombre:"Checklist Sulzer SI-ABB", hasData: !!G.checklist, fn: () => generarChecklist(false) });
+    }
+    candidatos.push({ nombre:"Checklist Sulzer ABB-SULZER", hasData: !!G.checklist, fn: () => generarChecklist(true) });
+    candidatos.push({ nombre:"Inspección de Pintura",  hasData: !!G.pintura, fn: () => generarPintura() });
+    candidatos.push({ nombre:"Prueba de Adherencia",   hasData: !!G.pintura, fn: () => generarAdherencia() });
+    candidatos.push({ nombre:"Reporte de Servicio",    hasData: !!(G.checklist || G.evidencia || G.pintura), fn: () => generarServicio() });
+    candidatos.push({ nombre:"No Conformidades",       hasData: !!G.checklist && hayNoOks, fn: () => generarNoConformidades() });
+    candidatos.push({ nombre:"Reporte de Correcciones",hasData: !!G.checklist && hayNoOks, fn: () => generarCorrecciones() });
+  }
+
+  const secciones = [];
+  for(const c of candidatos){
+    if(!c.hasData) continue;
+    btn.innerHTML = "⏳ Generando " + esc(c.nombre) + "...";
+    const html = await _capturarHtmlReporte(c.fn);
+    if(html) secciones.push({ nombre:c.nombre, html });
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = textoOriginal;
+
+  if(secciones.length === 0){
+    alert("Todavía no hay ningún reporte con datos disponibles para esta orden.");
+    return;
+  }
+
+  const d = headerDatos();
+  const portada  = construirPortadaCombinado(d, secciones.length);
+  const indice   = construirIndiceCombinado(secciones.map(s => s.nombre));
+  const cuerpo   = secciones.map((s,i) => bannerSeccionCombinado(i+1, s.nombre) + s.html).join("");
+
+  abrirVentana(portada + indice + cuerpo, `Reporte Consolidado — ${d.serie}`);
+}
+
+/* Portada del PDF combinado: logo grande, título y datos clave de la orden. */
+function construirPortadaCombinado(d, totalReportes){
+  const hoy = new Date().toLocaleDateString("es-MX",{day:"2-digit",month:"long",year:"numeric"});
+  return `
+  <div style="min-height:23cm;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;">
+    <img src="${LOGO_SI_B64}" alt="Suministros Industriales SI" style="height:110px;width:auto;object-fit:contain;margin-bottom:28px;">
+    <div style="font-size:20pt;font-weight:800;color:#0c1e35;letter-spacing:1px;text-transform:uppercase;">Reporte Consolidado de Servicio</div>
+    <div style="font-size:11pt;color:#666;margin-top:6px;">Suministros Industriales SI — Centro de Servicio</div>
+    <table style="margin-top:40px;border-collapse:collapse;font-size:11pt;">
+      <tr><td style="padding:6px 14px;font-weight:700;text-align:right;color:#0c1e35;">N° Serie:</td><td style="padding:6px 14px;text-align:left;">${esc(d.serie)}</td></tr>
+      <tr><td style="padding:6px 14px;font-weight:700;text-align:right;color:#0c1e35;">Cliente:</td><td style="padding:6px 14px;text-align:left;">${esc(d.cliente)}</td></tr>
+      <tr><td style="padding:6px 14px;font-weight:700;text-align:right;color:#0c1e35;">Inspector:</td><td style="padding:6px 14px;text-align:left;">${esc(d.inspector)}</td></tr>
+      <tr><td style="padding:6px 14px;font-weight:700;text-align:right;color:#0c1e35;">Fecha de emisión:</td><td style="padding:6px 14px;text-align:left;">${hoy}</td></tr>
+    </table>
+  </div>
+  <div style="page-break-after:always;"></div>`;
+}
+
+/* Índice del PDF combinado: numera y nombra cada reporte incluido, en orden. */
+function construirIndiceCombinado(nombres){
+  const filas = nombres.map((n,i) => `
+    <tr>
+      <td style="padding:9px 6px;border-bottom:1px solid #ddd;width:44px;font-weight:800;color:#1d5496;">${String(i+1).padStart(2,"0")}</td>
+      <td style="padding:9px 6px;border-bottom:1px solid #ddd;font-weight:600;color:#0c1e35;">${esc(n)}</td>
+    </tr>`).join("");
+  return `
+  <div style="font-size:15pt;font-weight:800;color:#0c1e35;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2.5px solid #0c1e35;padding-bottom:8px;margin-bottom:4px;">Índice de Reportes</div>
+  <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:10.5pt;">${filas}</table>
+  <div style="page-break-after:always;"></div>`;
+}
+
+/* Encabezado divisor de cada sección dentro del PDF combinado — deja clarísimo
+   dónde empieza cada reporte al hojear el documento. NO fuerza salto de página
+   antes de cada uno (eso dejaba muchas hojas casi en blanco cuando el reporte
+   anterior terminaba a la mitad de una página) — solo evita que el propio
+   banner quede huérfano al final de una página, separado de su contenido.*/
+function bannerSeccionCombinado(numero, nombre){
+  return `
+  <div style="background:#0c1e35!important;color:#fff!important;padding:10px 16px;font-size:12pt;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;margin:22px 0 12px;border-left:6px solid #1d5496;print-color-adjust:exact;-webkit-print-color-adjust:exact;page-break-inside:avoid;page-break-after:avoid;">${numero}. ${esc(nombre)}</div>`;
+}
+
+/* ============================================================
    REPORTE PREVIO — RECEPCIÓN DEL MOTOR (disponible antes del Checklist)
    ============================================================ */
 async function generarReportePrevio(){
@@ -1158,17 +1393,17 @@ async function generarReportePrevio(){
 
   ${secFotosPrevio(fotosRecibido, "FOTOGRAFÍAS DE RECEPCIÓN")}
   ${secFotosPrevio(fotosDanos, "EVIDENCIA DE DAÑOS")}
-  ${secFotosPrevio(fotosPlaca, "PLACA DE DATOS DEL MOTOR")}
+  ${debeMostrarPlaca(fotosPlaca) ? secFotosPrevio(fotosPlaca, "PLACA DE DATOS DEL MOTOR") : ""}
 
   ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
 
-  abrirVentana(html, `Reporte Previo de Recepción — ${d.serie}`);
+  abrirVentana(bannerPreliminar() + html, `Reporte Previo de Recepción — ${d.serie}`);
 }
 
 /* ============================================================
    REPORTE 1 — CHECKLIST SULZER
    ============================================================ */
-function generarChecklist(){
+function generarChecklist(esCliente){
   if(!G.checklist){ alert("No hay datos de checklist para esta orden."); return; }
 
   const f      = G.checklist.fields;
@@ -1217,7 +1452,8 @@ function generarChecklist(){
       filas += `<tr><th></th><th class="th-desc">Punto de revision / Check point</th><th>N/A</th><th>OK</th><th>NO ok</th></tr>`;
     }
 
-    const res = p.resultado || "";
+    const resReal = p.resultado || "";
+    const res = (esCliente && resReal === "NO OK") ? "OK" : resReal;
     const isNoOk = res === "NO OK";
     const rowCls = isNoOk ? "no-ok-row" : "";
 
@@ -1251,6 +1487,9 @@ function generarChecklist(){
     }
   });
 
+  const resultadoMostrado = (esCliente && resultado === "NO OK") ? "OK" : resultado;
+  const observMostrado = esCliente ? "✅ Todos los puntos OK — Sin hallazgos." : observ;
+
   const d2 = headerDatos();
   const html = `
   ${logoHtml()}
@@ -1274,11 +1513,11 @@ function generarChecklist(){
   </table>
 
   <div class="seccion-hdr">Comentarios / Comments</div>
-  <div style="border:1px solid #ccc;min-height:50px;padding:6px 8px;font-size:7.5pt;margin-bottom:10px;">${esc(observ).replace(/\n/g,"<br>")}</div>
-  <div style="margin-bottom:6px;font-size:7.5pt;"><strong>Resultado general:</strong> ${esc(resultado)}</div>
+  <div style="border:1px solid #ccc;min-height:50px;padding:6px 8px;font-size:7.5pt;margin-bottom:10px;">${esc(observMostrado).replace(/\n/g,"<br>")}</div>
+  <div style="margin-bottom:6px;font-size:7.5pt;"><strong>Resultado general:</strong> ${esc(resultadoMostrado)}</div>
   ${firmaHtml(inspector, calidad, fecha)}`;
 
-  abrirVentana(html, `Checklist Sulzer — ${serie}`);
+  abrirVentana(bannerPreliminar() + html, esCliente ? `Checklist Sulzer (Cliente) — ${serie}` : `Checklist Sulzer — ${serie}`);
 }
 
 /* ============================================================
@@ -1318,21 +1557,51 @@ function generarPintura(){
   const d  = headerDatos();
   const pf = G.pintura.fields;
 
-  const m = [1,2,3,4,5,6].map(i => fv(G.pintura, FP[`medicion${i}`]) || "—");
-  const escala     = fv(G.pintura, FP.escala)    || "—";
-  const resultado  = fv(G.pintura, FP.resultado) || "—";
-  const metodo     = fv(G.pintura, FP.metodo)    || "—";
+  const mNum = [1,2,3,4,5,6].map(i => parseFloat(fv(G.pintura, FP[`medicion${i}`])) || 0);
+  const m = mNum.map(v => v || "—");
   const comentarios= fv(G.pintura, FP.comentarios)|| "";
-  const resColor   = resultado === "Cumple" ? "color:#2e7d32;font-weight:bold" : "color:#c62828;font-weight:bold";
+  const sistemaEsp = fv(G.pintura, FP.sistemaEsperado) || "";
+
+  const valoresValidos = mNum.filter(v => v > 0);
+  const minMedido = valoresValidos.length ? Math.min(...valoresValidos) : null;
+  const maxMedido = valoresValidos.length ? Math.max(...valoresValidos) : null;
+  const promMedido= valoresValidos.length ? (valoresValidos.reduce((a,b)=>a+b,0)/valoresValidos.length) : null;
+  const fmtMils = v => v===null ? "—" : `${v.toFixed(1)} mils`;
+
+  // Filas de la tabla de sistemas esperados (C5-M / C2 / C3). "Cumple" solo se evalúa
+  // para la fila del sistema realmente esperado en esta orden — comparando el valor
+  // MÍNIMO medido contra el mínimo del rango (pasarse del máximo no es falla).
+  const filasSistemas = Object.entries(SISTEMAS_PINTURA).map(([nombre, r]) => {
+    const esEsperado = nombre === sistemaEsp;
+    let celdaResultado = "—";
+    if(esEsperado && minMedido !== null){
+      const cumple = minMedido >= r.min;
+      celdaResultado = cumple
+        ? `<span style="text-decoration:underline;color:#2e7d32;font-weight:bold">SÍ CUMPLE</span>`
+        : `<span style="text-decoration:underline;color:#c62828;font-weight:bold">NO CUMPLE</span>`;
+    }
+    return `<tr style="${esEsperado?'background:#eef4fb':''}">
+      <td>${esEsperado?"&#9656; ":""}${esc(nombre)}</td>
+      <td>${r.min.toFixed(1)} – ${r.max.toFixed(1)} mils</td>
+      <td>${celdaResultado}</td>
+    </tr>`;
+  }).join("");
 
   // Igual que fotoItemHtml(): se usa background-image (no <img style="object-fit">)
   // porque html2canvas, usado por "Descargar PDF", ignora object-fit y estira la
   // imagen para llenar la caja en vez de conservar sus proporciones.
+  // page-break-inside:avoid por sí solo no evitó que la imagen quedara partida entre
+  // dos páginas (el navegador de todos modos la corta cuando cae cerca del límite de
+  // página) — se fuerza page-break-before:always para que el bloque completo arranque
+  // siempre en una página nueva, con espacio de sobra, y ya no dependa de eso.
   const imgPinturaHtml = imagenPinturaB64
-    ? `<div class="seccion-hdr">Diagrama de puntos de inspección</div>
+    ? `<div style="page-break-before:always;page-break-inside:avoid;">
+       <div class="seccion-hdr">Diagrama de puntos de inspección</div>
        <div style="text-align:center;margin:8px 0;">
          <div style="max-width:100%;height:280px;background-image:url('${imagenPinturaB64}');background-size:contain;background-repeat:no-repeat;background-position:center;border:1px solid #ddd;border-radius:4px;"></div>
          <img src="${imagenPinturaB64}" alt="Puntos de inspección de pintura" style="display:none">
+       </div>
+       <div style="background:#fff3cd!important;border:1.5px solid #e0a800;border-radius:4px;padding:6px 10px;margin-bottom:10px;font-size:7pt;color:#856404;print-color-adjust:exact;-webkit-print-color-adjust:exact"><strong>Nota:</strong> la imagen anterior es solo de referencia genérica para ubicar los puntos de medición — no corresponde al equipo específico de este reporte.</div>
        </div>`
     : "";
 
@@ -1349,10 +1618,15 @@ function generarPintura(){
       <tr><td>3.-</td><td>${esc(m[2])} mils</td><td>6.-</td><td>${esc(m[5])} mils</td></tr>
     </tbody>
   </table>
-
-  <div class="seccion-hdr">Resultado</div>
   <table class="adh-tbl">
-    <tr><td class="lbl">Método:</td><td>${esc(metodo)}</td><td class="lbl">Resultado:</td><td style="${resColor}">${esc(resultado)}</td></tr>
+    <tr><td class="lbl">Mínimo:</td><td>${fmtMils(minMedido)}</td><td class="lbl">Máximo:</td><td>${fmtMils(maxMedido)}</td><td class="lbl">Promedio:</td><td>${fmtMils(promMedido)}</td></tr>
+  </table>
+
+  <div class="seccion-hdr">Sistema de Pintura Esperado</div>
+  <div style="margin-bottom:6px;font-size:7.5pt;"><strong>Sistema esperado para esta orden:</strong> ${sistemaEsp ? esc(sistemaEsp) : "— No especificado —"}</div>
+  <table class="adh-tbl">
+    <thead><tr><th>Sistema</th><th>Rango mínimo esperado</th><th>Resultado</th></tr></thead>
+    <tbody>${filasSistemas}</tbody>
   </table>
 
   <div class="seccion-hdr">Comentarios</div>
@@ -1361,7 +1635,7 @@ function generarPintura(){
   ${imgPinturaHtml}
   ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
 
-  abrirVentana(html, `Inspección de Pintura — ${d.serie}`);
+  abrirVentana(bannerPreliminar() + html, `Inspección de Pintura — ${d.serie}`);
 }
 
 /* ============================================================
@@ -1433,7 +1707,7 @@ function generarAdherencia(){
 
   ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
 
-  abrirVentana(html, `Prueba de Adherencia — ${d.serie}`);
+  abrirVentana(bannerPreliminar() + html, `Prueba de Adherencia — ${d.serie}`);
 }
 
 /* ============================================================
@@ -1451,7 +1725,8 @@ async function generarServicio(){
     // También re-fetch checklist para resultado actualizado
     const ckFormula2 = encodeURIComponent(`OR(FIND("${ordenId2}",ARRAYJOIN({fldvylNZ5irHPdRM7})),FIND("${serie2} |",{fldHCz04kdMaGhjNR}))`);
     const ckRecs2 = await at(T_CHECKLIST, `filterByFormula=${ckFormula2}`);
-    if(ckRecs2[0]) G.checklist = ckRecs2[0];
+    const ckMerged2 = mergeChecklistDuplicados(ckRecs2);
+    if(ckMerged2) G.checklist = ckMerged2;
   }catch(e){ /* usar datos cacheados si falla */ }
 
   const d = headerDatos();
@@ -1517,7 +1792,7 @@ async function generarServicio(){
 
   ${secFotos2col(FE.fRecibido, "III. FOTOGRAFÍA DE RECIBIDO")}
   ${secFotos2col(FE.fDanos,    "IV. EVIDENCIA DE DAÑOS EN RECEPCIÓN")}
-  ${(fv(G.orden, FO.fotosPlaca)||[]).length ? `<div class="serv-section">V. PLACA DE DATOS DEL MOTOR</div><div class="fotos-grid">${(fv(G.orden, FO.fotosPlaca)||[]).map((a,i)=>fotoItemHtml(a.thumbnails?.large?.url||a.url, `Placa ${i+1}`, i+1)).join("")}</div>` : ""}
+  ${debeMostrarPlaca(fv(G.orden, FO.fotosPlaca)||[]) ? `<div class="serv-section">V. PLACA DE DATOS DEL MOTOR</div><div class="fotos-grid">${(fv(G.orden, FO.fotosPlaca)||[]).map((a,i)=>fotoItemHtml(a.thumbnails?.large?.url||a.url, `Placa ${i+1}`, i+1)).join("")}</div>` : ""}
   ${secFotos2col(FE.fAntes,    "VI. EVIDENCIA ANTES DEL SERVICIO")}
   ${secFotos2col(FE.fDurante,  "VII. EVIDENCIA DURANTE DEL SERVICIO")}
   ${secFotos2col(FE.fDespues,  "VIII. TRABAJO TERMINADO")}
@@ -1531,7 +1806,7 @@ async function generarServicio(){
 
   ${firmaHtml(d.inspector, d.calidad, d.fTermino)}`;
 
-  abrirVentana(html, `Reporte de Servicio — ${d.serie}`);
+  abrirVentana(bannerPreliminar() + html, `Reporte de Servicio — ${d.serie}`);
 }
 
 /* ============================================================
@@ -1684,6 +1959,7 @@ function abrirEditor(tipo, origen){
     if(!G.pintura){ alert("No hay datos de pintura/adherencia para esta orden."); return; }
     const escalaActual = fv(G.pintura, FP.escala) || "";
     const metodoActual = fv(G.pintura, FP.metodo) || "";
+    const sistemaEspActual = fv(G.pintura, FP.sistemaEsperado) || "";
     const ESCALAS_ED = [
       ["5A","5A — Sin eliminación de recubrimiento"],
       ["4A","4A — Eliminación mínima a lo largo de incisiones"],
@@ -1696,6 +1972,12 @@ function abrirEditor(tipo, origen){
     body.innerHTML = `
       <div class="ed-field" style="display:flex;gap:8px;flex-wrap:wrap">
         ${[1,2,3,4,5,6].map(i=>`<div style="flex:1;min-width:70px"><label>Medición ${i} (mils)</label><input type="number" step="0.1" id="edM${i}" value="${esc(fv(G.pintura, FP["medicion"+i]) ?? "")}"></div>`).join("")}
+      </div>
+      <div class="ed-field"><label>Sistema de pintura esperado</label>
+        <select id="edSistemaEsperado">
+          <option value="">— No especificado —</option>
+          ${Object.keys(SISTEMAS_PINTURA).map(s=>`<option value="${s}" ${sistemaEspActual===s?"selected":""}>${s} (${SISTEMAS_PINTURA[s].min.toFixed(1)}–${SISTEMAS_PINTURA[s].max.toFixed(1)} mils)</option>`).join("")}
+        </select>
       </div>
       <div class="ed-field"><label>Método</label>
         <select id="edMetodo">
@@ -1883,6 +2165,7 @@ async function edGuardarFotos(tipo){
     const info = TABLA_INFO[cat.tabla];
     const recordId = info.obj().id;
     const fieldId = info.campos[cat.campo];
+    if(info.descField) tablasTocadas.add(cat.tabla);
     const kept = st.original.filter(a => !st.eliminadosIds.has(a.id));
     if(kept.length !== st.original.length){
       await fetch(`/.netlify/functions/airtable?table=${info.tabla}&recordId=${recordId}`, {
@@ -2071,6 +2354,7 @@ async function guardarEdicion(){
         [FP.metodo]: document.getElementById("edMetodo").value,
         [FP.escala]: escalaSel,
         [FP.resultado]: CUMPLE_POR_ESCALA[escalaSel] ? "Cumple" : "No cumple",
+        [FP.sistemaEsperado]: document.getElementById("edSistemaEsperado").value,
         [FP.comentarios]: document.getElementById("edComentariosPintura").value,
       };
       await fetch(`/.netlify/functions/airtable?table=${T_PINTURA}&recordId=${G.pintura.id}`, {
@@ -2749,7 +3033,7 @@ function generarServicioGeneral(){
 
   ${firmaHtml("—", "—", G.general?.createdTime)}`;
 
-  abrirVentana(html, `Reporte de Servicio — ${folio}`);
+  abrirVentana(bannerPreliminar() + html, `Reporte de Servicio — ${folio}`);
 }
 
 function generarListaMaterialesGeneral(){
@@ -3056,7 +3340,7 @@ function generarNoConformidades(){
     + '</table></div>'
     + '</div></body></html>';
 
-  abrirVentana(doc, "No Conformidades — " + ncSerie);
+  abrirVentana(bannerPreliminar() + doc, "No Conformidades — " + ncSerie);
 }
 /* ============================================================
    INICIO
@@ -3083,6 +3367,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       document.getElementById("repGridGeneral").style.display = "none";
       document.getElementById("repGridSulzer").style.display = "none";
       document.getElementById("repGridComun").style.display = "none";
+      document.getElementById("reporteConsolidadoWrap").style.display = "none";
       document.getElementById(_autoParam === "diagnostico" ? "clienteDiagBox" : "clienteCotizacionBox").style.display = "block";
     }
   } catch(err){
