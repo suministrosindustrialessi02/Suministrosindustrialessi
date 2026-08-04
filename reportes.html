@@ -282,12 +282,15 @@ input[type="file"].hidden-input{ display:none; }
       </button>
       <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('noconformidades')">✏️</button>
     </div>
-    <button class="rep-btn" id="btn-correcciones" onclick="generarCorrecciones()">
-      <span class="rep-btn-icon" style="font-size:1.2rem;color:#0e7a3c">&#10003;</span>
-      <span class="rep-btn-name">Reporte de Correcciones</span>
-      <span class="rep-btn-desc">Antes y después de cada punto corregido</span>
-      <span class="rep-btn-status" id="st-correcciones">—</span>
-    </button>
+    <div class="rep-card-wrap">
+      <button class="rep-btn" id="btn-correcciones" onclick="generarCorrecciones()">
+        <span class="rep-btn-icon" style="font-size:1.2rem;color:#0e7a3c">&#10003;</span>
+        <span class="rep-btn-name">Reporte de Correcciones</span>
+        <span class="rep-btn-desc">Antes y después de cada punto corregido</span>
+        <span class="rep-btn-status" id="st-correcciones">—</span>
+      </button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('noconformidades','correcciones')">✏️</button>
+    </div>
   </div>
 
   <div class="rep-title" style="margin-top:18px;">Entrega del equipo</div>
@@ -1874,6 +1877,7 @@ let _edNoOkIndices = [];    // índices (dentro de ckData.puntos) de los puntos 
 let _edChecklistPuntos = []; // referencia mutable al array ckData.puntos completo, para reescribirlo entero al guardar
 let _edMateriales = [];
 let _edFotos = {}; // { catKey: { original:[...adjuntosAirtable], eliminadosIds:Set, nuevas:[{dataUrl,filename,descripcion}], tabla:"orden"|"general" } }
+let _edCorrFotos = {}; // { [puntoIdx]: { antes:{original,eliminados:Set,nuevas:[{dataUrl}]}, despues:{...} } } — fotos de No Conformidades/Correcciones (comparten CHECKLIST.fotos, un solo campo, partido por convención de filename)
 // Descripciones de fotos por tabla — {attachmentId: texto}. Se guarda en un campo aparte
 // (fotosDescripciones) porque los adjuntos de Airtable no tienen descripción vía API.
 let _edDescripciones = { orden: {}, general: {} };
@@ -2014,7 +2018,16 @@ function abrirEditor(tipo, origen){
     _edChecklistPuntos = puntos;
     _edNoOkIndices = puntos.map((p,i)=>i).filter(i => puntos[i].resultado === "NO OK");
     if(_edNoOkIndices.length === 0){ alert("Esta orden no tiene puntos NO OK."); return; }
-    titulo.textContent = "Editar No Conformidades";
+    const todasFotosCk = fv(G.checklist, FCK.fotos) || [];
+    _edCorrFotos = {};
+    _edNoOkIndices.forEach(i => {
+      const num = puntos[i].num || "";
+      _edCorrFotos[i] = {
+        antes:   { original: edCorrFotosDe(todasFotosCk, num, "antes"),   eliminados: new Set(), nuevas: [] },
+        despues: { original: edCorrFotosDe(todasFotosCk, num, "despues"), eliminados: new Set(), nuevas: [] },
+      };
+    });
+    titulo.textContent = "Editar No Conformidades y Correcciones";
     body.innerHTML = _edNoOkIndices.map(i => {
       const p = puntos[i];
       return `
@@ -2022,9 +2035,30 @@ function abrirEditor(tipo, origen){
           <div style="font-weight:700;font-size:0.85rem;margin-bottom:8px;color:#0c1e35">${esc(p.num||"")} ${esc(p.texto||p.text||"")}</div>
           <label>Observación</label><textarea id="edNcDesc_${i}">${esc(p.descripcion||"")}</textarea>
           <label>Acción correctiva</label><textarea id="edNcAccion_${i}">${esc(p.accionCorrectiva||"")}</textarea>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+            <div>
+              <label style="color:#991b1b">Fotos — Antes</label>
+              <div class="ed-foto-grid" id="edGridCorr_${i}_antes"></div>
+              <div class="ed-foto-actions">
+                <button type="button" class="btn-add-ed" onclick="edCorrAbrirSelector(${i},'antes','camara')">📷</button>
+                <button type="button" class="btn-add-ed" onclick="edCorrAbrirSelector(${i},'antes','galeria')">🖼️</button>
+              </div>
+              <input type="file" class="hidden-input" id="edInputCorr_${i}_antes" accept="image/*" multiple onchange="edCorrManejarFotos(${i},'antes',this)">
+            </div>
+            <div>
+              <label style="color:#0e7a3c">Fotos — Después</label>
+              <div class="ed-foto-grid" id="edGridCorr_${i}_despues"></div>
+              <div class="ed-foto-actions">
+                <button type="button" class="btn-add-ed" onclick="edCorrAbrirSelector(${i},'despues','camara')">📷</button>
+                <button type="button" class="btn-add-ed" onclick="edCorrAbrirSelector(${i},'despues','galeria')">🖼️</button>
+              </div>
+              <input type="file" class="hidden-input" id="edInputCorr_${i}_despues" accept="image/*" multiple onchange="edCorrManejarFotos(${i},'despues',this)">
+            </div>
+          </div>
         </div>
       `;
     }).join("");
+    _edNoOkIndices.forEach(i => { edCorrRenderFotos(i,"antes"); edCorrRenderFotos(i,"despues"); });
   }
 
   document.getElementById("modalEditor").classList.remove("hidden");
@@ -2219,6 +2253,129 @@ async function edGuardarFotos(tipo){
   }
 }
 
+/* ============ FOTOS ANTES/DESPUÉS de No Conformidades / Correcciones ============
+   CHECKLIST.fotos es UN SOLO campo compartido por los 56 puntos + correcciones,
+   partido por convención de nombre de archivo (punto_N_foto_M / correccion_N_foto_M),
+   igual que ya usa generarCorrecciones() — por eso no encaja en el patrón genérico
+   TABLA_INFO/FOTO_CATEGORIAS (que asume 1 campo = 1 categoría). */
+function edCorrFotosDe(todas, num, tipo){
+  const nl = (num||"").replace(/[^0-9]+/g,"_").replace(/^_+|_+$/g,"");
+  const prefijo = (tipo === "antes" ? "punto_" : "correccion_") + nl + "_foto";
+  return todas.filter(a => (a.filename||"").indexOf(prefijo) === 0);
+}
+
+function edCorrRenderFotos(idx, tipo){
+  const st = _edCorrFotos[idx]?.[tipo];
+  const grid = document.getElementById(`edGridCorr_${idx}_${tipo}`);
+  if(!st || !grid) return;
+  const existentes = st.original.filter(a => !st.eliminados.has(a.id));
+  const htmlExistentes = existentes.map(a => `
+    <div class="photo-thumb-wrap">
+      <div class="photo-thumb">
+        <img src="${a.thumbnails?.large?.url || a.url}" alt="foto">
+        <button type="button" class="remove-btn" onclick="edCorrEliminarExistente(${idx},'${tipo}','${a.id}')">✕</button>
+      </div>
+    </div>`).join("");
+  const htmlNuevas = st.nuevas.map((f,i) => `
+    <div class="photo-thumb-wrap">
+      <div class="photo-thumb">
+        <img src="${f.dataUrl}" alt="foto nueva">
+        <button type="button" class="remove-btn" onclick="edCorrEliminarNueva(${idx},'${tipo}',${i})">✕</button>
+      </div>
+    </div>`).join("");
+  grid.innerHTML = (htmlExistentes + htmlNuevas) || `<p style="font-size:0.75rem;color:#888;margin:0">Sin fotos.</p>`;
+}
+
+function edCorrAbrirSelector(idx, tipo, modo){
+  const input = document.getElementById(`edInputCorr_${idx}_${tipo}`);
+  if(!input) return;
+  if(modo === "camara") input.setAttribute("capture", "environment");
+  else input.removeAttribute("capture");
+  input.click();
+}
+
+function edCorrManejarFotos(idx, tipo, inputEl){
+  const files = Array.from(inputEl.files || []);
+  if(files.length === 0) return;
+  const st = _edCorrFotos[idx][tipo];
+  let pendientes = files.length;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      st.nuevas.push({ dataUrl: e.target.result }); // filename real se calcula al guardar (necesita seguir la convención punto_N_foto_M / correccion_N_foto_M)
+      pendientes--;
+      if(pendientes === 0) edCorrRenderFotos(idx, tipo);
+    };
+    reader.readAsDataURL(file);
+  });
+  inputEl.value = "";
+}
+
+function edCorrEliminarExistente(idx, tipo, attId){
+  const st = _edCorrFotos[idx][tipo];
+  if(!st) return;
+  st.eliminados.add(attId);
+  edCorrRenderFotos(idx, tipo);
+}
+
+function edCorrEliminarNueva(idx, tipo, i){
+  const st = _edCorrFotos[idx][tipo];
+  if(!st) return;
+  st.nuevas.splice(i, 1);
+  edCorrRenderFotos(idx, tipo);
+}
+
+// Guarda borrados + agregados de fotos de todos los puntos NO OK abiertos en el editor.
+// Borrar: PATCH con el campo completo (todasFotosCk menos las eliminadas) — hay que partir
+// del campo COMPLETO (no solo del subset de este punto) para no perder fotos de puntos OK
+// que también pueden tener foto y viven en el mismo campo.
+// Agregar: uploadAttachment por archivo (ese endpoint agrega, no reemplaza), con filename
+// que respeta la convención punto_N_foto_M.jpg / correccion_N_foto_M.jpg.
+async function edGuardarFotosCorrecciones(){
+  const todasFotosCk = fv(G.checklist, FCK.fotos) || [];
+  const eliminadosIds = new Set();
+  Object.values(_edCorrFotos).forEach(pt => {
+    pt.antes.eliminados.forEach(id => eliminadosIds.add(id));
+    pt.despues.eliminados.forEach(id => eliminadosIds.add(id));
+  });
+  let huboCambios = eliminadosIds.size > 0;
+  if(eliminadosIds.size > 0){
+    const kept = todasFotosCk.filter(a => !eliminadosIds.has(a.id));
+    await fetch(`/.netlify/functions/airtable?table=${T_CHECKLIST}&recordId=${G.checklist.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [FCK.fotos]: kept.map(a => ({ id: a.id })) } })
+    });
+  }
+  for(const idxStr of Object.keys(_edCorrFotos)){
+    const i = Number(idxStr);
+    const num = _edChecklistPuntos[i]?.num || "";
+    const nl = (num||"").replace(/[^0-9]+/g,"_").replace(/^_+|_+$/g,"");
+    for(const tipo of ["antes","despues"]){
+      const st = _edCorrFotos[i][tipo];
+      if(st.nuevas.length === 0) continue;
+      huboCambios = true;
+      const kept = st.original.filter(a => !st.eliminados.has(a.id));
+      let siguiente = kept.length + 1;
+      const prefijo = tipo === "antes" ? "punto" : "correccion";
+      for(const f of st.nuevas){
+        const filename = `${prefijo}_${nl}_foto_${siguiente}.jpg`;
+        await fetch(`/.netlify/functions/airtable-upload?recordId=${G.checklist.id}&fieldId=${FCK.fotos}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contentType: "image/jpeg", filename, file: f.dataUrl.split(",")[1] })
+        });
+        siguiente++;
+      }
+    }
+  }
+  if(huboCambios){
+    const resp = await fetch(`/.netlify/functions/airtable?table=${T_CHECKLIST}&recordId=${G.checklist.id}&returnFieldsByFieldId=true`, { headers:{} });
+    const data = await resp.json();
+    if(data.fields) Object.assign(G.checklist.fields, data.fields);
+  }
+}
+
 function cerrarEditor(){ document.getElementById("modalEditor").classList.add("hidden"); _editorTipo = null; }
 function cerrarEditorSiFuera(e){ if(e.target.id === "modalEditor") cerrarEditor(); }
 
@@ -2396,8 +2553,9 @@ async function guardarEdicion(){
       });
       G.checklist.fields[FCK.checklistJson] = JSON.stringify(ckData);
       await incrementarContadorEdicion(FO.edicionesReporte);
+      await edGuardarFotosCorrecciones();
       cerrarEditor();
-      regenerarConVentanaReservada(wPre, generarNoConformidades);
+      regenerarConVentanaReservada(wPre, _editorOrigen === "correcciones" ? generarCorrecciones : generarNoConformidades);
     }
   } catch(e){
     alert("No se pudieron guardar los cambios: " + (e.message||""));

@@ -1963,6 +1963,7 @@ const F = {
   correccionesCompletadas: "fldnQ6DxpfYANoE8p",
   tipoServicio:            "fld0rhBYkk5nAnXcT",
   tipoEquipo:              "fldBhqLRYDHl2L2tJ",
+  hp:                      "fldjyFFAaL0dIFWIE",
   folio:                   "fldpMUMLpNCGGQcIo",
   reporteGeneralCompletado:"fldJgJ2UZ7ufze8C5",
   prioridad:               "fldLskZ89jqrWxuGy",
@@ -2087,6 +2088,7 @@ function parsear(rec){
     estado,
     tipoServicio,
     tipoEquipo,
+    hp: (f[F.hp] !== undefined && f[F.hp] !== null && f[F.hp] !== "") ? f[F.hp] : "",
     checklist:               !!f[F.checklist],
     pintura:                 !!f[F.pintura],
     evidencia:               !!f[F.evidencia],
@@ -2274,7 +2276,7 @@ function renderTablaPorLlegar(ordenes){
   }
   tbody.innerHTML = ordenes.map(o => `<tr>
     <td class="td-serie">${esc(o.folio || "—")}</td>
-    <td>${esc(o.tipoEquipo || "—")}</td>
+    <td>${esc(o.tipoEquipo || "—")}${(o.hp || o.hp === 0) ? ` · ${esc(String(o.hp))} HP` : ""}</td>
     <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
     <td>${esc(o.serie || "—")}</td>
     <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
@@ -2342,7 +2344,8 @@ function datosFila(o, esAdmin){
   const servicioBadge = esGeneral
     ? `<span class="chip" style="background:#fff3e0;color:#e65100">General</span>`
     : `<span class="chip" style="background:#e3f2fd;color:#1565c0">Sulzer</span>`;
-  const equipoTxt = esGeneral ? (o.tipoEquipo || "—") : "Motor";
+  const equipoBase = esGeneral ? (o.tipoEquipo || "—") : "Motor";
+  const equipoTxt = (o.hp || o.hp === 0) ? `${equipoBase} · ${o.hp} HP` : equipoBase;
   const accionesHtml = esGeneral ? `
       <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
       ${!o.reporteGeneralCompletado && !["endiagnostico","noautorizado"].includes(normEstado(o.estado))
@@ -2829,6 +2832,26 @@ const COT = {
   diagnosticoTexto:        "fldqrQ3SL3P4N06RJ",
   aplicaIVA:               "fldmW4salFKyMne6d",
 };
+// Arma el renglón por defecto (1 SERV) a partir de los servicios que el técnico marcó
+// en el diagnóstico ("Servicios a realizar") — mismo formato que las cotizaciones reales
+// (un solo renglón con la lista de servicios en viñetas dentro de la descripción).
+function cotDescripcionDesdeDiagnostico(raw){
+  let d = {};
+  try{ d = JSON.parse(raw || "{}"); }catch(e){}
+  const servicios = Array.isArray(d.serviciosPropuestos) ? d.serviciosPropuestos.map(s => (s||"").trim()).filter(Boolean) : [];
+  if(!servicios.length) return "";
+  const formatear = s => {
+    s = s.charAt(0).toUpperCase() + s.slice(1);
+    if(!/[.!?]$/.test(s)) s += ".";
+    return s;
+  };
+  const yaTieneReporteFinal = servicios.some(s => /^reporte final\.?$/i.test(s.trim()));
+  const lineas = [...servicios.map(formatear), ...(yaTieneReporteFinal ? [] : ["Reporte final."])];
+  return lineas.map(l => `• ${l}`).join("\n");
+}
+function cotRenglonPorDefecto(diagnosticoRaw){
+  return { cant:1, unidad:"SERV", descripcion: cotDescripcionDesdeDiagnostico(diagnosticoRaw), precioUnitario:0, total:0 };
+}
 let cotOrdenId      = null;
 let cotFolio        = "";
 let cotRenglones    = [];
@@ -2867,7 +2890,7 @@ async function abrirCotizacion(id, identificador){
 
     let renglones = [];
     try{ renglones = JSON.parse(f[COT.detalleServicios] || "[]"); }catch(e){}
-    cotRenglones = renglones.length ? renglones : [{ cant:1, unidad:"SERV", descripcion:"", precioUnitario:0, total:0 }];
+    cotRenglones = renglones.length ? renglones : [cotRenglonPorDefecto(f[COT.diagnosticoTexto])];
 
     document.getElementById("cotSolicitadaPor").value   = f[COT.cotizacionSolicitadaPor] || "";
     document.getElementById("cotAgente").value          = f[COT.agenteReferencia] || "";
@@ -2956,7 +2979,9 @@ function cotQuitarRenglon(i){
 function cotRecalcular(){
   const aplicaIVA = document.getElementById("cotAplicaIVA").checked;
   const subtotal = cotRenglones.reduce((s,r) => s + (parseFloat(r.total) || 0), 0);
-  const iva   = aplicaIVA ? subtotal * 0.16 : 0;
+  // El 16% SIEMPRE se cobra y se suma al total — "Sin IVA" (aplicaIVA=No) solo oculta
+  // el renglón/concepto de IVA en el documento, no lo quita del precio real.
+  const iva   = subtotal * 0.16;
   const total = subtotal + iva;
   document.getElementById("cotSubtotalTxt").textContent = fmtMoneda(subtotal);
   document.getElementById("cotIvaTxt").textContent      = fmtMoneda(iva);
