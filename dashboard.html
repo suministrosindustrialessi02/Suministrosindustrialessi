@@ -2322,7 +2322,10 @@ function renderTablaPorLlegar(ordenes){
     <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
     <td>${esc(o.serie || "—")}</td>
     <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
-    <td class="td-num"><button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button></td>
+    <td class="td-num">
+      <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button>
+      <button class="btn-corr" style="background:#0e7a3c" onclick="generarQROrden('${o.id}','${esc(o.folio)}')">🏷️ QR</button>
+    </td>
     <td class="td-num">${esAdmin
       ? `<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
            <button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(o.folio)}')">&#128176; Cotizar</button>
@@ -3229,8 +3232,11 @@ async function guardarPreRegistro(){
     }).catch(()=>{});
 
     statusEl.style.color = "var(--verde)";
-    statusEl.textContent = `✓ Equipo ${folio} pre-registrado. Aparecerá en "Equipos por llegar".`;
-    setTimeout(async () => { cerrarPreRegistro(); await cargarDatos(); }, 1200);
+    statusEl.textContent = `✓ Equipo ${folio} pre-registrado.`;
+    const nuevoId = data.records[0].id;
+    cerrarPreRegistro();
+    generarQROrden(nuevoId, folio);
+    await cargarDatos();
   } catch(err){
     statusEl.style.color = "var(--rojo)";
     statusEl.textContent = "Error: " + (err.message || "no se pudo guardar");
