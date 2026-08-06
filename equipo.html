@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ficha de equipo — Suministros Industriales SI</title>
+<style>
+:root{
+  --navy:#0c1e35; --azul:#12325a; --azul-claro:#1d5496; --azul-medio:#2563a8;
+  --azul-bg:#e8f0fb; --fondo:#eef1f6; --gris:#dde3ec; --gris-texto:#485568; --gris-oscuro:#3d4a5c;
+  --rojo:#991b1b; --rojo-bg:#fde8e8; --rojo-borde:#f5a5a5;
+  --radio:14px; --radio-sm:8px;
+  --sombra:0 1px 4px rgba(12,30,53,0.07), 0 4px 12px rgba(12,30,53,0.05);
+  --grad-marca:linear-gradient(90deg,#f2741a 0%,#a0228e 52%,#1d5496 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef2f8 0%,#e6ebf3 100%);min-height:100vh;color:var(--gris-oscuro)}
+header{background:var(--navy);color:#fff;padding:16px 20px;text-align:center;position:relative}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--grad-marca)}
+header h1{font-size:0.95rem;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+header p{font-size:0.72rem;color:rgba(255,255,255,0.5);margin-top:2px}
+main{max-width:560px;margin:0 auto;padding:20px 16px 60px}
+.card{background:#fff;border-radius:var(--radio);box-shadow:var(--sombra);padding:22px 20px;margin-bottom:16px}
+
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.badge{display:inline-block;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.4px;padding:4px 10px;border-radius:20px}
+.badge-tipo{background:var(--azul-bg);color:var(--azul-claro)}
+.badge-sulzer{background:#e3f2fd;color:#1565c0}
+.badge-general{background:#fff3e0;color:#e65100}
+
+.serie{font-size:1.5rem;font-weight:800;color:var(--azul);word-break:break-word;line-height:1.2}
+.nombre-corto{font-size:0.85rem;color:var(--gris-texto);margin-top:2px}
+.cliente{font-size:1rem;color:var(--gris-texto);margin-top:6px}
+
+.estado-pill{display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;font-weight:700;padding:6px 12px;border-radius:20px;margin-top:12px}
+.estado-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+.seccion{margin-top:20px}
+.seccion-titulo{font-size:0.7rem;font-weight:700;color:var(--gris-texto);text-transform:uppercase;letter-spacing:0.6px;padding-bottom:6px;border-bottom:1px solid var(--gris);margin-bottom:10px}
+.datos{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.dato label{display:block;font-size:0.65rem;font-weight:700;color:var(--gris-texto);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:2px}
+.dato .val{font-size:0.92rem;font-weight:600;color:var(--gris-oscuro);word-break:break-word}
+.dato.full{grid-column:1/-1}
+
+.callout{margin-top:20px;background:var(--fondo);border-left:3px solid var(--azul-claro);border-radius:0 var(--radio-sm) var(--radio-sm) 0;padding:12px 14px}
+.callout-titulo{font-size:0.68rem;font-weight:700;color:var(--azul-claro);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+.callout-texto{font-size:0.88rem;color:var(--gris-oscuro);white-space:pre-wrap;line-height:1.45}
+
+.registro-info{margin-top:18px;font-size:0.72rem;color:var(--gris-texto);text-align:right}
+.spinner-wrap{text-align:center;padding:60px 20px;color:var(--gris-texto)}
+.spinner{width:36px;height:36px;border:4px solid var(--gris);border-top-color:var(--azul-claro);border-radius:50%;margin:0 auto 14px;animation:spin 0.9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-box{background:var(--rojo-bg);border:1px solid var(--rojo-borde);color:var(--rojo);padding:18px;border-radius:var(--radio-sm);text-align:center;font-size:0.9rem}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Suministros Industriales SI</h1>
+  <p>Ficha de identificación de equipo</p>
+</header>
+
+<main>
+  <div id="spinnerWrap" class="spinner-wrap">
+    <div class="spinner"></div>
+    <p>Cargando datos del equipo...</p>
+  </div>
+
+  <div id="errorBox" class="error-box hidden">
+    No se encontró información para este código. Verifica que el QR no esté dañado o contacta a Suministros Industriales SI.
+  </div>
+
+  <div id="ficha" class="card hidden"></div>
+</main>
+
+<script>
+/* Proxy de seguridad, ver netlify/functions/airtable.js — nunca token directo aquí */
+const TABLA_EQUIPOS = "tblkDJc5rUtSevPD4";
+const EF = {
+  serie:    "fldrFxsJ9zxNtWyvG",
+  cliente:  "fldDnhRp9uQeJUpNX",
+  usuario:  "fldV86Vxj8XvVhkwI",
+  tipo:     "fldJqyffVuDQz2cFv",
+  marca:    "fldTcefImjWn9tjAT",
+  modelo:   "fldb8vt1uM9YzDKFj",
+  hp:       "fldrGrAINvi5QyVAS",
+  volts:    "fld5EAAct1tGAYWha",
+  amperes:  "fldM4gqT7PeiTKl0A",
+  frame:    "fldqwaSI9d324tjk9",
+  rpm:      "fldQoOoed64K9Od3I",
+  notas:    "fld6D9k55yS8UWnMB",
+  fecha:    "fldgaKpczBjP4NaqQ",
+  regPor:   "fldTuaDet3rdF04E8",
+};
+
+/* ORDENES DE SERVICIO — ficha generada desde una orden ya existente (Sulzer o General) */
+const TABLA_ORDENES = "tblcyGwDeOORxELJg";
+const OF = {
+  serie:        "fldj245KNDJ2B5jxG",
+  cliente:      "fldUkOvdOHTXMDWX7",
+  usuario:      "fldJmwtkHIJLsveaC",
+  spec:         "fldkkXFzqKeGSIqJQ",
+  catNo:        "fld4BE7lLXKOu48LR",
+  hp:           "fldjyFFAaL0dIFWIE",
+  frame:        "fldSvMeOGe98aT2e0",
+  volts:        "fldLxVAorFAGaboOF",
+  tipoEquipo:   "fldBhqLRYDHl2L2tJ",
+  tipoServicio: "fld0rhBYkk5nAnXcT",
+  folio:        "fldpMUMLpNCGGQcIo",
+  estado:       "fldRtvzailqq6WbQu",
+  diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
+};
+
+/* REPORTES_GENERAL — datos extra (marca/color/n° parte/descripción) para órdenes General */
+const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+const RGF = {
+  ordenServicio: "fldSIaStYemOiievZ",
+  folio:         "fldKBCvEigK6R8hOQ",
+  nombreCorto:   "fldWoaxMR962Fj2HF",
+  marca:         "fldL9OPmEgJ9XkKoq",
+  color:         "fldl8PsvBF74TgPir",
+  numParte:      "fld9FbgcU4LE2IAe6",
+  descripcionProblema: "fld97fTrbIGRZUXjF",
+};
+
+/* BORRADORES — respaldo si el reporte General aún no existe (orden en progreso) */
+const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
+const BF = { serie: "fldegmWGpcWW7Awzn", datosJson: "fldSdxpRwhyvSWEgJ" };
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function dato(label, valor, full){
+  if(valor === "" || valor == null) return "";
+  return `<div class="dato${full?" full":""}"><label>${esc(label)}</label><div class="val">${esc(valor)}</div></div>`;
+}
+
+function seccion(titulo, itemsHtml){
+  const html = itemsHtml.filter(Boolean).join("");
+  if(!html) return "";
+  return `<div class="seccion"><div class="seccion-titulo">${esc(titulo)}</div><div class="datos">${html}</div></div>`;
+}
+
+function estadoColor(estado){
+  const s = (estado || "").toLowerCase();
+  if(s.includes("entregado") || s.includes("terminado")) return "#0e7a3c";
+  if(s.includes("correccion") || s.includes("no autorizado")) return "#991b1b";
+  if(s.includes("diagnostico")) return "#976010";
+  if(s.includes("proceso")) return "#1d5496";
+  return "#485568";
+}
+
+function renderFicha({ badges, serie, nombreCorto, cliente, estado, seccionesHtml, calloutTitulo, calloutTexto, pieTexto }){
+  const color = estado ? estadoColor(estado) : null;
+  document.getElementById("ficha").innerHTML = `
+    <div class="badges">${badges.join("")}</div>
+    <div class="serie">${esc(serie || "—")}</div>
+    ${nombreCorto ? `<div class="nombre-corto">${esc(nombreCorto)}</div>` : ""}
+    ${cliente ? `<div class="cliente">${esc(cliente)}</div>` : ""}
+    ${estado ? `<div class="estado-pill" style="background:${color}1a;color:${color}"><span class="estado-dot"></span>${esc(estado)}</div>` : ""}
+    ${seccionesHtml.join("")}
+    ${calloutTexto ? `<div class="callout"><div class="callout-titulo">${esc(calloutTitulo)}</div><div class="callout-texto">${esc(calloutTexto)}</div></div>` : ""}
+    <div class="registro-info">${esc(pieTexto || "")}</div>
+  `;
+  document.getElementById("spinnerWrap").classList.add("hidden");
+  document.getElementById("ficha").classList.remove("hidden");
+}
+
+async function cargarFichaEquipo(id){
+  const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_EQUIPOS}&recordId=${id}&returnFieldsByFieldId=true`, {
+    headers:{}
+  });
+  if(!resp.ok) throw new Error("no encontrado");
+  const rec = await resp.json();
+  const f = rec.fields;
+
+  let pieTexto = "";
+  if(f[EF.fecha]){
+    const d = new Date(f[EF.fecha]);
+    pieTexto = "Registrado " + d.toLocaleDateString("es-MX", { year:"numeric", month:"short", day:"numeric" });
+    if(f[EF.regPor]) pieTexto += " por " + f[EF.regPor];
+  }
+
+  renderFicha({
+    badges: [`<span class="badge badge-tipo">${esc(f[EF.tipo] || "Equipo")}</span>`],
+    serie: f[EF.serie],
+    nombreCorto: "",
+    cliente: f[EF.cliente],
+    estado: "",
+    seccionesHtml: [
+      seccion("Datos generales", [
+        dato("Usuario", f[EF.usuario]),
+        dato("Marca", f[EF.marca]),
+      ]),
+      seccion("Ficha técnica", [
+        dato("Modelo / SPEC", f[EF.modelo]),
+        dato("Frame", f[EF.frame]),
+        dato("HP", f[EF.hp]),
+        dato("Volts", f[EF.volts]),
+        dato("Amperes", f[EF.amperes]),
+        dato("RPM", f[EF.rpm]),
+      ]),
+    ],
+    calloutTitulo: "Notas",
+    calloutTexto: f[EF.notas],
+    pieTexto,
+  });
+}
+
+/* Datos extra que NO viven directo en ORDENES: marca/color/n° parte/nombre corto/
+   descripción del problema. Para General vienen del reporte final (o el borrador
+   en progreso si aún no hay reporte); para Sulzer vienen del JSON de diagnóstico
+   capturado en Recepción. Cualquier falla aquí no debe tumbar la ficha. */
+async function cargarExtra(id, folio, tipoServicio, diagnosticoTextoRaw){
+  const vacio = { nombreCorto:"", marca:"", color:"", numParte:"", descripcionProblema:"" };
+
+  if(tipoServicio === "General"){
+    try{
+      const formula = encodeURIComponent(`OR(FIND("${id}",ARRAYJOIN({${RGF.ordenServicio}})),{${RGF.folio}}="${folio}")`);
+      const res = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${formula}&returnFieldsByFieldId=true`, {
+        headers:{}
+      });
+      if(res.ok){
+        const data = await res.json();
+        const rg = (data.records || [])[0];
+        if(rg){
+          return {
+            nombreCorto: rg.fields[RGF.nombreCorto] || "",
+            marca:       rg.fields[RGF.marca] || "",
+            color:       rg.fields[RGF.color] || "",
+            numParte:    rg.fields[RGF.numParte] || "",
+            descripcionProblema: rg.fields[RGF.descripcionProblema] || "",
+          };
+        }
+      }
+    }catch(e){}
+    // Respaldo: orden aún en progreso, sin reporte final — usar el borrador
+    try{
+      const bfFormula = encodeURIComponent(`{${BF.serie}}="${folio}"`);
+      const res = await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${bfFormula}&returnFieldsByFieldId=true`, {
+        headers:{}
+      });
+      if(res.ok){
+        const data = await res.json();
+        const bf = (data.records || [])[0];
+        if(bf && bf.fields[BF.datosJson]){
+          const j = JSON.parse(bf.fields[BF.datosJson]);
+          return {
+            nombreCorto: j.nombreCorto || "",
+            marca:       j.marca || "",
+            color:       j.color || "",
+            numParte:    j.numParte || "",
+            descripcionProblema: j.descripcionProblema || "",
+          };
+        }
+      }
+    }catch(e){}
+    return vacio;
+  }
+
+  // Sulzer: todo viene embebido en el JSON de diagnóstico de la orden (si ya se capturó)
+  if(diagnosticoTextoRaw){
+    try{
+      const j = JSON.parse(diagnosticoTextoRaw);
+      return {
+        nombreCorto: j.nombreCorto || "",
+        marca:       j.marca || "",
+        color:       j.color || "",
+        numParte:    (j.numParte && j.numParte !== "N/A") ? j.numParte : "",
+        descripcionProblema: j.descripcionProblema || "",
+        amperaje: j.amperaje || "",
+      };
+    }catch(e){}
+  }
+  return vacio;
+}
+
+async function cargarFichaOrden(id){
+  const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${id}&returnFieldsByFieldId=true`, {
+    headers:{}
+  });
+  if(!resp.ok) throw new Error("no encontrado");
+  const rec = await resp.json();
+  const f = rec.fields;
+
+  const estado = f[OF.estado] || "";
+  const tipoServicio = f[OF.tipoServicio] || "Sulzer";
+  const serie = f[OF.serie] || f[OF.folio] || "";
+  const extra = await cargarExtra(id, f[OF.folio] || serie, tipoServicio, f[OF.diagnosticoTexto]);
+
+  const badges = [`<span class="badge badge-tipo">${esc(f[OF.tipoEquipo] || "Equipo")}</span>`];
+  badges.push(`<span class="badge ${tipoServicio === "General" ? "badge-general" : "badge-sulzer"}">${esc(tipoServicio)}</span>`);
+
+  renderFicha({
+    badges,
+    serie,
+    nombreCorto: extra.nombreCorto,
+    cliente: f[OF.cliente],
+    estado,
+    seccionesHtml: [
+      seccion("Datos generales", [
+        dato("Usuario", f[OF.usuario]),
+        dato("Marca", extra.marca),
+        dato("Color", extra.color),
+      ]),
+      seccion("Ficha técnica", [
+        dato("Modelo / SPEC", f[OF.spec]),
+        dato("N° de parte", extra.numParte),
+        dato("N° catálogo", f[OF.catNo]),
+        dato("Frame", f[OF.frame]),
+        dato("HP", f[OF.hp]),
+        dato("Volts", f[OF.volts]),
+        dato("Amperes", extra.amperaje),
+      ]),
+    ],
+    calloutTitulo: "Lo que reporta el cliente",
+    calloutTexto: extra.descripcionProblema,
+    pieTexto: "Datos tomados de la orden de servicio en el sistema",
+  });
+}
+
+async function cargarFicha(){
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+  const tipoFuente = params.get("tipo");
+  const spinner = document.getElementById("spinnerWrap");
+  const errorBox = document.getElementById("errorBox");
+
+  if(!id){
+    spinner.classList.add("hidden");
+    errorBox.classList.remove("hidden");
+    return;
+  }
+
+  try{
+    if(tipoFuente === "orden"){
+      await cargarFichaOrden(id);
+    }else{
+      await cargarFichaEquipo(id);
+    }
+  }catch(e){
+    console.error(e);
+    spinner.classList.add("hidden");
+    errorBox.classList.remove("hidden");
+  }
+}
+
+cargarFicha();
+</script>
+</body>
+</html>
