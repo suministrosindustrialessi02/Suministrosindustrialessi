@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Suministros Industriales SI</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 /* ===== VARIABLES ===== */
 :root{
@@ -1217,6 +1218,22 @@ footer strong{ color: var(--azul); }
 .cal-divval{ text-align:right; font-weight:700; }
 .cal-empty{ font-size:0.76rem; color:var(--gris-texto); padding:10px 0; }
 
+/* ===== QR de equipo ===== */
+.qr-modal-body{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:24px; }
+#qrModalBox{ margin:10px 0; padding:14px; background:#fff; border:1px solid var(--gris); border-radius:var(--radio-sm); }
+#qrModalDatos{ font-size:0.85rem; line-height:1.7; text-align:left; width:100%; max-width:280px; margin-top:6px; }
+#qrModalDatos b{ color:var(--azul); }
+#qrModalLink{ font-size:0.7rem; color:var(--gris-texto); word-break:break-all; margin-top:8px; max-width:280px; }
+#etiquetaImprimirDash{ display:none; }
+@media print{
+  body *{ visibility:hidden; }
+  #etiquetaImprimirDash, #etiquetaImprimirDash *{ visibility:visible; }
+  #etiquetaImprimirDash{ display:block; position:absolute; top:0; left:0; width:100%; text-align:center; padding:20px; }
+  #etiquetaImprimirDash img{ width:180px; height:180px; }
+  #etiquetaImprimirDash .etq-serie{ font-size:16px; font-weight:700; margin-top:8px; }
+  #etiquetaImprimirDash .etq-info{ font-size:12px; margin-top:4px; }
+}
+
 </style>
 </head>
 <body>
@@ -1797,6 +1814,31 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL QR DE EQUIPO -->
+<div class="modal-overlay hidden" id="modalQR" onclick="if(event.target.id==='modalQR') cerrarModalQR()">
+  <div class="ck-modal" style="max-width:380px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Código QR del equipo</h2>
+        <button class="modal-close" onclick="cerrarModalQR()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body qr-modal-body" id="qrModalBody">
+      <div class="spinner" style="margin:20px auto"></div>
+    </div>
+    <div class="ck-modal-footer">
+      <button class="btn-cancelar" onclick="cerrarModalQR()">Cerrar</button>
+      <button class="btn-imprimir hidden" id="btnImprimirQRModal" onclick="imprimirEtiquetaQR()">🖨️ Imprimir etiqueta</button>
+    </div>
+  </div>
+</div>
+
+<div id="etiquetaImprimirDash">
+  <img id="etqImgDash" src="">
+  <div class="etq-serie" id="etqSerieDash"></div>
+  <div class="etq-info" id="etqInfoDash"></div>
+</div>
+
 <!-- MODAL ASIGNAR TÉCNICOS A UNA ORDEN (solo Admin) -->
 <div class="modal-overlay hidden" id="modalAsignarTecnicos" onclick="cerrarAsignarTecnicosSiFuera(event)">
   <div class="ck-modal" style="max-width:420px">
@@ -2280,7 +2322,10 @@ function renderTablaPorLlegar(ordenes){
     <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
     <td>${esc(o.serie || "—")}</td>
     <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
-    <td class="td-num"><button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button></td>
+    <td class="td-num">
+      <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button>
+      <button class="btn-corr" style="background:#0e7a3c" onclick="generarQROrden('${o.id}','${esc(o.folio)}')">🏷️ QR</button>
+    </td>
     <td class="td-num">${esAdmin
       ? `<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
            <button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(o.folio)}')">&#128176; Cotizar</button>
@@ -2348,6 +2393,7 @@ function datosFila(o, esAdmin){
   const equipoTxt = (o.hp || o.hp === 0) ? `${equipoBase} · ${o.hp} HP` : equipoBase;
   const accionesHtml = esGeneral ? `
       <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(identificador)}')">Ver detalle</button>
+      <button class="btn-corr" style="background:#0e7a3c" onclick="generarQROrden('${o.id}','${esc(identificador)}')">🏷️ QR</button>
       ${!o.reporteGeneralCompletado && !["endiagnostico","noautorizado"].includes(normEstado(o.estado))
         ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_general.html?folio=${encodeURIComponent(o.folio)}">&#9997; Continuar</a>`
         : ''}
@@ -2364,6 +2410,7 @@ function datosFila(o, esAdmin){
       ${esAdmin ? `<button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(identificador)}')" ${o.estadoValidacionMateriales==="Pendiente" ? `title="Materiales aún sin validar por Dirección"` : ''}>&#128176; Cotizar${o.estadoValidacionMateriales==="Pendiente" ? ` <span style="background:#fde68a;color:#7a5b00;border-radius:8px;padding:0 5px;font-size:0.68rem;margin-left:2px">&#9888;</span>` : ''}</button>` : ''}
     ` : `
       <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
+      <button class="btn-corr" style="background:#0e7a3c" onclick="generarQROrden('${o.id}','${esc(identificador)}')">🏷️ QR</button>
       ${!["terminado","entregado"].includes(normEstado(o.estado))
         ? `<a class="btn-corr" style="background:#1d5496;text-decoration:none;display:inline-block" href="formulario_maestro.html?serie=${encodeURIComponent(o.serie)}">&#9997; Continuar</a>`
         : ''}
@@ -2831,6 +2878,7 @@ const COT = {
   fechaAutorizacion:       "fldmizB5GKLZfVOYM",
   diagnosticoTexto:        "fldqrQ3SL3P4N06RJ",
   aplicaIVA:               "fldmW4salFKyMne6d",
+  usuario:                 "fldJmwtkHIJLsveaC",
 };
 // Arma el renglón por defecto (1 SERV) a partir de los servicios que el técnico marcó
 // en el diagnóstico ("Servicios a realizar") — mismo formato que las cotizaciones reales
@@ -3184,8 +3232,11 @@ async function guardarPreRegistro(){
     }).catch(()=>{});
 
     statusEl.style.color = "var(--verde)";
-    statusEl.textContent = `✓ Equipo ${folio} pre-registrado. Aparecerá en "Equipos por llegar".`;
-    setTimeout(async () => { cerrarPreRegistro(); await cargarDatos(); }, 1200);
+    statusEl.textContent = `✓ Equipo ${folio} pre-registrado.`;
+    const nuevoId = data.records[0].id;
+    cerrarPreRegistro();
+    generarQROrden(nuevoId, folio);
+    await cargarDatos();
   } catch(err){
     statusEl.style.color = "var(--rojo)";
     statusEl.textContent = "Error: " + (err.message || "no se pudo guardar");
@@ -3212,6 +3263,77 @@ async function cancelarPreRegistro(id, folio){
     }
     await cargarDatos();
   } catch(e){ alert("No se pudo cancelar el pre-registro."); }
+}
+
+/* ============================================================
+   QR DE EQUIPO — generado directo desde la fila de la orden,
+   sin volver a teclear serie/folio (toma los datos ya guardados
+   en la orden, en cualquier estado: Por llegar...Entregado)
+   ============================================================ */
+async function generarQROrden(id, identificadorFallback){
+  document.getElementById("qrModalBody").innerHTML = `<div class="spinner" style="margin:20px auto"></div>`;
+  document.getElementById("btnImprimirQRModal").classList.add("hidden");
+  document.getElementById("modalQR").classList.remove("hidden");
+
+  try{
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} });
+    if(!res.ok) throw new Error("No se pudo cargar la orden.");
+    const orden = await res.json();
+    const of = orden.fields || {};
+
+    const serie   = of[F.serie] || of[F.folio] || identificadorFallback || "—";
+    const cliente = of[F.cliente] || "";
+    const tipo    = of[F.tipoEquipo] || "";
+    const modelo  = of[F.spec] || "";
+    const hp      = of[F.hp] || "";
+    const volts   = of[F.volts] || "";
+    const frame   = of[F.frame] || "";
+    const usuario = of[F.usuario] || "";
+    const estado  = of[F.estado] || "";
+
+    const base = `${location.origin}${location.pathname.replace(/dashboard\.html$/, "equipo.html")}`;
+    const url = `${base}?tipo=orden&id=${id}`;
+
+    document.getElementById("qrModalBody").innerHTML = `
+      <div id="qrModalBox"></div>
+      <div id="qrModalDatos"></div>
+      <div id="qrModalLink"></div>
+    `;
+    new QRCode(document.getElementById("qrModalBox"), { text: url, width: 190, height: 190, correctLevel: QRCode.CorrectLevel.M });
+
+    const partes = [];
+    partes.push(`<b>N° Serie / Folio:</b> ${esc(serie)}`);
+    if(cliente) partes.push(`<b>Cliente:</b> ${esc(cliente)}`);
+    if(modelo) partes.push(`<b>Modelo:</b> ${esc(modelo)}`);
+    if(tipo) partes.push(`<b>Tipo:</b> ${esc(tipo)}`);
+    if(usuario) partes.push(`<b>Usuario:</b> ${esc(usuario)}`);
+    if(hp) partes.push(`<b>HP:</b> ${esc(String(hp))}`);
+    if(volts) partes.push(`<b>Volts:</b> ${esc(String(volts))}`);
+    if(frame) partes.push(`<b>Frame:</b> ${esc(frame)}`);
+    if(estado) partes.push(`<b>Estado actual:</b> ${esc(estado)}`);
+    document.getElementById("qrModalDatos").innerHTML = partes.join("<br>");
+    document.getElementById("qrModalLink").textContent = url;
+
+    document.getElementById("etqSerieDash").textContent = serie;
+    document.getElementById("etqInfoDash").textContent = [cliente, modelo].filter(Boolean).join(" · ");
+
+    document.getElementById("btnImprimirQRModal").classList.remove("hidden");
+  } catch(e){
+    document.getElementById("qrModalBody").innerHTML = `
+      <p style="color:var(--rojo)"><strong>Error al generar el QR</strong></p>
+      <p style="font-size:0.82rem;margin-top:6px;color:var(--gris-texto)">${esc(e.message)}</p>
+    `;
+  }
+}
+
+function cerrarModalQR(){ document.getElementById("modalQR").classList.add("hidden"); }
+
+function imprimirEtiquetaQR(){
+  const canvas = document.querySelector("#qrModalBox canvas");
+  const img = document.querySelector("#qrModalBox img");
+  const src = canvas ? canvas.toDataURL("image/png") : (img ? img.src : "");
+  document.getElementById("etqImgDash").src = src;
+  window.print();
 }
 
 /* ============================================================
