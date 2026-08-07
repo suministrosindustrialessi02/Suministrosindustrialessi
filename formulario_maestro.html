@@ -2116,7 +2116,7 @@ async function guardarBorrador(){
   }
 }
 
-function restaurarBorradorCompleto(datos){
+async function restaurarBorradorCompleto(datos){
   document.getElementById("modalBorrador").classList.add("hidden");
 
   const setVal = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined) el.value = val; };
@@ -2243,13 +2243,26 @@ function restaurarBorradorCompleto(datos){
   // Si el checklist ya fue enviado, saltar a la pantalla siguiente
   if(checklistYaEnviado){
     const hayNoOk = CHECKLIST_ITEMS.some((_,i) => respuestasChecklist[i]?.resultado === "NO OK");
-    if(hayNoOk){
-      // Hay puntos NO OK → mostrar pantalla de correcciones
+    // El borrador (local o de BORRADORES) no siempre sabe si las correcciones ya se
+    // guardaron de verdad — se pregunta a ORDENES, la fuente de verdad, antes de mandar
+    // al técnico de vuelta a la pantalla de Correcciones y arriesgar que sobreescriba
+    // con blancos lo que ya está guardado.
+    let correccionesYaCompletadas = false;
+    if(hayNoOk && ordenRecordId){
+      try{
+        const rCC = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`);
+        const dCC = await rCC.json();
+        correccionesYaCompletadas = !!dCC.fields?.["fldnQ6DxpfYANoE8p"];
+      }catch(e){}
+    }
+    if(hayNoOk && !correccionesYaCompletadas){
+      // Hay puntos NO OK y no hay señal de que ya se corrigieron → mostrar pantalla de correcciones
       initCorreccionesCK();
       renderCorreccionesCK();
       mostrarPantalla(3);
     } else {
-      // Sin NO OK → ir directo a pintura (o a evidencia si la pintura ya se guardó antes)
+      // Sin NO OK, o las correcciones ya están guardadas → ir directo a pintura
+      // (o a evidencia si la pintura ya se guardó antes)
       irAPinturaOEvidenciaTrasChecklist();
     }
   } else if(checklistOmitido){
@@ -4027,6 +4040,19 @@ async function enviarFinal(){
           { headers:{} });
         const evD = await evR.json();
         if(evD.records?.length) evidenciaRecordIdGlobal = evD.records[0].id;
+      }catch(e){}
+    }
+
+    // 0.2) Red de seguridad: si de verdad no existe registro de Evidencia (nunca se
+    // creó en Recepción ni en Checklist), crearlo aquí mismo — así las fotos de
+    // Evidencia Final de este paso 4 nunca se suben "al aire" sin quedar guardadas.
+    if(!evidenciaRecordIdGlobal){
+      try{
+        const regEvFallback = construirRegistroEvidencia(ordenRecordId, serie, fechaTermino);
+        const respEvFallback = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ records:[regEvFallback] }) });
+        const dataEvFallback = await respEvFallback.json();
+        if(respEvFallback.ok) evidenciaRecordIdGlobal = dataEvFallback.records[0].id;
       }catch(e){}
     }
 
