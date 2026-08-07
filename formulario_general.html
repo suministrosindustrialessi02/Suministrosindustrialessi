@@ -960,13 +960,12 @@ async function avanzar(desde){
     const ok = await confirmarDatosGenerales();
     if(!ok) return;
   }
-  if(desde === 1 && ordenRecordId){
-    fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [OF.estado]: "En proceso" } })
-    }).catch(()=>{});
-  }
+  // Nota: antes aquí se ponía estado="En proceso" apenas se salía de Pantalla 1 —
+  // mucho antes de que exista ningún diagnóstico guardado (eso solo pasa hasta
+  // generarDiagnostico(), que ya pone "En diagnóstico"). Si el técnico se interrumpía
+  // entre esta pantalla y esa, la orden quedaba viéndose como autorizada y en marcha
+  // sin diagnóstico real adentro. Se quita: el estado avanza solo cuando de verdad hay
+  // algo guardado (generarDiagnostico → "En diagnóstico" → autorización → "En proceso").
   mostrarPantalla(desde + 1);
 }
 
@@ -1971,14 +1970,31 @@ async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido){
     const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
     const resp = await fetch(url, { headers:{} });
     const data = await resp.json();
-    const rec = (data.records || [])[0];
-    if(!rec || !rec.fields[BF.datosJson]) return false;
-
-    const bd = JSON.parse(rec.fields[BF.datosJson]);
-    // Borradores de antes de la Fase 1 solo traían materiales/nombreCorto/modelo/marca/
-    // color/numParte/descripcionProblema — sin tipoEquipo ni cliente no hay suficiente
-    // para reconstruir el formulario completo, mejor no intentarlo a medias.
-    if(!bd.tipoEquipo && !bd.cliente) return false;
+    // Un folio se puede reciclar (reusado en pruebas viejas u otra orden) — puede haber
+    // varios registros de BORRADORES con el mismo texto de folio pero de órdenes distintas.
+    // Se arman los candidatos usables y se prioriza el que de verdad pertenece a ESTA orden
+    // (ordenRecordIdConocido, ya resuelto contra ORDENES) antes que solo el más reciente.
+    const candidatosCrudos = (data.records || []).slice().sort((a, b) => {
+      const da = a.fields?.[BF.ultimaActualizacion] || a.createdTime || "";
+      const db = b.fields?.[BF.ultimaActualizacion] || b.createdTime || "";
+      return db.localeCompare(da);
+    });
+    const candidatos = [];
+    for(const cand of candidatosCrudos){
+      if(!cand.fields?.[BF.datosJson]) continue;
+      try{
+        const parsed = JSON.parse(cand.fields[BF.datosJson]);
+        // Borradores de antes de la Fase 1 solo traían materiales/nombreCorto/modelo/marca/
+        // color/numParte/descripcionProblema — sin tipoEquipo ni cliente no hay suficiente
+        // para reconstruir el formulario completo, mejor no intentarlo a medias.
+        if(parsed.tipoEquipo || parsed.cliente) candidatos.push({ cand, parsed });
+      }catch(e){ continue; }
+    }
+    const deEstaOrden = candidatos.find(c => c.parsed.ordenRecordId === ordenRecordIdConocido);
+    const elegido = deEstaOrden || candidatos[0];
+    if(!elegido) return false;
+    const rec = elegido.cand;
+    const bd = elegido.parsed;
 
     _bfRecordIdGeneral = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
 

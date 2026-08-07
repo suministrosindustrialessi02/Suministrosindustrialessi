@@ -4870,6 +4870,12 @@ async function ejecutarMonitorNoOk(){
         // Ignorar borradores sin actividad en más de 48 h (evita falsos positivos
         // de registros que no se eliminaron al terminar el formulario).
         if(ultAct && new Date(ultAct).getTime() < limiteMs) continue;
+        // Ignorar borradores huérfanos de una orden que ya se marcó "Entregado" —
+        // el borrador se queda vivo en Airtable pero el trabajo real ya terminó.
+        if(allOrdenes.length){
+          const ordenReal = allOrdenes.find(o => o.serie === serie || o.folio === serie);
+          if(ordenReal && ordenReal.estado === "Entregado") continue;
+        }
         let parsed;
         try{ parsed = JSON.parse(jsonStr); }catch(e){ continue; }
         const noOkList = parsed.noOk || [];

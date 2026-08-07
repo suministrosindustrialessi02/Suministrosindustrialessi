@@ -2352,13 +2352,25 @@ async function restaurarDesdeAirtableMaestro(serie){
     const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
     const resp = await fetch(url, { headers:{} });
     const data = await resp.json();
-    const rec = (data.records || [])[0];
-    if(!rec || !rec.fields[BF.datosJson]) return false;
-
-    const bd = JSON.parse(rec.fields[BF.datosJson]);
-    // Borradores de antes de la Fase 3 solo traían "noOk" (para el monitor en vivo) —
-    // sin numSerie/ordenRecordId no hay suficiente para reconstruir el formulario.
-    if(!bd.numSerie || !bd.ordenRecordId) return false;
+    // Puede haber más de un registro para la misma serie (duplicados de sincronizaciones
+    // pasadas) — en vez de confiar a ciegas en el primero que regrese Airtable, se ordenan
+    // por última actualización y se toma el más reciente que de verdad tenga datos usables.
+    const candidatos = (data.records || []).slice().sort((a, b) => {
+      const da = a.fields?.[BF.ultimaActualizacion] || a.createdTime || "";
+      const db = b.fields?.[BF.ultimaActualizacion] || b.createdTime || "";
+      return db.localeCompare(da);
+    });
+    let rec = null, bd = null;
+    for(const cand of candidatos){
+      if(!cand.fields?.[BF.datosJson]) continue;
+      try{
+        const parsed = JSON.parse(cand.fields[BF.datosJson]);
+        // Borradores de antes de la Fase 3 solo traían "noOk" (para el monitor en vivo) —
+        // sin numSerie/ordenRecordId no hay suficiente para reconstruir el formulario.
+        if(parsed.numSerie && parsed.ordenRecordId){ rec = cand; bd = parsed; break; }
+      }catch(e){ continue; }
+    }
+    if(!rec) return false;
 
     _bfRecordId = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
 
@@ -3761,7 +3773,7 @@ async function enviarChecklist(){
     setP("Actualizando estado...", 36);
     await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
       { method:"PATCH", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.checklist]: true, [ORDENES_FIELDS.estado]: "En proceso" } }) }).catch(()=>{});
+        body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.checklist]: true, [ORDENES_FIELDS.estado]: "En proceso", "fld0rhBYkk5nAnXcT": "Sulzer" } }) }).catch(()=>{});
 
     // Crear registro EVIDENCIA — solo si Recepción (pantalla 1) no lo creó ya
     if(!evidenciaRecordIdGlobal){
@@ -3975,7 +3987,7 @@ async function enviarPintura(){
 
     await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
       { method:"PATCH", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true } }) }).catch(()=>{});
+        body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true, "fld0rhBYkk5nAnXcT": "Sulzer" } }) }).catch(()=>{});
 
     pinturaEnviada = true;
     guardarBorrador();
@@ -4101,7 +4113,7 @@ async function enviarFinal(){
       setP("Marcando pintura completada...", 38);
       await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
         { method:"PATCH", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true } }) }).catch(()=>{});
+          body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true, "fld0rhBYkk5nAnXcT": "Sulzer" } }) }).catch(()=>{});
       pinturaEnviada = true;
     }
 
