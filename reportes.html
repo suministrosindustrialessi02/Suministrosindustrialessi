@@ -226,23 +226,6 @@ input[type="file"].hidden-input{ display:none; }
   </div>
   <div class="rep-grid" id="repGridSulzer">
     <div class="rep-card-wrap">
-      <button class="rep-btn" id="btn-diagnostico-sulzer" onclick="generarDiagnosticoGeneral()">
-        <span class="rep-btn-icon">🩺</span>
-        <span class="rep-btn-name">Diagnóstico</span>
-        <span class="rep-btn-desc">Daños encontrados y estado de recepción — diagnóstico previo autorizado</span>
-        <span class="rep-btn-status" id="st-diagnostico-sulzer">—</span>
-      </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')">✏️</button>
-    </div>
-    <div class="rep-card-wrap">
-      <button class="rep-btn" id="btn-materiales-sulzer" onclick="generarListaMaterialesGeneral()">
-        <span class="rep-btn-icon">🧾</span>
-        <span class="rep-btn-name">Lista de Materiales</span>
-        <span class="rep-btn-desc">Materiales / refacciones estimadas en el diagnóstico previo</span>
-        <span class="rep-btn-status" id="st-materiales-sulzer">—</span>
-      </button>
-    </div>
-    <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-recepcion" onclick="generarReportePrevio()">
         <span class="rep-btn-icon">📥</span>
         <span class="rep-btn-name">Reporte Previo de Recepción</span>
@@ -401,6 +384,7 @@ const T_CHECKLIST = "tbl1yAx029Em12QDG";
 const T_PINTURA   = "tbl6fY01T6q69BVN0";
 const T_EVIDENCIA = "tblSxLh7qYCkr4dTa";
 const T_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
+
 // Field IDs — Ordenes (tipo de servicio / equipo)
 const FO = {
   tipoServicio:     "fld0rhBYkk5nAnXcT",
@@ -689,8 +673,6 @@ if(_sesion && _sesion.rol === "Cliente"){
     // ocultarle Cotización, el cliente no debe ver precios/materiales de costeo todavía.
     const btnMaterialesGen = document.getElementById("btn-materiales-gen");
     if(btnMaterialesGen) btnMaterialesGen.closest(".rep-card-wrap")?.style.setProperty("display", "none");
-    const btnMaterialesSulzer = document.getElementById("btn-materiales-sulzer");
-    if(btnMaterialesSulzer) btnMaterialesSulzer.closest(".rep-card-wrap")?.style.setProperty("display", "none");
   });
 }
 
@@ -929,12 +911,6 @@ function actualizarUI(){
   const ok  = '<span class="status-ok">✓ Datos disponibles</span>';
   const pend= '<span class="status-pend">⚠ Sin datos</span>';
 
-  const diagJsonSulzer = jparseObj(fv(G.orden, FO.diagnosticoTexto));
-  const stDiagSulzer = document.getElementById("st-diagnostico-sulzer");
-  if(stDiagSulzer) stDiagSulzer.innerHTML = fv(G.orden, FO.diagnosticoTexto) ? ok : pend;
-  const stMatSulzer = document.getElementById("st-materiales-sulzer");
-  if(stMatSulzer) stMatSulzer.innerHTML = (diagJsonSulzer.materialesPropuestos||[]).length ? ok : pend;
-
   const stRecep = document.getElementById("st-recepcion");
   if(stRecep) stRecep.innerHTML = G.evidencia ? ok : pend;
   document.getElementById("st-checklist").innerHTML  = G.checklist ? ok : pend;
@@ -1112,7 +1088,7 @@ function printCSS(){
     /* FOTOS */
     .fotos-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin:8px 0; page-break-inside:avoid; }
     .foto-item{ border:1.5px solid #aaa; border-radius:4px; overflow:hidden; }
-    .foto-item .foto-img{ width:100%; height:170px; background-size:contain; background-repeat:no-repeat; background-position:center; background-color:#f0f0f0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .foto-item .foto-img{ width:100%; height:170px; background-size:cover; background-position:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     .foto-caption{ font-size:8pt; padding:4px 6px; background:#e8e8e8 !important; text-align:center; color:#000 !important; font-weight:700; }
 
     /* REPORTE SERVICIO */
@@ -1845,7 +1821,7 @@ function headerTablaGeneral(titulo, datos){
   const descripcionOtro  = d.descripcionOtro ?? fv(G.orden, FO.descripcionOtro);
   const cliente     = d.cliente     ?? (fv(G.orden, FO.cliente) || "—");
   const usuario     = d.usuario     ?? (fv(G.orden, FO.usuario) || "—");
-  const folio       = d.folio       ?? (fv(G.orden, FO.folio) || fv(G.general, RG.folio) || fv(G.orden, FO.serie) || "—");
+  const folio       = d.folio       ?? (fv(G.orden, FO.folio) || fv(G.general, RG.folio) || "—");
   const tipoEquipo  = resolverTipoEquipo(d.tipoEquipo ?? ((tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw), descripcionOtro);
   const nombreCorto = d.nombreCorto ?? (fv(G.general, RG.nombreCorto) || "—");
   const modelo      = d.spec ?? d.modelo ?? (fv(G.orden, FO.spec) || fv(G.general, RG.modeloEquipo) || "—");
@@ -1869,7 +1845,7 @@ function headerTablaGeneral(titulo, datos){
     </tr>
     <tr>
       <td class="lbl">EQUIPO:</td><td>${esc(tipoEquipo)}</td>
-      <td class="lbl">NOMBRE / NICKNAME:</td><td>${esc(nombreCorto)}</td>
+      <td class="lbl">NOMBRE / APODO:</td><td>${esc(nombreCorto)}</td>
       <td class="lbl">MARCA:</td><td>${esc(marca)}</td>
     </tr>
     <tr>
@@ -2338,7 +2314,6 @@ function edCorrManejarFotos(idx, tipo, inputEl){
 function edCorrEliminarExistente(idx, tipo, attId){
   const st = _edCorrFotos[idx][tipo];
   if(!st) return;
-  if(tipo === "antes" && !confirm("Esta es la foto ORIGINAL de \"antes\" (evidencia del problema). Si la borras no se puede recuperar. ¿Seguro que quieres borrarla?")) return;
   st.eliminados.add(attId);
   edCorrRenderFotos(idx, tipo);
 }
@@ -2843,7 +2818,7 @@ function generarDiagnosticoGeneral(){
   let d = {};
   try{ d = JSON.parse(raw); }catch(e){ alert("Error al leer los datos del diagnóstico."); return; }
 
-  const folio = fv(G.orden, FO.folio) || fv(G.orden, FO.serie) || "—";
+  const folio = fv(G.orden, FO.folio) || "—";
 
   function colorEstado(estado){
     if(estado === "OK") return "#c0dd97";
@@ -3220,14 +3195,9 @@ function generarServicioGeneral(){
 }
 
 function generarListaMaterialesGeneral(){
-  // Sulzer no tiene REPORTES_GENERAL ni borrador — los materiales estimados del
-  // diagnóstico previo viven en ORDENES.diagnosticoTexto.materialesPropuestos
-  // (mismo campo/formato que usa General en la etapa de diagnóstico).
-  const diagJson = jparseObj(fv(G.orden, FO.diagnosticoTexto));
-  const materialesDiag = diagJson.materialesPropuestos || [];
-  if(!G.general && !G.materialesBorrador && !materialesDiag.length){ alert("No hay materiales registrados todavía para esta orden."); return; }
+  if(!G.general && !G.materialesBorrador){ alert("No hay materiales registrados todavía para esta orden."); return; }
 
-  const folio = fv(G.orden, FO.folio) || fv(G.general, RG.folio) || fv(G.orden, FO.serie) || "—";
+  const folio = fv(G.orden, FO.folio) || fv(G.general, RG.folio) || "—";
 
   let materiales, datosHeader, avisoBorrador, avisoValidacion = "";
   if(G.general){
@@ -3249,7 +3219,7 @@ function generarListaMaterialesGeneral(){
         ⏳ Pendiente de validación por Dirección.
       </div>`;
     }
-  } else if(G.materialesBorrador){
+  } else {
     const d = G.materialesBorrador;
     materiales = d.materiales || [];
     datosHeader = {
@@ -3263,13 +3233,6 @@ function generarListaMaterialesGeneral(){
     avisoBorrador = `<div style="background:#fdf3db;border:1px solid #f0c96a;border-left:3px solid #976010;color:#976010;padding:8px 12px;margin-bottom:10px;font-size:8pt;border-radius:4px">
       ⚠ BORRADOR — el servicio aún está en proceso. Esta lista puede cambiar antes de que el técnico entregue el reporte final.
     </div>`;
-  } else {
-    // Sulzer — diagnóstico previo autorizado, sin REPORTES_GENERAL. Se le pasa el JSON
-    // completo como datosHeader porque ya trae marca/spec/numSerie/potencia/frame/volts
-    // en el mismo formato que headerTablaGeneral() espera de un objeto "datos" explícito.
-    materiales = materialesDiag;
-    datosHeader = diagJson;
-    avisoBorrador = "";
   }
 
   const html = `
@@ -3343,7 +3306,7 @@ function generarCorrecciones(){
     if(fa.length>0){
       fa.forEach(function(f,i){
         var u=(f.thumbnails&&f.thumbnails.large)?f.thumbnails.large.url:f.url;
-        antesGrid+='<div style="text-align:center"><div style="width:120px;height:90px;background-image:url(\''+u+'\');background-size:contain;background-repeat:no-repeat;background-position:center;background-color:#f0f0f0;border-radius:4px;border:1px solid #ccc;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div><img src="'+u+'" style="display:none"><div style="font-size:6.5pt;color:#666;margin-top:2px">Foto '+(i+1)+'</div></div>';
+        antesGrid+='<div style="text-align:center"><div style="width:120px;height:90px;background-image:url(\''+u+'\');background-size:cover;background-position:center;border-radius:4px;border:1px solid #ccc;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div><img src="'+u+'" style="display:none"><div style="font-size:6.5pt;color:#666;margin-top:2px">Foto '+(i+1)+'</div></div>';
       });
     } else {
       antesGrid+='<div style="color:#999;font-size:7.5pt;font-style:italic;padding:8px 0">Sin foto del problema</div>';
@@ -3354,7 +3317,7 @@ function generarCorrecciones(){
     if(fd.length>0){
       fd.forEach(function(f,i){
         var u=(f.thumbnails&&f.thumbnails.large)?f.thumbnails.large.url:f.url;
-        despGrid+='<div style="text-align:center"><div style="width:120px;height:90px;background-image:url(\''+u+'\');background-size:contain;background-repeat:no-repeat;background-position:center;background-color:#f0f0f0;border-radius:4px;border:1px solid #ccc;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div><img src="'+u+'" style="display:none"><div style="font-size:6.5pt;color:#0e7a3c;margin-top:2px">Corregido '+(i+1)+'</div></div>';
+        despGrid+='<div style="text-align:center"><div style="width:120px;height:90px;background-image:url(\''+u+'\');background-size:cover;background-position:center;border-radius:4px;border:1px solid #ccc;-webkit-print-color-adjust:exact;print-color-adjust:exact"></div><img src="'+u+'" style="display:none"><div style="font-size:6.5pt;color:#0e7a3c;margin-top:2px">Corregido '+(i+1)+'</div></div>';
       });
     } else {
       despGrid+='<div style="color:#999;font-size:7.5pt;font-style:italic;padding:8px 0">Sin foto de corrección</div>';
@@ -3497,7 +3460,7 @@ function generarNoConformidades(){
     + '.nc-sin-foto{ color:#666; font-size:8pt; font-style:italic; margin:5px 0; }'
     + '.nc-fotos{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin:7px 0; }'
     + '.nc-foto-item{ border:1px solid #ccc; border-radius:3px; overflow:hidden; }'
-    + '.nc-foto-item .foto-img{ width:100%; height:155px; background-size:contain; background-repeat:no-repeat; background-position:center; background-color:#f0f0f0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }'
+    + '.nc-foto-item .foto-img{ width:100%; height:155px; background-size:cover; background-position:center; -webkit-print-color-adjust:exact; print-color-adjust:exact; }'
     + '.nc-foto-cap{ font-size:7.5pt; padding:3px 5px; background:#e8e8e8 !important; text-align:center; color:#000 !important; font-weight:700; }'
     + '.nc-accion{ margin-top:9px; border-top:1px solid #ddd; padding-top:7px; }'
     + '.nc-accion-lbl{ font-size:8pt; font-weight:700; color:#1d5496; margin-bottom:4px; }'

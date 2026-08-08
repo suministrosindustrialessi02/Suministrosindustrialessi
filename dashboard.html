@@ -427,20 +427,6 @@ main{ max-width: 1380px; margin: 0 auto; padding: 22px 24px 56px; }
   font-family: inherit;
 }
 .btn-limpiar:hover{ background: var(--gris); color: var(--gris-oscuro); }
-.btn-mis-asignaciones{
-  padding: 7px 13px;
-  background: var(--fondo);
-  border: 1px solid var(--gris);
-  border-radius: var(--radio-sm);
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--gris-texto);
-  cursor: pointer;
-  transition: all 0.15s;
-  font-family: inherit;
-}
-.btn-mis-asignaciones:hover{ background: var(--gris); color: var(--gris-oscuro); }
-.btn-mis-asignaciones.active{ background: var(--azul); border-color: var(--azul); color: #fff; }
 .filtro-resultado{
   font-size: 0.72rem;
   color: var(--gris-texto);
@@ -1489,7 +1475,6 @@ footer strong{ color: var(--azul); }
 
     <!-- SECCIÓN ÓRDENES -->
     <div id="secOrdenes" style="display:none">
-    <div id="avisoRechazadas" class="hidden" style="background:#fdecea;color:#991b1b;border:1px solid #f5b5ac;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;font-weight:600;cursor:pointer" onclick="document.getElementById('seccionRechazadasTabla').scrollIntoView({behavior:'smooth'})"></div>
     <!-- FILTROS -->
     <div class="filtros-bar">
       <span class="filtros-label">Filtros</span>
@@ -1507,7 +1492,6 @@ footer strong{ color: var(--azul); }
         <option value="Sulzer">Sulzer</option>
         <option value="General">General</option>
       </select>
-      <button class="btn-mis-asignaciones" id="btnMisAsignaciones" style="display:none" onclick="toggleMisAsignaciones()">Mis asignaciones</button>
       <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
       <span class="filtro-resultado" id="filtroResultado"></span>
       <div class="vista-toggle">
@@ -1600,31 +1584,6 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
-    <!-- TABLA RECHAZADAS / CANCELADAS -->
-    <div class="table-section" id="seccionRechazadasTabla">
-      <div class="section-header" id="hdrRechazadas" onclick="toggleSec('rechazadas')">
-        <h2><span class="sh-indicator" style="background:#991b1b"></span>Rechazadas / Canceladas <span class="badge" id="badgeRechazadas">0</span></h2>
-        <span class="toggle-icon" id="iconRechazadas">▼</span>
-      </div>
-      <div class="table-wrap" id="wrapRechazadas">
-        <table>
-          <thead>
-            <tr>
-              <th>Folio</th>
-              <th>Cliente</th>
-              <th>Equipo</th>
-              <th>Etapa</th>
-              <th>Motivo</th>
-              <th>Fecha rechazo</th>
-              <th>Cobro diagnóstico</th>
-              <th style="text-align:center">Equipo recogido</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyRechazadas"></tbody>
-        </table>
-      </div>
-    </div>
-
     </div><!-- /secOrdenes -->
 
     <!-- ===== VALIDACIÓN DE MATERIALES (Admin + Dirección) ===== -->
@@ -1648,7 +1607,6 @@ footer strong{ color: var(--azul); }
         </div>
       </div>
     </div>
-
 
   </div><!-- /content -->
 </main>
@@ -1839,6 +1797,7 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL ASIGNAR TÉCNICOS A UNA ORDEN (solo Admin) -->
 <div class="modal-overlay hidden" id="modalAsignarTecnicos" onclick="cerrarAsignarTecnicosSiFuera(event)">
   <div class="ck-modal" style="max-width:420px">
     <div class="ck-modal-header">
@@ -1901,31 +1860,6 @@ footer strong{ color: var(--azul); }
           <div class="prereg-campo">
             <label>Vigencia (días)</label>
             <input type="number" id="cotVigencia" value="15" min="1">
-          </div>
-          <div class="prereg-campo" style="grid-column:1/-1">
-            <label>Motivo de rechazo (si el cliente no autorizó)</label>
-            <textarea id="cotMotivoRechazo" rows="2" placeholder="Ej. Le salía más barato comprar uno nuevo que repararlo" style="width:100%;resize:vertical;font-family:inherit;font-size:0.85rem;padding:8px;border-radius:6px;border:1px solid var(--borde)"></textarea>
-          </div>
-          <div class="prereg-campo">
-            <label>Etapa del rechazo</label>
-            <select id="cotEtapaRechazo">
-              <option value="Antes de cotizar">Antes de cotizar</option>
-              <option value="Diagnóstico">Diagnóstico</option>
-              <option value="Cotización">Cotización</option>
-              <option value="Después de autorizado">Después de autorizado</option>
-            </select>
-          </div>
-          <div class="prereg-campo">
-            <label>¿Se cobró diagnóstico?</label>
-            <select id="cotSeCobroDiagnostico" onchange="document.getElementById('cotMontoCobradoWrap').classList.toggle('hidden', this.value!=='Sí')">
-              <option value="Pendiente">Pendiente</option>
-              <option value="Sí">Sí</option>
-              <option value="No">No</option>
-            </select>
-          </div>
-          <div class="prereg-campo hidden" id="cotMontoCobradoWrap">
-            <label>Monto cobrado</label>
-            <input type="number" step="0.01" id="cotMontoCobrado" placeholder="0.00">
           </div>
         </div>
 
@@ -2030,9 +1964,6 @@ const F = {
   tipoServicio:            "fld0rhBYkk5nAnXcT",
   tipoEquipo:              "fldBhqLRYDHl2L2tJ",
   hp:                      "fldjyFFAaL0dIFWIE",
-  frame:                   "fldSvMeOGe98aT2e0",
-  volts:                   "fldLxVAorFAGaboOF",
-  spec:                    "fldkkXFzqKeGSIqJQ",
   folio:                   "fldpMUMLpNCGGQcIo",
   reporteGeneralCompletado:"fldJgJ2UZ7ufze8C5",
   prioridad:               "fldLskZ89jqrWxuGy",
@@ -2049,21 +1980,6 @@ const F = {
   estadoValidacionMateriales: "fldXrE2REqfpbnFMF",
   validadoPor:             "fldCdtkVex6NOjBqS",
   fechaValidacion:         "fldwSHiquwZ9IXsAx",
-  diagnosticoTexto:        "fldqrQ3SL3P4N06RJ",
-  fotosDiagnostico:        "fld9GdkVjJLhTn0ky",
-  fotosObservaciones:      "fldYP3De5e0PBdoKL",
-  fotosDiagnosticoTecnico: "fldkTCQJVODxJD9Db",
-  fotosPlaca:              "fldNUJRgVWwI6JRjH",
-  fotosDescripciones:      "fldhxUzgrTGIRUE5L",
-  estadoCotizacion:        "fldjUqpqdCRQ8rdCU",
-  motivoRechazo:           "fldHtv6JuzZGWYkNg",
-  usuario:                 "fldJmwtkHIJLsveaC",
-  etapaRechazo:            "fldC6XC0U7JQRYsK4",
-  fechaRechazo:            "fldJK5DWeoNcjBF8w",
-  seCobroDiagnostico:      "fldK2TRscLNfxJxbU",
-  montoCobrado:            "fldJHOcyHWfJwclMy",
-  equipoRecogido:          "fldIrJToATnURZwdt",
-  fechaRecogida:           "fldxl6Ht2S5EtCPZq",
 };
 
 /* ============================================================
@@ -2076,7 +1992,6 @@ let tsActualizacion = null;
 let borradorLookup  = {}; // serie.toUpperCase() → porcentaje en progreso
 let tecnicosList    = []; // nombres de técnicos activos (para el selector)
 let allTareasPlan   = []; // tareas de PLAN_DIARIO, para el KPI de cumplimiento
-let misAsignacionesActivo = false; // filtro "Mis asignaciones" (solo rol Tecnico)
 
 /* ============================================================
    FETCH CON PAGINACIÓN
@@ -2085,7 +2000,7 @@ async function fetchAll(){
   let all = [], offset = null;
   const base = `/.netlify/functions/airtable?table=${TABLE_ID}`;
   do{
-    let url = `${base}?returnFieldsByFieldId=true&pageSize=100`;
+    let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
     const res = await fetch(url, { headers:{} });
     if(!res.ok){
@@ -2138,7 +2053,7 @@ async function fetchPlanDiario(){
     let all = [], offset = null;
     const base = `/.netlify/functions/airtable?table=${TABLA_PLAN}`;
     do{
-      let url = `${base}?returnFieldsByFieldId=true&pageSize=100`;
+      let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
       if(offset) url += `&offset=${encodeURIComponent(offset)}`;
       const res = await fetch(url, { headers:{} });
       if(!res.ok) break;
@@ -2191,14 +2106,6 @@ function parsear(rec){
     estadoValidacionMateriales: (f[F.estadoValidacionMateriales] && f[F.estadoValidacionMateriales].name) || f[F.estadoValidacionMateriales] || "",
     validadoPor: f[F.validadoPor] || "",
     fechaValidacion: f[F.fechaValidacion] || "",
-    estadoCotizacion: (f[F.estadoCotizacion] && f[F.estadoCotizacion].name) || f[F.estadoCotizacion] || "",
-    motivoRechazo: f[F.motivoRechazo] || "",
-    etapaRechazo: (f[F.etapaRechazo] && f[F.etapaRechazo].name) || f[F.etapaRechazo] || "",
-    fechaRechazo: f[F.fechaRechazo] || "",
-    seCobroDiagnostico: (f[F.seCobroDiagnostico] && f[F.seCobroDiagnostico].name) || f[F.seCobroDiagnostico] || "",
-    montoCobrado: (f[F.montoCobrado] !== undefined && f[F.montoCobrado] !== null) ? Number(f[F.montoCobrado]) : null,
-    equipoRecogido: !!f[F.equipoRecogido],
-    fechaRecogida: f[F.fechaRecogida] || "",
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -2255,27 +2162,6 @@ async function cargarDatos(){
   }
 }
 
-// Refrescos parciales — evitan volver a pedir técnicos y plan diario (que no
-// cambian) cuando la acción solo tocó órdenes y/o borradores.
-async function cargarSoloOrdenes(){
-  try{
-    allOrdenes = (await fetchAll()).map(parsear);
-    aplicarFiltros();
-    tsActualizacion = new Date();
-    actualizarSyncInfo();
-  } catch(e){ /* si falla, el usuario puede usar "↻ Actualizar" para el refresco completo */ }
-}
-async function cargarOrdenesYBorradores(){
-  try{
-    const [recs, borradores] = await Promise.all([fetchAll(), fetchBorradores()]);
-    allOrdenes = recs.map(parsear);
-    borradorLookup = borradores;
-    aplicarFiltros();
-    tsActualizacion = new Date();
-    actualizarSyncInfo();
-  } catch(e){ /* si falla, el usuario puede usar "↻ Actualizar" para el refresco completo */ }
-}
-
 /* ============================================================
    FILTROS
    ============================================================ */
@@ -2291,14 +2177,13 @@ function aplicarFiltros(){
     if(fCliente  && !o.cliente.toLowerCase().includes(fCliente)) return false;
     if(fEstado   && normEstado(o.estado) !== fEstado)            return false;
     if(fServicio && o.tipoServicio !== fServicio)                return false;
-    if(misAsignacionesActivo && !esMiAsignacionOSinAsignar(o))   return false;
     return true;
   });
 
   const totalFiltradas = filtradas.length;
   const totales        = allOrdenes.length;
   document.getElementById("filtroResultado").textContent =
-    (fSerie || fCliente || fEstado || fServicio || misAsignacionesActivo)
+    (fSerie || fCliente || fEstado || fServicio)
       ? `${totalFiltradas} de ${totales} resultados`
       : "";
 
@@ -2313,27 +2198,12 @@ function limpiarFiltros(){
   aplicarFiltros();
 }
 
-function esMiAsignacionOSinAsignar(o){
-  const miNombre = (_sesion && (_sesion.nombre || _sesion.usuario) || "").trim().toLowerCase();
-  if(!miNombre) return true;
-  const asignados = (o.tecnicoAsignado || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
-  if(asignados.length === 0) return true; // sin asignar → también le sale
-  return asignados.includes(miNombre);
-}
-
-function toggleMisAsignaciones(){
-  misAsignacionesActivo = !misAsignacionesActivo;
-  document.getElementById("btnMisAsignaciones")?.classList.toggle("active", misAsignacionesActivo);
-  aplicarFiltros();
-}
-
 /* ============================================================
    RENDER DASHBOARD
    ============================================================ */
 function renderDashboard(ordenes){
   const porLlegar   = ordenes.filter(o => normEstado(o.estado) === "porllegar");
-  const rechazadas  = ordenes.filter(o => normEstado(o.estado) === "noautorizado");
-  const enTaller    = ordenes.filter(o => !["terminado","entregado","porllegar","noautorizado"].includes(normEstado(o.estado)));
+  const enTaller    = ordenes.filter(o => !["terminado","entregado","porllegar"].includes(normEstado(o.estado)));
   const enProceso   = ordenes.filter(o => normEstado(o.estado) === "proceso");
   const terminadas  = ordenes.filter(o => normEstado(o.estado) === "terminado");
   const entregadas  = ordenes.filter(o => normEstado(o.estado) === "entregado");
@@ -2393,76 +2263,8 @@ function renderDashboard(ordenes){
   document.getElementById("badgePorLlegar").textContent = porLlegar.length;
   renderTablaPorLlegar(porLlegar.slice().sort(byDiasDesc));
 
-  document.getElementById("badgeRechazadas").textContent = rechazadas.length;
-  renderTablaRechazadas(rechazadas.slice().sort(byDiasDesc));
-  renderAvisoRechazadas(rechazadas, esAdmin);
-
   document.getElementById("content").classList.remove("hidden");
 
-}
-
-// Botón "✅ Marcar recogido" — cierra el ciclo de una orden rechazada/cancelada
-// una vez que el cliente pasó por su equipo.
-async function marcarEquipoRecogido(id, identificador){
-  if(!confirm(`¿Confirmas que el cliente ya recogió el equipo de la orden ${identificador}?`)) return;
-  try{
-    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ fields: {
-        [F.equipoRecogido]: true,
-        [F.fechaRecogida]: new Date().toISOString().slice(0,10),
-      } })
-    });
-    cargarSoloOrdenes();
-  } catch(e){
-    alert("No se pudo guardar: " + (e.message || ""));
-  }
-}
-
-function renderTablaRechazadas(ordenes){
-  const tbody = document.getElementById("tbodyRechazadas");
-  const esAdmin = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
-  if(ordenes.length === 0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Sin órdenes rechazadas o canceladas.</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = ordenes.map(o => {
-    const identificador = o.serie || o.folio || "—";
-    const equipoTxt = (o.tipoEquipo || "Motor") + ((o.hp || o.hp === 0) ? ` · ${o.hp} HP` : "");
-    const cobroTxt = o.seCobroDiagnostico === "Sí"
-      ? `Sí${o.montoCobrado ? ` (${fmtMoneda(o.montoCobrado)})` : ''}`
-      : (o.seCobroDiagnostico || "Pendiente");
-    const recogidoHtml = o.equipoRecogido
-      ? `<span class="chip" style="background:#e6f4eb;color:#1b7a34">✓ Recogido${o.fechaRecogida ? ' ' + esc(o.fechaRecogida) : ''}</span>`
-      : (esAdmin ? `<button class="btn-corr" style="background:#1b7a34" onclick="marcarEquipoRecogido('${o.id}','${esc(identificador)}')">✅ Marcar recogido</button>` : `<span class="chip chip-noautorizado">Pendiente</span>`);
-    return `<tr>
-      <td class="td-serie">${esc(identificador)}</td>
-      <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
-      <td>${esc(equipoTxt)}</td>
-      <td>${esc(o.etapaRechazo || "—")}</td>
-      <td title="${esc(o.motivoRechazo || "")}">${esc((o.motivoRechazo||"—").slice(0,60))}${(o.motivoRechazo||"").length>60?"…":""}</td>
-      <td>${o.fechaRechazo ? esc(new Date(o.fechaRechazo).toLocaleDateString("es-MX")) : "—"}</td>
-      <td>${esc(cobroTxt)}</td>
-      <td style="text-align:center">${recogidoHtml}</td>
-    </tr>`;
-  }).join("");
-}
-
-// Aviso destacado para que Admin/Dirección le den seguimiento a equipos rechazados
-// que siguen sin recogerse (mismo estilo que el monitor NO OK ya existente).
-function renderAvisoRechazadas(rechazadas, esAdmin){
-  const el = document.getElementById("avisoRechazadas");
-  if(!el) return;
-  const pendientes = rechazadas.filter(o => !o.equipoRecogido);
-  if(!esAdmin || pendientes.length === 0){
-    el.classList.add("hidden");
-    return;
-  }
-  el.classList.remove("hidden");
-  el.innerHTML = `⚠ ${pendientes.length} equipo${pendientes.length>1?'s':''} rechazado${pendientes.length>1?'s':''} esperando que el cliente pase a recogerlo${pendientes.length>1?'s':''}: `
-    + pendientes.slice(0,5).map(o => esc(o.serie || o.folio || "—")).join(", ")
-    + (pendientes.length>5 ? ` +${pendientes.length-5} más` : "");
 }
 
 function renderTablaPorLlegar(ordenes){
@@ -2478,9 +2280,7 @@ function renderTablaPorLlegar(ordenes){
     <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
     <td>${esc(o.serie || "—")}</td>
     <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
-    <td class="td-num">
-      <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button>
-    </td>
+    <td class="td-num"><button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button></td>
     <td class="td-num">${esAdmin
       ? `<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
            <button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(o.folio)}')">&#128176; Cotizar</button>
@@ -2604,7 +2404,7 @@ function renderTabla(tbodyId, ordenes){
       <td class="td-num">${celdaPrioridad(o, esAdmin)}</td>
       <td>${celdaTecnico(o, esAdmin)}</td>
       <td>${celdaEntregaProgramada(o, esAdmin)}</td>
-      <td>${chipEstado(o.estado)}${o.estadoCotizacion === "Rechazada" ? `<span class="chip chip-noautorizado" style="margin-top:4px" title="${esc(o.motivoRechazo || "Sin motivo capturado")}">❌ Rechazado</span>` : ""}</td>
+      <td>${chipEstado(o.estado)}</td>
       <td>
         <div class="mini-prog">
           <div class="mini-track"><div class="mini-fill ${d.fillCls}" style="width:${d.p}%"></div></div>
@@ -2672,7 +2472,6 @@ function tarjetaKanban(o, esAdmin, col){
     <div class="kanban-card-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</div>
     ${noAutorizado ? `<div class="chip chip-noautorizado" style="margin-bottom:10px">No autorizado</div>` : ""}
     ${enCorreccion ? `<div class="chip chip-correccion" style="margin-bottom:10px" title="${esc(o.notasCorreccion)}">En corrección</div>` : ""}
-    ${o.estadoCotizacion === "Rechazada" ? `<div class="chip chip-noautorizado" style="margin-bottom:10px" title="${esc(o.motivoRechazo || "Sin motivo capturado")}">❌ Rechazado</div>` : ""}
     <div class="kanban-card-meta">
       ${celdaPrioridad(o, esAdmin)}
       ${celdaTecnico(o, esAdmin)}
@@ -2856,7 +2655,7 @@ async function cambiarEntregado(id, identificador, marcar){
     if(marcar) fields[F.fechaEntregaReal] = new Date().toISOString();
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields })
     });
     if(!res.ok){
@@ -3002,11 +2801,11 @@ async function autorizarDiagnostico(id, autorizado){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { fldRtvzailqq6WbQu: nuevoEstado } })
     });
     cerrarDetalleGeneral();
-    cargarSoloOrdenes();
+    cargarDatos();
   } catch(e){
     alert("No se pudo actualizar el estado. Intenta de nuevo.");
   }
@@ -3032,16 +2831,7 @@ const COT = {
   fechaAutorizacion:       "fldmizB5GKLZfVOYM",
   diagnosticoTexto:        "fldqrQ3SL3P4N06RJ",
   aplicaIVA:               "fldmW4salFKyMne6d",
-  motivoRechazo:           "fldHtv6JuzZGWYkNg",
-  estado:                  "fldRtvzailqq6WbQu",
-  etapaRechazo:            "fldC6XC0U7JQRYsK4",
-  fechaRechazo:            "fldJK5DWeoNcjBF8w",
-  seCobroDiagnostico:      "fldK2TRscLNfxJxbU",
-  montoCobrado:            "fldJHOcyHWfJwclMy",
-  equipoRecogido:          "fldIrJToATnURZwdt",
-  fechaRecogida:           "fldxl6Ht2S5EtCPZq",
 };
-
 // Arma el renglón por defecto (1 SERV) a partir de los servicios que el técnico marcó
 // en el diagnóstico ("Servicios a realizar") — mismo formato que las cotizaciones reales
 // (un solo renglón con la lista de servicios en viñetas dentro de la descripción).
@@ -3107,12 +2897,6 @@ async function abrirCotizacion(id, identificador){
     document.getElementById("cotFechaEntrega").value    = f[COT.fechaEntregaEstimada] || "";
     document.getElementById("cotCondicionesPago").value = (f[COT.condicionesPago] && f[COT.condicionesPago].name) || f[COT.condicionesPago] || "Crédito";
     document.getElementById("cotVigencia").value        = f[COT.vigenciaDias] || 15;
-    document.getElementById("cotMotivoRechazo").value   = f[COT.motivoRechazo] || "";
-    document.getElementById("cotEtapaRechazo").value    = (f[COT.etapaRechazo] && f[COT.etapaRechazo].name) || f[COT.etapaRechazo] || "Cotización";
-    const seCobroRaw = f[COT.seCobroDiagnostico];
-    document.getElementById("cotSeCobroDiagnostico").value = (seCobroRaw && seCobroRaw.name) || seCobroRaw || "Pendiente";
-    document.getElementById("cotMontoCobrado").value    = f[COT.montoCobrado] || "";
-    document.getElementById("cotMontoCobradoWrap").classList.toggle("hidden", document.getElementById("cotSeCobroDiagnostico").value !== "Sí");
     const aplicaIVARaw = f[COT.aplicaIVA];
     document.getElementById("cotAplicaIVA").checked     = ((aplicaIVARaw && aplicaIVARaw.name) || aplicaIVARaw) !== "No";
 
@@ -3147,13 +2931,7 @@ function cotActualizarBadgeYFooter(fechaAutorizacion){
   document.getElementById("cotEstadoBadge").innerHTML =
     `<span class="cot-estado-badge" style="${estiloBadge}">${esc(cotEstadoActual || "Sin cotizar")}</span>${(cotEstadoActual === "Autorizada" || cotEstadoActual === "Rechazada") ? fechaTxt : ""}`;
 
-  // Los campos de rechazo (motivo/etapa/cobro/monto) y su botón se dejan SIEMPRE
-  // editables, incluso con la cotización ya Autorizada — es justo el caso de un
-  // cliente que se arrepiente después de autorizar (ver [[plan_rechazo_equipo]]).
-  const idsSiempreEditables = ["cotMotivoRechazo","cotEtapaRechazo","cotSeCobroDiagnostico","cotMontoCobrado"];
-  document.querySelectorAll("#cotForm input, #cotForm select, #cotForm textarea, #cotForm button").forEach(el => {
-    el.disabled = bloqueada && !idsSiempreEditables.includes(el.id);
-  });
+  document.querySelectorAll("#cotForm input, #cotForm select, #cotForm button").forEach(el => el.disabled = bloqueada);
 
   document.getElementById("cotFooter").innerHTML = `
     <button class="btn-cancelar" onclick="cerrarCotizacion()">Cerrar</button>
@@ -3162,49 +2940,7 @@ function cotActualizarBadgeYFooter(fechaAutorizacion){
       <button class="btn-cancelar" onclick="cotGuardar('Borrador')">Guardar borrador</button>
       <button class="btn-imprimir" onclick="cotEnviar()">Enviar cotización al cliente</button>
     ` : ''}
-    ${cotEstadoActual !== "Rechazada" ? `<button class="btn-corr" style="background:#991b1b" onclick="cotMarcarRechazada()">❌ Marcar rechazada${bloqueada ? ' (ya autorizada)' : ''}</button>` : ''}
   `;
-}
-
-// Uso: cuando el cliente rechazó FUERA del sistema (teléfono/en persona) y el admin
-// necesita dejarlo registrado a mano, sin pasar por el botón "No autorizo" de cliente.html.
-async function cotMarcarRechazada(){
-  const motivo = document.getElementById("cotMotivoRechazo").value.trim();
-  if(!motivo){
-    alert("Escribe el motivo del rechazo (campo \"Motivo de rechazo\") antes de marcarla como rechazada.");
-    document.getElementById("cotMotivoRechazo").focus();
-    return;
-  }
-  const etapa = document.getElementById("cotEtapaRechazo").value;
-  if(!confirm(`¿Marcar esta orden como RECHAZADA/CANCELADA por el cliente?\n\nEtapa: ${etapa}\nMotivo: ${motivo}\n\nLa orden pasará a "No autorizado" y saldrá de las órdenes activas.`)) return;
-  const statusEl = document.getElementById("cotStatus");
-  const { fields } = cotRecolectarDatos();
-  fields[COT.estadoCotizacion]   = "Rechazada";
-  fields[COT.clienteAutorizo]    = false;
-  fields[COT.fechaAutorizacion]  = new Date().toISOString();
-  fields[COT.estado]             = "No autorizado";
-  fields[COT.etapaRechazo]       = etapa;
-  fields[COT.fechaRechazo]       = new Date().toISOString();
-  fields[COT.seCobroDiagnostico] = document.getElementById("cotSeCobroDiagnostico").value;
-  const monto = parseFloat(document.getElementById("cotMontoCobrado").value);
-  if(!isNaN(monto)) fields[COT.montoCobrado] = monto;
-  statusEl.style.color = "var(--gris-texto)";
-  statusEl.textContent = "Guardando...";
-  try{
-    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${cotOrdenId}`, {
-      method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ fields })
-    });
-    cotEstadoActual = "Rechazada";
-    statusEl.style.color = "var(--verde)";
-    statusEl.textContent = "✓ Orden marcada como rechazada/cancelada.";
-    cotActualizarBadgeYFooter(fields[COT.fechaAutorizacion]);
-    cargarSoloOrdenes();
-  } catch(e){
-    statusEl.style.color = "var(--rojo)";
-    statusEl.textContent = "Error al guardar: " + (e.message || "");
-  }
 }
 
 function cotRenderRenglones(){
@@ -3278,7 +3014,6 @@ function cotRecolectarDatos(){
       [COT.vigenciaDias]:            parseInt(document.getElementById("cotVigencia").value, 10) || 15,
       [COT.cotizacionSolicitadaPor]: document.getElementById("cotSolicitadaPor").value.trim(),
       [COT.agenteReferencia]:        document.getElementById("cotAgente").value.trim(),
-      [COT.motivoRechazo]:           document.getElementById("cotMotivoRechazo").value.trim(),
     },
   };
 }
@@ -3297,7 +3032,7 @@ async function cotGuardar(estadoDestino){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${cotOrdenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields })
     });
     if(estadoDestino) cotEstadoActual = estadoDestino;
@@ -3420,7 +3155,7 @@ async function guardarPreRegistro(){
     // 1) Crear la ORDEN "Por llegar"
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}`, {
       method: "POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type": "application/json" },
       body: JSON.stringify({ records:[{ fields }] })
     });
     const data = await res.json();
@@ -3439,7 +3174,7 @@ async function guardarPreRegistro(){
     });
     await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
       method: "POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type": "application/json" },
       body: JSON.stringify({ records:[{ fields: {
         [BF_SERIE]: folio,
         "fldzogHAx1BAkw4q2": cliente,
@@ -3449,10 +3184,8 @@ async function guardarPreRegistro(){
     }).catch(()=>{});
 
     statusEl.style.color = "var(--verde)";
-    statusEl.textContent = `✓ Equipo ${folio} pre-registrado.`;
-    const nuevoId = data.records[0].id;
-    cerrarPreRegistro();
-    await cargarOrdenesYBorradores();
+    statusEl.textContent = `✓ Equipo ${folio} pre-registrado. Aparecerá en "Equipos por llegar".`;
+    setTimeout(async () => { cerrarPreRegistro(); await cargarDatos(); }, 1200);
   } catch(err){
     statusEl.style.color = "var(--rojo)";
     statusEl.textContent = "Error: " + (err.message || "no se pudo guardar");
@@ -3477,7 +3210,7 @@ async function cancelarPreRegistro(id, folio){
         await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${r.id}`, { method:"DELETE", headers:{} }).catch(()=>{});
       }
     }
-    await cargarOrdenesYBorradores();
+    await cargarDatos();
   } catch(e){ alert("No se pudo cancelar el pre-registro."); }
 }
 
@@ -3516,7 +3249,7 @@ async function eliminarOrdenCascada(id, identificador){
 
     cerrarCk();
     cerrarDetalleGeneral();
-    await cargarOrdenesYBorradores();
+    await cargarDatos();
     alert(`"${identificador}" fue eliminado junto con sus datos relacionados.`);
   } catch(e){
     alert("No se pudo eliminar la orden: " + (e.message || ""));
@@ -4013,7 +3746,7 @@ async function validarMateriales(){
   try{
     const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_valOrdenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: {
         [F.estadoValidacionMateriales]: "Validado",
         [F.validadoPor]: (_sesion.nombre || _sesion.usuario || ""),
@@ -4026,7 +3759,7 @@ async function validarMateriales(){
     }
     statusEl.style.color = "var(--verde)";
     statusEl.textContent = "✓ Validado.";
-    setTimeout(() => { cerrarValidacion(); cargarSoloOrdenes(); }, 700);
+    setTimeout(() => { cerrarValidacion(); cargarDatos(); }, 700);
   } catch(e){
     statusEl.style.color = "var(--rojo)";
     statusEl.textContent = "Error al guardar: " + (e.message||"");
@@ -4060,7 +3793,7 @@ async function rechazarMaterialesTemprano(ordenId, folio){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: {
         [F.estadoValidacionMateriales]: "Rechazado",
         [F.notasCorreccion]: (motivo||"").trim(),
@@ -4070,7 +3803,7 @@ async function rechazarMaterialesTemprano(ordenId, folio){
     alert("No se pudo guardar el rechazo: " + (e.message||""));
     return;
   }
-  cargarSoloOrdenes();
+  cargarDatos();
 }
 
 function cerrarValidacion(){ document.getElementById("modalValidacion").classList.add("hidden"); }
@@ -4515,7 +4248,7 @@ function listaConDetalle(lista, maxItems, extra){
 }
 
 function renderNuevosKPIs(ordenes){
-  var activas    = ordenes.filter(function(o){ return !["terminado","entregado","noautorizado"].includes(normEstado(o.estado)); });
+  var activas    = ordenes.filter(function(o){ return !["terminado","entregado"].includes(normEstado(o.estado)); });
   var entregadas = ordenes.filter(function(o){ return normEstado(o.estado) === "entregado"; });
   var terminadas = ordenes.filter(function(o){ return normEstado(o.estado) === "terminado"; });
   var recibidas  = ordenes.filter(function(o){ return normEstado(o.estado) === "recibido"; });
@@ -4918,11 +4651,8 @@ function renderChartDocsDonut(terminadas){
     el.innerHTML = '<div style="padding:16px;color:var(--gris-texto);font-size:0.82rem">Sin terminadas</div>';
     return;
   }
-  function docsCompletos(o){
-    return o.tipoServicio === "General" ? o.reporteGeneralCompletado : (o.checklist && o.pintura && o.evidencia);
-  }
-  var okList  = terminadas.filter(docsCompletos);
-  var incList = terminadas.filter(function(o){ return !docsCompletos(o); });
+  var okList  = terminadas.filter(function(o){return o.checklist && o.pintura && o.evidencia;});
+  var incList = terminadas.filter(function(o){return !o.checklist || !o.pintura || !o.evidencia;});
   _docsIncompletos = incList;
   var ok = okList.length, inc = incList.length;
   var pct = Math.round((ok/terminadas.length)*100);
@@ -4962,13 +4692,9 @@ function mostrarPanelDocsIncompletos(){
   panel.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px";
   var filas = _docsIncompletos.map(function(o){
     var falta = [];
-    if(o.tipoServicio === "General"){
-      if(!o.reporteGeneralCompletado) falta.push("Reporte General");
-    } else {
-      if(!o.checklist) falta.push("Checklist");
-      if(!o.pintura)   falta.push("Pintura");
-      if(!o.evidencia) falta.push("Evidencia");
-    }
+    if(!o.checklist) falta.push("Checklist");
+    if(!o.pintura)   falta.push("Pintura");
+    if(!o.evidencia) falta.push("Evidencia");
     return '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #f1f5f9">'
       + '<div>'
       + '<div style="font-size:0.88rem;font-weight:700;color:#0c1e35">'+o.serie+'</div>'
@@ -5079,18 +4805,10 @@ function aplicarRestriccionesRol(){
     if(tabGeneral) tabGeneral.style.display = "none";
     const tabValidacion = document.getElementById("tab-validacion");
     if(tabValidacion) tabValidacion.style.display = "none";
-    const tabCostos = document.getElementById("tab-costos");
-    if(tabCostos) tabCostos.style.display = "none";
     const btnPre = document.getElementById("btnPreRegistro");
     if(btnPre) btnPre.style.display = "none";
     const btnImprimirKPIs = document.getElementById("btnImprimirKPIs");
     if(btnImprimirKPIs) btnImprimirKPIs.style.display = "none";
-    const btnMisAsignaciones = document.getElementById("btnMisAsignaciones");
-    if(btnMisAsignaciones){
-      btnMisAsignaciones.style.display = "";
-      misAsignacionesActivo = true;
-      btnMisAsignaciones.classList.add("active");
-    }
     cambiarTab("ordenes");
   }
 }
@@ -5101,14 +4819,14 @@ function cerrarSesion(){
 }
 
 /* ============================================================
-   MONITOR NO OK — POLLING CADA 120 SEGUNDOS (se pausa si la pestaña
+   MONITOR NO OK — POLLING CADA 60 SEGUNDOS (se pausa si la pestaña
    no está visible, para no gastar llamadas de Airtable de más)
    ============================================================ */
 let _monitorInterval = null;
 let _totalNoOkActivos = 0;
 let _noOkResultados = [];
 
-const MONITOR_NOOK_INTERVALO_MS = 120000; // antes 60000 (y 15000 antes de eso) — es solo un badge informativo, no necesita ser al segundo
+const MONITOR_NOOK_INTERVALO_MS = 60000; // antes 15000 — reduce llamadas a Airtable 4x
 
 function iniciarMonitorNoOk(){
   ejecutarMonitorNoOk();
@@ -5152,15 +4870,6 @@ async function ejecutarMonitorNoOk(){
         // Ignorar borradores sin actividad en más de 48 h (evita falsos positivos
         // de registros que no se eliminaron al terminar el formulario).
         if(ultAct && new Date(ultAct).getTime() < limiteMs) continue;
-        // Ignorar borradores huérfanos de una orden cuyo trabajo ya terminó — el borrador
-        // se queda vivo en Airtable aunque el equipo ya esté listo. Antes solo se excluía
-        // "Entregado", así que los NO OK de órdenes ya "Terminado" (pero todavía sin
-        // entregar) seguían encendiendo el banner; por eso reaparecía cada pocos días
-        // mostrando equipos que ya estaban resueltos.
-        if(allOrdenes.length){
-          const ordenReal = allOrdenes.find(o => o.serie === serie || o.folio === serie);
-          if(ordenReal && (ordenReal.estado === "Entregado" || ordenReal.estado === "Terminado")) continue;
-        }
         let parsed;
         try{ parsed = JSON.parse(jsonStr); }catch(e){ continue; }
         const noOkList = parsed.noOk || [];

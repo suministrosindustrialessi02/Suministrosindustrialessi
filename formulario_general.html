@@ -657,10 +657,6 @@ const BF = {
   datosJson:           "fldSdxpRwhyvSWEgJ",
   porcentaje:          "fldsmzz7mJjY6gHNn",
   pantallaActual:      "fld8oNLBBTxWxCGS5",
-  // Llave REAL de emparejamiento. El folio se puede reciclar (una orden vieja borrada deja
-  // su borrador huérfano y el folio se vuelve a asignar) o quedar a medio teclear — el ID
-  // del registro de ORDENES no. Todo lo que busque/actualice un borrador debe usar esto.
-  ordenRecordId:       "fldMA3Ig8BrtbGNEH",
 };
 
 const OF = {
@@ -724,12 +720,6 @@ let _recIdEnvioActual = null; // ID de REPORTES_GENERAL creado en UN intento pre
 let _bfRecordIdGeneral = null; // ID del registro en TABLA_BORRADORES de Airtable
 let _bfSyncTimerGeneral = null;
 let _ultimoSyncGeneral = null; // firma de los últimos campos ya escritos en Airtable, evita PATCH repetidos sin cambios
-// Candado: sin esto, dos syncs solapados (el debounce de 800ms disparando mientras el
-// autoguardado de 15s sigue en vuelo) ven ambos _bfRecordIdGeneral en null, ambos buscan,
-// ambos no encuentran nada y ambos hacen POST — creando DOS borradores para la misma orden.
-// Esa es la causa de los duplicados "creados el mismo minuto" (MOT-008, A2604102014).
-let _syncEnVueloGeneral = false;
-let _syncRepetirGeneral = null; // último "datos" que llegó mientras había un sync en vuelo
 let _autoSaveIntervalGeneral = null;
 let _dbGeneral = null; // IndexedDB — borrador local completo (incluye fotos)
 
@@ -970,12 +960,13 @@ async function avanzar(desde){
     const ok = await confirmarDatosGenerales();
     if(!ok) return;
   }
-  // Nota: antes aquí se ponía estado="En proceso" apenas se salía de Pantalla 1 —
-  // mucho antes de que exista ningún diagnóstico guardado (eso solo pasa hasta
-  // generarDiagnostico(), que ya pone "En diagnóstico"). Si el técnico se interrumpía
-  // entre esta pantalla y esa, la orden quedaba viéndose como autorizada y en marcha
-  // sin diagnóstico real adentro. Se quita: el estado avanza solo cuando de verdad hay
-  // algo guardado (generarDiagnostico → "En diagnóstico" → autorización → "En proceso").
+  if(desde === 1 && ordenRecordId){
+    fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [OF.estado]: "En proceso" } })
+    }).catch(()=>{});
+  }
   mostrarPantalla(desde + 1);
 }
 
@@ -1973,198 +1964,21 @@ async function restaurarFotosBorradorGeneral(rec){
   return resultado;
 }
 
-/* ============================================================
-   REENTRADA CUANDO EL DIAGNÓSTICO YA FUE AUTORIZADO ("En proceso")
-   Y NO HAY BORRADOR LOCAL EN ESTE DISPOSITIVO. A diferencia de
-   restaurarDesdeAirtableGeneral() (que lee BORRADORES — un snapshot
-   que deja de actualizarse en cuanto se genera el diagnóstico, porque
-   generarDiagnostico() guarda el resultado directo en ORDENES, no en
-   BORRADORES), esta reconstruye desde ORDENES.diagnosticoTexto, que
-   es la fuente confiable una vez que el cliente ya autorizó. Aterriza
-   en Pantalla 4 (Bitácora), que es donde el técnico debe seguir.
-   Ver [[bug_continuar_restaura_borrador_viejo_post_diagnostico]].
-   ============================================================ */
-async function restaurarDesdeOrdenAutorizada(ordenRec){
-  try{
-    const raw = ordenRec.fields[OF.diagnosticoTexto];
-    if(!raw) return false;
-    const dx = JSON.parse(raw);
-    const eIni = dx.pruebasElectricasIniciales || null;
-
-    const [fotosDiagnosticoR, fotosObservacionesR, fotosDiagnosticoTecnicoR, fotosPlacaR] = await Promise.all(
-      [OF.fotosDiagnostico, OF.fotosObservaciones, OF.fotosDiagnosticoTecnico, OF.fotosPlaca].map(async (fieldId) => {
-        const attachments = ordenRec.fields[fieldId] || [];
-        const fotos = await Promise.all(attachments.map(async (att) => {
-          try{ return { dataUrl: await descargarComoDataUrl(att.url), filename: att.filename, descripcion: "" }; }
-          catch(e){ return null; }
-        }));
-        return fotos.filter(Boolean);
-      })
-    );
-
-    const datos = {
-      ordenRecordId: ordenRec.id,
-      reporteEnviado: false,
-      pantallaActual: 4,
-
-      tipoEquipo: dx.tipoEquipo || "", descripcionOtro: dx.descripcionOtro || "",
-      folio: dx.folio || "", cliente: dx.cliente || "", usuario: dx.usuario || "",
-      nombreCorto: dx.nombreCorto || "", marca: dx.marca || "", color: dx.color || "",
-      spec: dx.spec || "", numSerie: dx.numSerie || "", numParte: dx.numParte || "",
-      potencia: dx.potencia || "", frame: dx.frame || "", volts: dx.volts || "", amperaje: dx.amperaje || "",
-
-      descripcionProblema: dx.descripcionProblema || "",
-      diagnosticoTecnico: dx.diagnosticoTecnico || "",
-      observaciones: dx.observaciones || [],
-
-      fotosRecibido: [],
-      fotosDiagnostico: fotosDiagnosticoR,
-      fotosObservaciones: fotosObservacionesR,
-      fotosDiagnosticoTecnico: fotosDiagnosticoTecnicoR,
-      fotosPlaca: fotosPlacaR,
-      aplicaPlaca: true,
-
-      // serviciosPropuestos ya viene formateado (mezcla catálogo+libres) desde
-      // construirDatosDiagnostico() — se deja todo en serviciosOtros para no
-      // perder texto intentando adivinar cuáles eran del catálogo.
-      serviciosSeleccionados: [],
-      serviciosOtros: dx.serviciosPropuestos || [],
-      materiales: dx.materialesPropuestos || [],
-
-      numLineas: (eIni && eIni.numLineas) || "6",
-      resistenciaIni: (eIni && eIni.resistencia) || {},
-      resistenciaFin: {},
-      tierraIni: (eIni && eIni.tierra) || {},
-      tierraFin: {},
-      aplicaElectrico: !!dx.aplicaElectrico,
-      estadoIni: (eIni && eIni.estado) || "", estadoFin: "",
-      notasIni: (eIni && eIni.notas) || "", notasFin: "",
-      corrienteIni: (eIni && eIni.corriente) || ["","",""],
-      voltajeIni: (eIni && eIni.voltaje) || ["","",""],
-      corrienteFin: ["","",""], voltajeFin: ["","",""],
-
-      // Bitácora/pintura/final: nada de esto existe todavía a estas alturas del
-      // flujo (son pantallas posteriores al diagnóstico) — quedan en blanco a
-      // propósito, el técnico las llena desde aquí en adelante.
-      bitacoraPuntos: [], fotosBitacora: [],
-      aplicaPintura: false,
-      fotosPinturaAntes: [], fotosPinturaDespues: [],
-      fotosFinal: [], videoNota: "",
-    };
-
-    restaurarBorradorGeneral(datos);
-    alert("Se recuperó el diagnóstico ya autorizado de este equipo (incluyendo sus fotos). Continúa desde la Bitácora de servicio.");
-    return true;
-  } catch(e){ return false; }
-}
-
-/* ============================================================
-   RELLENAR HUECOS DESDE LA FUENTE DE VERDAD (ORDENES.diagnosticoTexto)
-
-   El caso que rompía todo: el técnico ya generó y le autorizaron el diagnóstico
-   (queda guardado en ORDENES, completo), pero el borrador — local o de Airtable —
-   trae esos campos vacíos, porque el auto-sync deja de actualizarlos en cuanto el
-   formulario entra a la pantalla de espera de autorización. Al continuar, se
-   restauraba ese borrador pobre TAL CUAL y el técnico veía todo en blanco, aunque
-   el dato sí existía. Pasó con RED-005, MOT-017 y RED-006 en tres días distintos.
-
-   Esta función NO pisa nada: solo llena lo que viene vacío. Si el técnico ya tiene
-   algo escrito, eso gana siempre.
-   ============================================================ */
-async function completarDesdeOrden(datos, ordenRec){
-  if(!datos || !ordenRec) return datos;
-  let dx = null;
-  try{ dx = JSON.parse(ordenRec.fields[OF.diagnosticoTexto] || "null"); } catch(e){ dx = null; }
-  if(!dx) return datos;
-
-  const vacioTexto = v => !v || !String(v).trim();
-  const vacioLista = v => !Array.isArray(v) || v.filter(x => x && (typeof x !== "string" || x.trim())).length === 0;
-
-  [ "tipoEquipo","descripcionOtro","folio","cliente","usuario","nombreCorto","marca","color",
-    "spec","numSerie","numParte","potencia","frame","volts","amperaje",
-    "descripcionProblema","diagnosticoTecnico"
-  ].forEach(k => { if(vacioTexto(datos[k]) && !vacioTexto(dx[k])) datos[k] = dx[k]; });
-
-  if(vacioLista(datos.observaciones) && !vacioLista(dx.observaciones)) datos.observaciones = dx.observaciones;
-  if(vacioLista(datos.materiales) && !vacioLista(dx.materialesPropuestos)) datos.materiales = dx.materialesPropuestos;
-  if(vacioLista(datos.serviciosOtros) && vacioLista(datos.serviciosSeleccionados) && !vacioLista(dx.serviciosPropuestos)){
-    datos.serviciosOtros = dx.serviciosPropuestos;
-  }
-
-  const eIni = dx.pruebasElectricasIniciales || null;
-  if(eIni){
-    if(vacioTexto(datos.estadoIni) && !vacioTexto(eIni.estado)) datos.estadoIni = eIni.estado;
-    if(vacioTexto(datos.notasIni)  && !vacioTexto(eIni.notas))  datos.notasIni  = eIni.notas;
-    if(!datos.resistenciaIni || !Object.keys(datos.resistenciaIni).length) datos.resistenciaIni = eIni.resistencia || {};
-    if(!datos.tierraIni      || !Object.keys(datos.tierraIni).length)      datos.tierraIni      = eIni.tierra || {};
-    if(vacioLista(datos.corrienteIni) && !vacioLista(eIni.corriente)) datos.corrienteIni = eIni.corriente;
-    if(vacioLista(datos.voltajeIni)   && !vacioLista(eIni.voltaje))   datos.voltajeIni   = eIni.voltaje;
-  }
-
-  // Fotos del diagnóstico: solo se bajan las categorías que estén vacías, para no
-  // duplicar las que el borrador ya traía.
-  const mapaFotos = [
-    ["fotosDiagnostico",        OF.fotosDiagnostico],
-    ["fotosObservaciones",      OF.fotosObservaciones],
-    ["fotosDiagnosticoTecnico", OF.fotosDiagnosticoTecnico],
-    ["fotosPlaca",              OF.fotosPlaca],
-  ];
-  await Promise.all(mapaFotos.map(async ([clave, fieldId]) => {
-    if(Array.isArray(datos[clave]) && datos[clave].length) return;
-    const atts = ordenRec.fields[fieldId] || [];
-    if(!atts.length) return;
-    const fotos = await Promise.all(atts.map(async att => {
-      try{ return { dataUrl: await descargarComoDataUrl(att.url), filename: att.filename, descripcion: "" }; }
-      catch(e){ return null; }
-    }));
-    datos[clave] = fotos.filter(Boolean);
-  }));
-
-  return datos;
-}
-
-async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido, ordenRec){
+async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido){
   if(!ordenRecordIdConocido) return false; // sin orden real en ORDENES no hay a qué ligar el reporte final
   try{
-    // Se buscan por los DOS caminos y se juntan: por ordenRecordId (la llave confiable,
-    // borradores nuevos) y por folio (borradores viejos de antes de que existiera esa
-    // columna). Un mismo registro puede salir en ambas listas — se deduplica por id.
-    const porOrden = await traerBorradores(`{${BF.ordenRecordId}}="${ordenRecordIdConocido}"`);
-    const porFolio = await traerBorradores(`{${BF.serie}}="${folioUrl}"`);
-    const vistos = new Set();
-    const crudos = [];
-    for(const r of porOrden.concat(porFolio)){
-      if(vistos.has(r.id)) continue;
-      vistos.add(r.id);
-      crudos.push(r);
-    }
+    const formula = encodeURIComponent(`{${BF.serie}}="${folioUrl}"`);
+    const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
+    const resp = await fetch(url, { headers:{} });
+    const data = await resp.json();
+    const rec = (data.records || [])[0];
+    if(!rec || !rec.fields[BF.datosJson]) return false;
 
-    const candidatos = [];
-    for(const cand of ordenarBorradoresPorFrescura(crudos)){
-      if(!cand.fields?.[BF.datosJson]) continue;
-      // Un borrador que YA está etiquetado con OTRA orden no es de este equipo aunque
-      // comparta el texto del folio — se descarta, nunca se restaura desde él.
-      const dueno = cand.fields?.[BF.ordenRecordId];
-      if(dueno && dueno !== ordenRecordIdConocido) continue;
-      try{
-        const parsed = JSON.parse(cand.fields[BF.datosJson]);
-        if(parsed.ordenRecordId && parsed.ordenRecordId !== ordenRecordIdConocido) continue;
-        // Borradores de antes de la Fase 1 solo traían materiales/nombreCorto/modelo/marca/
-        // color/numParte/descripcionProblema — sin tipoEquipo ni cliente no hay suficiente
-        // para reconstruir el formulario completo, mejor no intentarlo a medias.
-        if(parsed.tipoEquipo || parsed.cliente) candidatos.push({ cand, parsed });
-      }catch(e){ continue; }
-    }
-    // Entre los que sí son de esta orden, gana el que trae MÁS avance real — no solo el más
-    // reciente. Un sync tardío puede haber escrito un snapshot casi vacío después de uno
-    // bueno (pasó con RED-006), y tomar "el último" perdía el trabajo del técnico.
-    const deEstaOrden = candidatos.filter(c => c.parsed.ordenRecordId === ordenRecordIdConocido);
-    const pool = deEstaOrden.length ? deEstaOrden : candidatos;
-    pool.sort((a, b) => riquezaBorrador(b.parsed) - riquezaBorrador(a.parsed));
-    const elegido = pool[0];
-    if(!elegido) return false;
-    const rec = elegido.cand;
-    const bd = elegido.parsed;
+    const bd = JSON.parse(rec.fields[BF.datosJson]);
+    // Borradores de antes de la Fase 1 solo traían materiales/nombreCorto/modelo/marca/
+    // color/numParte/descripcionProblema — sin tipoEquipo ni cliente no hay suficiente
+    // para reconstruir el formulario completo, mejor no intentarlo a medias.
+    if(!bd.tipoEquipo && !bd.cliente) return false;
 
     _bfRecordIdGeneral = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
 
@@ -2229,10 +2043,6 @@ async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido, or
       fotosFinal: fotosRestauradas.final || [], videoNota: bd.videoNota || "",
     };
 
-    // El borrador de Airtable también puede venir incompleto respecto al diagnóstico ya
-    // autorizado — se le rellenan los huecos desde ORDENES antes de pintarlo.
-    await completarDesdeOrden(datos, ordenRec);
-
     restaurarBorradorGeneral(datos);
     alert("Se recuperaron los datos guardados de este equipo (no estaban en este dispositivo, pero sí en el sistema), incluyendo las fotos que ya se habían subido.\n\nOJO: si tomaste alguna foto justo antes de cambiar de dispositivo y todavía no alcanzó a subirse, esa sí hay que volver a agregarla.");
     return true;
@@ -2254,16 +2064,8 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
   const folio = datos.folio;
   if(!folio) return;
 
-  // Sin orden real en ORDENES no se crea nada en BORRADORES. Antes sí: el debounce de
-  // 800ms se disparaba mientras el técnico todavía tecleaba, y cada prefijo del folio
-  // dejaba un registro basura (en la tabla quedaron "A26", "A26041020", "A2600226 2056"
-  // — series a medio escribir). Esos huérfanos son justo los que después secuestran el
-  // borrador de otra orden que reciclara el mismo folio.
-  if(!datos.ordenRecordId) return;
-
   const campos = {
     [BF.serie]:               folio,
-    [BF.ordenRecordId]:       datos.ordenRecordId,
     [BF.cliente]:             datos.cliente || "",
     [BF.ultimaActualizacion]: new Date().toISOString().split("T")[0],
     [BF.porcentaje]:          datos._porcentaje,
@@ -2274,11 +2076,6 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     // contrato viejo que ya leen reportes.html/dashboard.html — no renombrar. Las fotos
     // (dataUrl locales) se excluyen a propósito: eso es la Fase 4, aparte.
     [BF.datosJson]:           JSON.stringify({
-      // Va también DENTRO del JSON, no solo en su columna: restaurarDesdeAirtableGeneral()
-      // compara contra esto para elegir el borrador correcto cuando hay varios con el mismo
-      // folio. Antes nunca se escribía, así que esa comparación jamás daba positivo y el
-      // código terminaba tomando "el primero de la lista" igual que antes del arreglo.
-      ordenRecordId: datos.ordenRecordId || "",
       materiales:  materialesValidos(),
       nombreCorto: datos.nombreCorto || "",
       modelo:      datos.spec || "",
@@ -2331,14 +2128,15 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     return;
   }
 
-  // Un solo sync a la vez. Si llega otro mientras este corre, se guarda como "pendiente"
-  // y se ejecuta al terminar — así nunca hay dos búsquedas/creaciones en paralelo.
-  if(_syncEnVueloGeneral){ _syncRepetirGeneral = datos; return; }
-  _syncEnVueloGeneral = true;
-
   try{
     if(!_bfRecordIdGeneral){
-      _bfRecordIdGeneral = await resolverBorradorGeneral(datos.ordenRecordId, folio);
+      const formula = encodeURIComponent(`{${BF.serie}}="${folio}"`);
+      const busca = await fetch(
+        `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
+        { headers:{}}
+      );
+      const bd = await busca.json();
+      if(bd.records?.length) _bfRecordIdGeneral = bd.records[0].id;
     }
 
     if(_bfRecordIdGeneral){
@@ -2358,91 +2156,8 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
     }
     _ultimoSyncGeneral = firma;
   } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
-  finally{
-    _syncEnVueloGeneral = false;
-    if(_syncRepetirGeneral){
-      const pend = _syncRepetirGeneral;
-      _syncRepetirGeneral = null;
-      sincronizarProgresoBorradorGeneralAT(pend);
-      return;
-    }
-  }
 
   procesarColaFotosBorradorGeneral(); // FASE 4: ya hay (o no se pudo crear) _bfRecordIdGeneral, intenta subir lo pendiente
-}
-
-/* Encuentra el registro de BORRADORES que de verdad pertenece a ESTA orden.
-   Prioridad: (1) match exacto por ordenRecordId — la llave confiable; (2) si no hay,
-   un borrador viejo del mismo folio que todavía no tenga ordenRecordId (registros de
-   antes de este arreglo: se adoptan y quedan etiquetados al primer PATCH). Un borrador
-   del mismo folio pero que YA tiene OTRO ordenRecordId se ignora a propósito: es de otra
-   orden que reusó el folio, y pisarlo era justo lo que borraba diagnósticos ajenos. */
-async function resolverBorradorGeneral(ordenRecId, folio){
-  try{
-    if(ordenRecId){
-      const fPorOrden = encodeURIComponent(`{${BF.ordenRecordId}}="${ordenRecId}"`);
-      const rOrden = await fetch(
-        `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${fPorOrden}&returnFieldsByFieldId=true`,
-        { headers:{}}
-      );
-      const dOrden = await rOrden.json();
-      const porOrden = ordenarBorradoresPorFrescura(dOrden.records || []);
-      if(porOrden.length) return porOrden[0].id;
-    }
-
-    const fPorFolio = encodeURIComponent(`{${BF.serie}}="${folio}"`);
-    const rFolio = await fetch(
-      `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${fPorFolio}&returnFieldsByFieldId=true`,
-      { headers:{}}
-    );
-    const dFolio = await rFolio.json();
-    const legacy = ordenarBorradoresPorFrescura(
-      (dFolio.records || []).filter(r => !r.fields?.[BF.ordenRecordId])
-    );
-    return legacy.length ? legacy[0].id : null;
-  } catch(e){ return null; }
-}
-
-async function traerBorradores(formulaCruda){
-  try{
-    const f = encodeURIComponent(formulaCruda);
-    const r = await fetch(
-      `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${f}&returnFieldsByFieldId=true`,
-      { headers:{}}
-    );
-    const d = await r.json();
-    return d.records || [];
-  } catch(e){ return []; }
-}
-
-/* Cuánto trabajo real trae un borrador. Sirve para no preferir un snapshot vacío
-   solo por ser más reciente — el técnico prefiere recuperar lo que sí llenó. */
-function riquezaBorrador(p){
-  if(!p) return 0;
-  let n = 0;
-  const texto = v => (typeof v === "string" && v.trim()) ? 1 : 0;
-  const lista = v => Array.isArray(v) ? v.filter(x => x && (typeof x !== "string" || x.trim())).length : 0;
-  n += texto(p.cliente) + texto(p.tipoEquipo) + texto(p.numSerie) + texto(p.marca) + texto(p.spec);
-  n += texto(p.descripcionProblema) * 3;
-  n += texto(p.diagnosticoTecnico) * 3;
-  n += lista(p.observaciones) * 2;
-  n += lista(p.serviciosOtros) * 2;
-  n += lista(p.serviciosSeleccionados) * 2;
-  n += lista(p.materiales) * 2;
-  n += lista(p.bitacoraPuntos) * 3;
-  n += texto(p.estadoIni) + texto(p.estadoFin) + texto(p.videoNota);
-  return n;
-}
-
-/* Más reciente primero. ultimaActualizacion es un campo de fecha (sin hora), así que
-   empata seguido — createdTime desempata con precisión de segundos. */
-function ordenarBorradoresPorFrescura(records){
-  return records.slice().sort((a, b) => {
-    const fa = a.fields?.[BF.ultimaActualizacion] || "";
-    const fb = b.fields?.[BF.ultimaActualizacion] || "";
-    if(fa !== fb) return fb.localeCompare(fa);
-    return String(b.createdTime || "").localeCompare(String(a.createdTime || ""));
-  });
 }
 
 /* FASE 4: sube en fila (una a la vez, para no pisarse ni saturar el límite de la API)
@@ -2637,7 +2352,7 @@ function generarVistaPrevia(){
   html += `<div class="ph">REPORTE ${esc(folio)}</div>`;
   html += `<table class="info">
     <tr><td class="k">CLIENTE</td><td>${esc(cliente)}</td><td class="k">USUARIO</td><td>${esc(usuario)}</td></tr>
-    ${nombreCorto ? `<tr><td class="k">EQUIPO (nickname)</td><td colspan="3">${esc(nombreCorto)}</td></tr>` : ""}
+    ${nombreCorto ? `<tr><td class="k">EQUIPO (apodo)</td><td colspan="3">${esc(nombreCorto)}</td></tr>` : ""}
     <tr><td class="k">EQUIPO</td><td>${esc(spec) || esc(marca)}</td><td class="k">N° SERIE / S/N</td><td>${esc(numSerie)}</td></tr>
     ${numParte ? `<tr><td class="k">N° PARTE</td><td>${esc(numParte)}</td><td class="k"></td><td></td></tr>` : ""}
     ${aplicaElectrico ? `<tr><td class="k">POTENCIA</td><td>${esc(potencia)}</td><td class="k">FRAME</td><td>${esc(frame)}</td></tr>` : ""}
@@ -2845,24 +2560,7 @@ async function enviarReporteGeneral(){
     // corrección real (reporteRecordId) o un reintento de ESTE mismo envío que falló
     // a medias después de crear el registro (_recIdEnvioActual) — sin esto, reintentar
     // tras un "Failed to fetch" duplicaba el reporte en vez de continuar el mismo.
-    // Esas dos variables viven solo en memoria: si el técnico termina el reporte desde
-    // OTRO dispositivo (o después de recargar), llegan vacías y se creaba un reporte
-    // duplicado para la misma orden. Se pregunta a Airtable antes de decidir crear.
-    let recExistente = reporteRecordId || _recIdEnvioActual;
-    if(!recExistente && ordenRecordId){
-      try{
-        // Se filtra por folio (campo de texto, sí es filtrable) y se confirma el vínculo
-        // del lado del navegador: en una fórmula de Airtable, ARRAYJOIN() de un campo de
-        // vínculo devuelve los NOMBRES de los registros ligados, no sus IDs, así que
-        // filtrar por el "recXXX" ahí nunca coincide.
-        const fRG = encodeURIComponent(`{${RG.folio}}="${datos.folio || document.getElementById("folio").value.trim()}"`);
-        const rRG = await fetch(`/.netlify/functions/airtable?table=${TABLA_REPORTES_GENERAL}&filterByFormula=${fRG}&returnFieldsByFieldId=true`,
-          { headers:{} });
-        const dRG = await rRG.json();
-        const match = (dRG.records || []).find(r => (r.fields?.[RG.ordenServicio] || []).includes(ordenRecordId));
-        if(match) recExistente = match.id;
-      }catch(e){}
-    }
+    const recExistente = reporteRecordId || _recIdEnvioActual;
     let recId;
     let descripcionesExistentes = {};
     if(recExistente){
@@ -3018,30 +2716,15 @@ mostrarPantalla(0);
 
     let datos = null;
     try{ datos = await buscarEnDBGeneral(folioUrl); } catch(e){}
-    if(datos && datos.reporteEnviado) datos = null;
-
-    if(datos){
-      // Hay borrador local en este dispositivo. Antes se restauraba tal cual y ahí
-      // terminaba todo — si venía incompleto (porque el sync alcanzó a escribirlo en
-      // blanco, o porque es anterior al diagnóstico) el técnico veía las pantallas
-      // vacías aunque el diagnóstico SÍ estuviera guardado en ORDENES. Ahora se le
-      // rellenan los huecos desde la fuente de verdad antes de pintarlo.
-      await completarDesdeOrden(datos, ordenRec);
+    if(datos && !datos.reporteEnviado){
       restaurarBorradorGeneral(datos);
     } else {
       document.getElementById("folio").value = folioUrl;
       // FASE 2: antes de rendirse con el aviso de "no hay borrador aquí", intenta
       // reconstruir desde lo que la Fase 1 ya sincronizó a BORRADORES en Airtable.
-      const recuperadoDeAirtable = await restaurarDesdeAirtableGeneral(folioUrl, ordenRecordId, ordenRec);
+      const recuperadoDeAirtable = await restaurarDesdeAirtableGeneral(folioUrl, ordenRecordId);
       if(!recuperadoDeAirtable){
-        // Sin borrador por ningún lado, pero el diagnóstico ya autorizado vive en
-        // ORDENES: se reconstruye desde ahí y el técnico sigue en la Bitácora.
-        const recuperadoDeOrden = (estadoOrden === "En proceso" && ordenRec && ordenRec.fields[OF.diagnosticoTexto])
-          ? await restaurarDesdeOrdenAutorizada(ordenRec)
-          : false;
-        if(!recuperadoDeOrden){
-          alert(`No se encontró ningún avance guardado de la orden ${folioUrl}.\n\nSi el formulario se empezó en otro dispositivo y todavía no se sincronizaba, revisa ese dispositivo.`);
-        }
+        alert(`No se encontró un borrador local de la orden ${folioUrl} en este dispositivo.\n\nSi el formulario se empezó en otro dispositivo o navegador, continúa desde ese mismo dispositivo.`);
       }
     }
   }
