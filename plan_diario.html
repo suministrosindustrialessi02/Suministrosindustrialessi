@@ -399,7 +399,7 @@ async function fetchTareas(){
   let all = [], offset = null;
   const base = `/.netlify/functions/airtable?table=${TABLA_PLAN}`;
   do{
-    let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+    let url = `${base}?returnFieldsByFieldId=true&pageSize=100`;
     if(offset) url += `&offset=${encodeURIComponent(offset)}`;
     const res = await fetch(url, { headers:{} });
     if(!res.ok) throw new Error("Error al cargar el plan diario");
@@ -426,7 +426,7 @@ async function fetchOrdenesActivas(){
     let all = [], offset = null;
     const base = `/.netlify/functions/airtable?table=${TABLA_ORDENES}`;
     do{
-      let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+      let url = `${base}?returnFieldsByFieldId=true&pageSize=100`;
       if(offset) url += `&offset=${encodeURIComponent(offset)}`;
       const res = await fetch(url, { headers:{} });
       if(!res.ok) return [];
@@ -475,6 +475,17 @@ async function cargarPlan(){
   }
 }
 
+// Refrescos parciales — evitan volver a pedir las 3 tablas cuando solo cambió una
+// (tareas al agregar/editar/borrar, órdenes al ocultar/mostrar equipo).
+async function recargarTareas(){
+  todasLasTareas = await fetchTareas();
+  renderTodo();
+}
+async function recargarOrdenesActivas(){
+  ordenesActivas = await fetchOrdenesActivas();
+  renderTodo();
+}
+
 /* ============================================================
    FILTRO POR FECHA (con roll-over de pendientes hacia "hoy")
    ============================================================ */
@@ -501,10 +512,14 @@ function renderTodo(){
   document.getElementById("btnVerOcultos").classList.toggle("hidden", ocultosCount === 0);
   document.getElementById("cntOcultos").textContent = ocultosCount;
 
+  // Técnico: el plan diario solo muestra lo que se le asignó a él/ella (tareas manuales y órdenes de servicio)
+  const esTecnico = _sesion.rol === "Tecnico";
+
   // Barra de progreso — solo cuenta tareas manuales (tienen checkbox de completado);
   // las órdenes de servicio inyectadas no aplican, se completan al terminar el servicio,
   // no con un check, y siempre están "activas" mientras aparecen en el plan.
-  const tareasDelDia = tareasParaFecha(fechaSeleccionada);
+  let tareasDelDia = tareasParaFecha(fechaSeleccionada);
+  if(esTecnico) tareasDelDia = tareasDelDia.filter(t => incluyeTecnico(t.tecnico, _sesion.nombre));
   const totalTareas = tareasDelDia.length;
   const completadas = tareasDelDia.filter(t => t.completado).length;
   const pct = totalTareas > 0 ? Math.round((completadas / totalTareas) * 100) : 0;
@@ -519,7 +534,9 @@ function renderTodo(){
   // Ítems combinados: tareas manuales + (solo en HOY) órdenes de servicio activas y no ocultas
   const items = tareasDelDia.map(t => ({ ...t, _tipo: "tarea" }));
   if(fechaSeleccionada === hoyISO()){
-    ordenesActivas.filter(o => !o.oculto).forEach(o => items.push({ ...o, _tipo: "orden" }));
+    let ordenesDelDia = ordenesActivas.filter(o => !o.oculto);
+    if(esTecnico) ordenesDelDia = ordenesDelDia.filter(o => incluyeTecnico(o.tecnico, _sesion.nombre));
+    ordenesDelDia.forEach(o => items.push({ ...o, _tipo: "orden" }));
   }
   items.sort((a,b) => {
     const pa = a.prioridad ?? 999, pb = b.prioridad ?? 999;
@@ -598,7 +615,7 @@ function filaOrden(o){
 async function patchOcultoOrden(id, valor){
   await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${id}`, {
     method: "PATCH",
-    headers:{ "Content-Type": "application/json" },
+    headers:{ "Content-Type":"application/json" },
     body: JSON.stringify({ fields: { [OF.ocultoPlanDiario]: valor } })
   });
 }
@@ -608,7 +625,7 @@ async function ocultarOrden(id){
   if(!confirm("¿Ocultar este equipo del Plan Diario? Podrás volver a mostrarlo desde \"Equipos ocultos\".")) return;
   try{
     await patchOcultoOrden(id, true);
-    await cargarPlan();
+    await recargarOrdenesActivas();
   } catch(e){
     alert("No se pudo ocultar el equipo.");
   }
@@ -618,7 +635,7 @@ async function mostrarOrden(id){
   if(!esAdmin) return;
   try{
     await patchOcultoOrden(id, false);
-    await cargarPlan();
+    await recargarOrdenesActivas();
     abrirModalOcultos();
   } catch(e){
     alert("No se pudo mostrar el equipo.");
@@ -668,7 +685,7 @@ async function toggleCompletado(id, valor){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${id}`, {
       method: "PATCH",
-      headers:{ "Content-Type": "application/json" },
+      headers:{ "Content-Type":"application/json" },
       body: JSON.stringify({ fields: { [PF.completado]: valor, [PF.fechaCompletado]: valor ? new Date().toISOString() : null } })
     });
   } catch(e){}
@@ -779,7 +796,7 @@ async function guardarTarea(){
       if(prioridad === null) fields[PF.prioridad] = null;
       await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}&recordId=${editandoId}`, {
         method: "PATCH",
-        headers:{ "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields })
       });
     } else {
@@ -787,12 +804,12 @@ async function guardarTarea(){
       fields[PF.completado] = false;
       await fetch(`/.netlify/functions/airtable?table=${TABLA_PLAN}`, {
         method: "POST",
-        headers:{ "Content-Type": "application/json" },
+        headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ records:[{ fields }] })
       });
     }
     cerrarModal();
-    await cargarPlan();
+    await recargarTareas();
   } catch(e){
     alert("No se pudo guardar la tarea.");
   }
@@ -807,7 +824,7 @@ async function eliminarTareaModal(){
       headers:{}
     });
     cerrarModal();
-    await cargarPlan();
+    await recargarTareas();
   } catch(e){
     alert("No se pudo eliminar la tarea.");
   }

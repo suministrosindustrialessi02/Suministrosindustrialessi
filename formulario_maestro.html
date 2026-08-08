@@ -942,6 +942,7 @@ const ORDENES_FIELDS = {
   volts:   "fldLxVAorFAGaboOF",
   spec:    "fldkkXFzqKeGSIqJQ",
   fotosPlaca: "fldNUJRgVWwI6JRjH",
+  diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
 };
 
 const FIELDS_CHECKLIST = {
@@ -1019,6 +1020,10 @@ const BF = { // BORRADORES_FIELDS
   inspector:           "fldObOuOiAJYUTHLV",
   cliente:             "fldzogHAx1BAkw4q2",
   ultimaActualizacion: "fldXxLdLrsLruVFnq",
+  // Llave REAL de emparejamiento — la serie se puede teclear mal o a medias (en la tabla
+  // quedaron borradores con serie "A26" y "A26041020", prefijos de alguien escribiendo).
+  // El ID del registro de ORDENES no tiene ese problema.
+  ordenRecordId:       "fldMA3Ig8BrtbGNEH",
   fotosChecklist:      "fldIGehBQ9fD9inrf",
   fotosAdherencia:     "fldMeri4fb3dAtOwZ",
   fotosRecibido:       "fld9mRG6J2qYQHUf8",
@@ -1600,6 +1605,8 @@ function iniciarNuevoMotor(){
    ============================================================ */
 let _atSyncTimer = null;
 let _ultimoSyncMaestro = null; // firma de los últimos campos ya escritos en Airtable, evita PATCH repetidos sin cambios
+let _syncEnVueloMaestro = false; // candado: nunca dos syncs a la vez (evita crear borradores duplicados)
+let _syncRepetirMaestro = false; // llegó otro sync mientras había uno en vuelo — se corre al terminar
 
 // Wrapper debounced: evita race condition cuando el técnico corrige
 // un punto de NO OK → OK rápidamente antes de que el PATCH anterior llegue.
@@ -1611,6 +1618,13 @@ function actualizarProgresoBorradorAT(){
 async function _ejecutarSyncBorradorAT(){
   const serie = document.getElementById("numSerie").value.trim().toUpperCase();
   if(!serie) return;
+
+  // Sin orden real en ORDENES no se crea registro en BORRADORES. Antes el debounce se
+  // disparaba mientras el técnico todavía tecleaba la serie y cada prefijo dejaba un
+  // registro basura ("A26", "A26041020" siguen en la tabla). Esos huérfanos son los que
+  // luego secuestran el borrador de una orden que reuse esa serie. verificarOrdenLive()
+  // ya resuelve ordenRecordId en cuanto la serie completa pierde el foco.
+  if(!ordenRecordId) return;
 
   // Calcular % igual que en guardarBorrador
   let completas = 0;
@@ -1647,6 +1661,7 @@ async function _ejecutarSyncBorradorAT(){
 
   const campos = {
     [BF.serie]:               serie,
+    [BF.ordenRecordId]:       ordenRecordId,
     [BF.porcentaje]:          pct,
     [BF.pantallaActual]:      pantallaActual,
     [BF.ultimaActualizacion]: new Date().toISOString().split("T")[0],
@@ -1714,16 +1729,16 @@ async function _ejecutarSyncBorradorAT(){
     return;
   }
 
+  // Un solo sync a la vez. Sin esto, dos syncs solapados (el debounce de 400ms disparando
+  // mientras el autoguardado de 15s sigue en vuelo) ven ambos _bfRecordId en null, ambos
+  // buscan, ambos no encuentran y ambos hacen POST — creando DOS borradores de la misma
+  // orden. Es el origen de los duplicados "creados en el mismo minuto".
+  if(_syncEnVueloMaestro){ _syncRepetirMaestro = true; return; }
+  _syncEnVueloMaestro = true;
+
   try{
     if(!_bfRecordId){
-      // Buscar registro existente por serie
-      const formula = encodeURIComponent(`{${BF.serie}}="${serie}"`);
-      const busca = await fetch(
-        `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`,
-        { headers:{}}
-      );
-      const bd = await busca.json();
-      if(bd.records?.length) _bfRecordId = bd.records[0].id;
+      _bfRecordId = await resolverBorradorMaestro(ordenRecordId, serie);
     }
 
     if(_bfRecordId){
@@ -1743,8 +1758,77 @@ async function _ejecutarSyncBorradorAT(){
     }
     _ultimoSyncMaestro = firma;
   } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
+  finally{
+    _syncEnVueloMaestro = false;
+    if(_syncRepetirMaestro){
+      _syncRepetirMaestro = false;
+      _ejecutarSyncBorradorAT();
+      return;
+    }
+  }
 
   procesarColaFotosBorradorMaestro(); // FASE 4: ya hay (o no se pudo crear) _bfRecordId, intenta subir lo pendiente
+}
+
+/* Encuentra el borrador que de verdad pertenece a ESTA orden.
+   (1) match exacto por ordenRecordId; (2) si no hay, un borrador viejo de la misma serie
+   que todavía no tenga ordenRecordId (registros de antes de este arreglo — se adoptan y
+   quedan etiquetados al primer PATCH). Un borrador de la misma serie que YA pertenece a
+   OTRA orden se ignora: pisarlo era lo que borraba el avance de inspecciones anteriores
+   del mismo motor (un motor puede volver al C.S. varias veces con la misma serie). */
+async function resolverBorradorMaestro(ordenRecId, serie){
+  try{
+    if(ordenRecId){
+      const porOrden = await traerBorradoresMaestro(`{${BF.ordenRecordId}}="${ordenRecId}"`);
+      if(porOrden.length) return ordenarBorradoresPorFrescuraMaestro(porOrden)[0].id;
+    }
+    const porSerie = await traerBorradoresMaestro(`{${BF.serie}}="${serie}"`);
+    const legacy = ordenarBorradoresPorFrescuraMaestro(
+      porSerie.filter(r => !r.fields?.[BF.ordenRecordId])
+    );
+    return legacy.length ? legacy[0].id : null;
+  } catch(e){ return null; }
+}
+
+async function traerBorradoresMaestro(formulaCruda){
+  try{
+    const f = encodeURIComponent(formulaCruda);
+    const r = await fetch(
+      `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${f}&returnFieldsByFieldId=true`,
+      { headers:{}}
+    );
+    const d = await r.json();
+    return d.records || [];
+  } catch(e){ return []; }
+}
+
+/* Más reciente primero. ultimaActualizacion no guarda hora, así que empata seguido —
+   createdTime desempata con precisión de segundos. */
+function ordenarBorradoresPorFrescuraMaestro(records){
+  return records.slice().sort((a, b) => {
+    const fa = a.fields?.[BF.ultimaActualizacion] || "";
+    const fb = b.fields?.[BF.ultimaActualizacion] || "";
+    if(fa !== fb) return fb.localeCompare(fa);
+    return String(b.createdTime || "").localeCompare(String(a.createdTime || ""));
+  });
+}
+
+/* Cuánto avance real trae un borrador de Sulzer — para no preferir un snapshot vacío
+   solo por ser más reciente. */
+function riquezaBorradorMaestro(p){
+  if(!p) return 0;
+  let n = 0;
+  const texto = v => (typeof v === "string" && v.trim()) ? 1 : 0;
+  n += texto(p.cliente) + texto(p.numSerie) + texto(p.motorHP) + texto(p.motorSpec) + texto(p.inspector);
+  n += texto(p.comentariosGenerales);
+  n += Object.values(p.checklistRespuestas || {}).filter(v => v && v.resultado).length * 3;
+  n += Object.values(p.recepcion || {}).filter(v => v && String(v).trim()).length * 2;
+  n += ["m1","m2","m3","m4","m5","m6"].filter(k => texto(p[k])).length * 2;
+  n += (p.etapasDesc || []).filter(v => v && String(v).trim()).length * 2;
+  if(p.recepcionEnviada) n += 5;
+  if(p.checklistYaEnviado) n += 5;
+  if(p.pinturaEnviada) n += 5;
+  return n;
 }
 
 /* FASE 4: reintenta ante fallos de red Y ante 429 (límite de 5 llamadas/seg de Airtable)
@@ -1910,12 +1994,27 @@ async function verificarOrdenLive(){
     const data = await resp.json();
     if(data.records && data.records.length > 0){
       const rec = data.records[0];
+      // Recordar el ID de la orden desde YA. Antes solo se resolvía al enviar Recepción,
+      // así que todo lo que pasara antes (incluido el borrador que se empieza a sincronizar)
+      // se guardaba sin saber a qué orden pertenecía.
+      if(!ordenRecordId) ordenRecordId = rec.id;
       const cliente = rec.fields[ORDENES_FIELDS.cliente] || "";
       const estadoRaw = rec.fields[ORDENES_FIELDS.estado];
       const estado = (estadoRaw && typeof estadoRaw === "object" ? estadoRaw.name : estadoRaw) || "";
       const normE = estado.toLowerCase();
       if(cliente && !document.getElementById("cliente").value)
         document.getElementById("cliente").value = cliente;
+      // Autocompletar también HP/Frame/Volts/SPEC si la orden ya los trae (ej. viene de un
+      // diagnóstico previo autorizado) — mismo criterio que cliente, solo si el técnico no
+      // escribió ya algo ahí.
+      const autoLlenar = (id, valor) => {
+        const el = document.getElementById(id);
+        if(el && !el.value && valor !== undefined && valor !== null && valor !== "") el.value = valor;
+      };
+      autoLlenar("motorHP", rec.fields[ORDENES_FIELDS.hp]);
+      autoLlenar("motorFrame", rec.fields[ORDENES_FIELDS.frame]);
+      autoLlenar("motorVolts", rec.fields[ORDENES_FIELDS.volts]);
+      autoLlenar("motorSpec", rec.fields[ORDENES_FIELDS.spec]);
 
       // Duplicado activo: en proceso o recibido
       if(normE.includes("proceso") || normE.includes("recibido")){
@@ -1932,6 +2031,7 @@ async function verificarOrdenLive(){
       } else {
         statusEl.textContent = `✅ Orden encontrada — ${cliente}`;
         statusEl.classList.add("success");
+        document.getElementById("avisoDuplicado")?.remove();
       }
     } else {
       statusEl.textContent = "📋 Se creará una nueva orden con este N° de serie";
@@ -2250,7 +2350,8 @@ async function restaurarBorradorCompleto(datos){
     let correccionesYaCompletadas = false;
     if(hayNoOk && ordenRecordId){
       try{
-        const rCC = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`);
+        const rCC = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`,
+          { headers:{} });
         const dCC = await rCC.json();
         correccionesYaCompletadas = !!dCC.fields?.["fldnQ6DxpfYANoE8p"];
       }catch(e){}
@@ -2348,29 +2449,59 @@ async function restaurarFotosBorradorMaestro(rec){
 
 async function restaurarDesdeAirtableMaestro(serie){
   try{
-    const formula = encodeURIComponent(`{${BF.serie}}="${serie.toUpperCase()}"`);
-    const url = `/.netlify/functions/airtable?table=${TABLA_BORRADORES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url, { headers:{} });
-    const data = await resp.json();
-    // Puede haber más de un registro para la misma serie (duplicados de sincronizaciones
-    // pasadas) — en vez de confiar a ciegas en el primero que regrese Airtable, se ordenan
-    // por última actualización y se toma el más reciente que de verdad tenga datos usables.
-    const candidatos = (data.records || []).slice().sort((a, b) => {
-      const da = a.fields?.[BF.ultimaActualizacion] || a.createdTime || "";
-      const db = b.fields?.[BF.ultimaActualizacion] || b.createdTime || "";
-      return db.localeCompare(da);
-    });
-    let rec = null, bd = null;
-    for(const cand of candidatos){
+    const serieUp = serie.toUpperCase();
+
+    // Un mismo motor puede volver al C.S. varias veces con la misma serie, así que primero
+    // se resuelve CUÁL orden es la vigente y se prefiere el borrador ligado a esa orden.
+    // Antes se tomaba el primero que regresara Airtable, sin distinguir de qué intervención
+    // era — de ahí que "Continuar" a veces trajera el avance de una inspección anterior.
+    if(!ordenRecordId){
+      try{
+        const fOrden = encodeURIComponent(`({${ORDENES_FIELDS.serie}}="${serieUp}")`);
+        const rOrden = await fetch(
+          `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${fOrden}&returnFieldsByFieldId=true`,
+          { headers:{} });
+        const dOrden = await rOrden.json();
+        const activas = (dOrden.records || []).filter(r => {
+          const e = r.fields[ORDENES_FIELDS.estado];
+          const n = String((e && e.name) || e || "").toLowerCase();
+          return !n.includes("entregado");
+        });
+        const elegida = activas[0] || (dOrden.records || [])[0];
+        if(elegida) ordenRecordId = elegida.id;
+      }catch(e){}
+    }
+
+    const porOrden = ordenRecordId ? await traerBorradoresMaestro(`{${BF.ordenRecordId}}="${ordenRecordId}"`) : [];
+    const porSerie = await traerBorradoresMaestro(`{${BF.serie}}="${serieUp}"`);
+    const vistos = new Set();
+    const crudos = [];
+    for(const r of porOrden.concat(porSerie)){
+      if(vistos.has(r.id)) continue;
+      vistos.add(r.id);
+      crudos.push(r);
+    }
+
+    const candidatos = [];
+    for(const cand of ordenarBorradoresPorFrescuraMaestro(crudos)){
       if(!cand.fields?.[BF.datosJson]) continue;
+      // Borrador ya etiquetado con OTRA orden = de otra intervención de este mismo motor.
+      const dueno = cand.fields?.[BF.ordenRecordId];
+      if(dueno && ordenRecordId && dueno !== ordenRecordId) continue;
       try{
         const parsed = JSON.parse(cand.fields[BF.datosJson]);
+        if(parsed.ordenRecordId && ordenRecordId && parsed.ordenRecordId !== ordenRecordId) continue;
         // Borradores de antes de la Fase 3 solo traían "noOk" (para el monitor en vivo) —
         // sin numSerie/ordenRecordId no hay suficiente para reconstruir el formulario.
-        if(parsed.numSerie && parsed.ordenRecordId){ rec = cand; bd = parsed; break; }
+        if(parsed.numSerie && parsed.ordenRecordId) candidatos.push({ cand, parsed });
       }catch(e){ continue; }
     }
-    if(!rec) return false;
+    // Gana el que traiga MÁS avance real, no simplemente el más reciente: un sync tardío
+    // puede haber escrito un snapshot casi vacío encima de uno bueno.
+    candidatos.sort((a, b) => riquezaBorradorMaestro(b.parsed) - riquezaBorradorMaestro(a.parsed));
+    if(!candidatos.length) return false;
+    const rec = candidatos[0].cand;
+    const bd  = candidatos[0].parsed;
 
     _bfRecordId = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
 
@@ -2413,10 +2544,352 @@ async function restaurarDesdeAirtableMaestro(serie){
       etapasDesc: bd.etapasDesc || [],
     };
 
+    // El borrador de Airtable también puede venir pobre respecto a lo que ya está
+    // guardado de verdad — se le rellenan los huecos desde las tablas reales.
+    await completarDesdeTablasReales(datos, serieUp);
+
     restaurarBorradorCompleto(datos);
     alert("Se recuperaron los datos guardados de este equipo (no estaban en este dispositivo, pero sí en el sistema), incluyendo las fotos que ya se habían subido.\n\nOJO: las fotos de correcciones (puntos NO OK reabiertos) y cualquier foto tomada justo antes de cambiar de dispositivo que no alcanzó a subirse, esas sí hay que volver a agregarlas.");
     return true;
   } catch(e){ return false; }
+}
+
+/* ============================================================
+   ÚLTIMO RECURSO: RECONSTRUIR DESDE LAS TABLAS REALES
+
+   Hasta ahora Sulzer solo sabía continuar desde un borrador (IndexedDB local o
+   BORRADORES). Si el borrador no existía o venía incompleto, el técnico aterrizaba
+   en un formulario en blanco — y al volver a llenarlo generaba registros DUPLICADOS
+   en CHECKLIST/EVIDENCIA/PINTURA (fue lo que pasó con A2604102016).
+
+   Pero el trabajo ya guardado nunca se pierde: vive en CHECKLIST.checklistJson,
+   EVIDENCIA.recepcionJson y PINTURA. Esta función lo lee de ahí, que es la fuente
+   de verdad, y reconstruye el estado — incluidas las banderas de "esto ya se envió"
+   y los record IDs, para que al continuar se ACTUALICE lo existente en vez de
+   crear copias nuevas. Así un checklist empezado hoy se puede terminar en otro
+   equipo dentro de dos semanas sin perder nada ni duplicar nada.
+   ============================================================ */
+async function restaurarDesdeTablasRealesMaestro(serie){
+  const datos = await construirDatosDesdeTablasReales(serie);
+  if(!datos) return false;
+  await restaurarBorradorCompleto(datos);
+  alert("Se recuperó el avance de este motor desde los registros ya guardados en el sistema (recepción, checklist y pintura, según lo que exista).\n\nAl continuar se actualiza ese mismo registro — no se crea uno nuevo.\n\nOJO: las fotos de correcciones de puntos NO OK no se recuperan automáticamente; si faltan, vuelve a agregarlas.");
+  return true;
+}
+
+/* Rellena los huecos de un borrador con lo que SÍ está guardado en las tablas reales.
+   Nunca pisa lo que el borrador ya trae con contenido — solo llena vacíos. Es lo que
+   evita que un borrador pobre (un snapshot que alcanzó a escribirse en blanco, o uno
+   viejo de otro dispositivo) haga que el técnico vea las pantallas vacías teniendo el
+   trabajo guardado en CHECKLIST/EVIDENCIA/PINTURA. */
+async function completarDesdeTablasReales(datos, serie){
+  try{
+    const reales = await construirDatosDesdeTablasReales(serie, datos.ordenRecordId);
+    if(!reales) return datos;
+
+    const vacio = v => v === undefined || v === null || String(v).trim() === "";
+    [ "cliente","motorHP","motorFrame","motorVolts","motorSpec","inspector","responsableCalidad",
+      "fechaRecibo","fechaTermino","servicioSolicitado","ordenCompra","numDibujo","numRevisiones",
+      "norma","comentariosGenerales","m1","m2","m3","m4","m5","m6","metodo","escalaSeleccionada",
+      "escalaSel4","comentariosPintura"
+    ].forEach(k => { if(vacio(datos[k]) && !vacio(reales[k])) datos[k] = reales[k]; });
+
+    datos.recepcion = datos.recepcion || {};
+    Object.entries(reales.recepcion || {}).forEach(([k, v]) => {
+      if(vacio(datos.recepcion[k]) && !vacio(v)) datos.recepcion[k] = v;
+    });
+
+    // Checklist: punto por punto, solo los que el borrador no tenga contestados.
+    datos.checklistRespuestas = datos.checklistRespuestas || {};
+    Object.entries(reales.checklistRespuestas || {}).forEach(([idx, resp]) => {
+      const actual = datos.checklistRespuestas[idx];
+      if(!actual || !actual.resultado){
+        datos.checklistRespuestas[idx] = resp;
+      } else if(!(actual.fotos || []).length && (resp.fotos || []).length){
+        actual.fotos = resp.fotos; // el texto ya estaba, solo faltaban las fotos
+      }
+    });
+
+    // IDs y banderas: si Airtable dice que ya existe, se adopta — así el siguiente
+    // guardado actualiza ese registro en vez de crear un duplicado.
+    if(reales.ckRecordIdGlobal && !datos.ckRecordIdGlobal) datos.ckRecordIdGlobal = reales.ckRecordIdGlobal;
+    if(reales.evidenciaRecordIdGlobal && !datos.evidenciaRecordIdGlobal) datos.evidenciaRecordIdGlobal = reales.evidenciaRecordIdGlobal;
+    if(reales.ordenRecordId && !datos.ordenRecordId) datos.ordenRecordId = reales.ordenRecordId;
+    if(reales.recepcionEnviada)   datos.recepcionEnviada   = true;
+    if(reales.checklistYaEnviado) datos.checklistYaEnviado = true;
+    if(reales.pinturaEnviada)     datos.pinturaEnviada     = true;
+  } catch(e){ /* si falla, se sigue con el borrador tal cual */ }
+  return datos;
+}
+
+async function construirDatosDesdeTablasReales(serie, ordenIdConocido){
+  try{
+    const serieUp = (serie || "").toUpperCase();
+    if(!serieUp) return null;
+    if(ordenIdConocido && !ordenRecordId) ordenRecordId = ordenIdConocido;
+
+    if(!ordenRecordId){
+      const fOrden = encodeURIComponent(`({${ORDENES_FIELDS.serie}}="${serieUp}")`);
+      const rOrden = await fetch(
+        `/.netlify/functions/airtable?table=${TABLA_ORDENES}&filterByFormula=${fOrden}&returnFieldsByFieldId=true`,
+        { headers:{} });
+      const dOrden = await rOrden.json();
+      const activas = (dOrden.records || []).filter(r => {
+        const e = r.fields[ORDENES_FIELDS.estado];
+        const n = String((e && e.name) || e || "").toLowerCase();
+        return !n.includes("entregado");
+      });
+      const elegida = activas[0] || (dOrden.records || [])[0];
+      if(!elegida) return false;
+      ordenRecordId = elegida.id;
+    }
+
+    const ordenRec = await traerOrdenPorId(ordenRecordId);
+    const [evRec, ckRec, pinRec] = await Promise.all([
+      buscarPorOrden(TABLA_EVIDENCIA, FIELDS_EVIDENCIA.ordenServicio, ordenRecordId),
+      buscarPorOrden(TABLA_CHECKLIST, FIELDS_CHECKLIST.ordenServicio, ordenRecordId),
+      buscarPorOrden(TABLA_PINTURA,   FIELDS_PINTURA.ordenServicio,   ordenRecordId),
+    ]);
+    if(!evRec && !ckRec && !pinRec) return null; // nada guardado todavía — no hay qué reconstruir
+
+    const datos = {
+      serie: serieUp,
+      numSerie: serieUp,
+      ordenRecordId,
+      cliente: (ordenRec && ordenRec.fields[ORDENES_FIELDS.cliente]) || "",
+      motorHP:    (ordenRec && ordenRec.fields[ORDENES_FIELDS.hp])    ?? "",
+      motorFrame: (ordenRec && ordenRec.fields[ORDENES_FIELDS.frame]) || "",
+      motorVolts: (ordenRec && ordenRec.fields[ORDENES_FIELDS.volts]) ?? "",
+      motorSpec:  (ordenRec && ordenRec.fields[ORDENES_FIELDS.spec])  || "",
+      checklistRespuestas: {},
+      recepcion: {},
+      etapasDesc: [],
+    };
+
+    // ── Recepción (EVIDENCIA) ──
+    if(evRec){
+      datos.evidenciaRecordIdGlobal = evRec.id;
+      datos.recepcionEnviada = true;
+      let rj = {};
+      try{ rj = JSON.parse(evRec.fields[FIELDS_EVIDENCIA.recepcionJson] || "{}"); }catch(e){}
+      datos.recepcion = {
+        condicionEmbalaje:      rj.condicionEmbalaje || "",
+        descripcionEmbalaje:    rj.descripcionEmbalaje || "",
+        estadoFisicoMotor:      rj.estadoFisicoMotor || "",
+        descripcionDanos:       rj.descripcionDanos || "",
+        observacionesRecepcion: rj.observaciones || "",
+      };
+      if(rj.cliente && !datos.cliente) datos.cliente = rj.cliente;
+      if(rj.motorHP)    datos.motorHP    = rj.motorHP;
+      if(rj.motorFrame) datos.motorFrame = rj.motorFrame;
+      if(rj.motorVolts) datos.motorVolts = rj.motorVolts;
+      if(rj.motorSpec)  datos.motorSpec  = rj.motorSpec;
+      datos.inspector           = rj.inspector || "";
+      datos.responsableCalidad  = rj.responsableCalidad || "";
+      datos.fechaRecibo         = rj.fechaRecibo || "";
+      datos.fechaTermino        = rj.fechaTermino || "";
+      datos.servicioSolicitado  = rj.servicioSolicitado || "";
+    }
+
+    // ── Checklist (CHECKLIST) ──
+    if(ckRec){
+      datos.ckRecordIdGlobal   = ckRec.id;
+      datos.checklistYaEnviado = true;
+      datos.ordenCompra   = ckRec.fields[FIELDS_CHECKLIST.ordenCompra] || "";
+      datos.numDibujo     = ckRec.fields[FIELDS_CHECKLIST.numDibujo] || "";
+      datos.numRevisiones = ckRec.fields[FIELDS_CHECKLIST.numRevisiones] ?? "";
+      const normaRaw = ckRec.fields[FIELDS_CHECKLIST.norma];
+      datos.norma = (normaRaw && normaRaw.name) || normaRaw || "";
+      if(!datos.inspector) datos.inspector = ckRec.fields[FIELDS_CHECKLIST.inspector] || "";
+      if(!datos.responsableCalidad) datos.responsableCalidad = ckRec.fields[FIELDS_CHECKLIST.inspectorCalidad] || "";
+
+      let cj = null;
+      try{ cj = JSON.parse(ckRec.fields[FIELDS_CHECKLIST.checklistJson] || "null"); }catch(e){}
+      if(cj && Array.isArray(cj.puntos)){
+        const porNum = {};
+        CHECKLIST_ITEMS.forEach((item, idx) => { porNum[item.num] = idx; });
+        cj.puntos.forEach(p => {
+          const idx = porNum[p.num];
+          if(idx === undefined) return;
+          datos.checklistRespuestas[idx] = {
+            resultado:        p.resultado || "",
+            descripcion:      p.descripcion || "",
+            accionCorrectiva: p.accionCorrectiva || "",
+            accionRealizada:  p.accionRealizada || "",
+            color81:          p.color81 || "",
+            extra:            p.extra || {},
+            fotos:            [],
+            fotosCorreccion:  [],
+          };
+        });
+        if(cj.recepcion && !evRec){
+          datos.recepcion = {
+            condicionEmbalaje:      cj.recepcion.condicionEmbalaje || "",
+            descripcionEmbalaje:    cj.recepcion.descripcionEmbalaje || "",
+            estadoFisicoMotor:      cj.recepcion.estadoFisicoMotor || "",
+            descripcionDanos:       cj.recepcion.descripcionDanos || "",
+            observacionesRecepcion: cj.recepcion.observaciones || "",
+          };
+        }
+      }
+      datos.comentariosGenerales = ckRec.fields[FIELDS_CHECKLIST.comentariosGen] || "";
+
+      // Fotos de los puntos: viven todas en un solo campo, se reparten por nombre de archivo.
+      const numLimpioToIndex = {};
+      CHECKLIST_ITEMS.forEach((item, idx) => {
+        numLimpioToIndex[item.num.replace(/[^0-9]+/g,"_").replace(/^_+|_+$/g,"")] = idx;
+      });
+      const atts = ckRec.fields[FIELDS_CHECKLIST.fotos] || [];
+      await Promise.all(atts.map(async att => {
+        const m = /^punto_(.+)_foto_\d+\.jpg$/.exec(att.filename || "");
+        if(!m) return;
+        const idx = numLimpioToIndex[m[1]];
+        if(idx === undefined || !datos.checklistRespuestas[idx]) return;
+        try{
+          const dataUrl = await descargarComoDataUrlMaestro(att.url);
+          datos.checklistRespuestas[idx].fotos.push({
+            dataUrl, base64: dataUrl.split(",")[1],
+            contentType: "image/jpeg", filename: att.filename,
+          });
+        }catch(e){}
+      }));
+    }
+
+    // ── Pintura y adherencia (PINTURA) ──
+    if(pinRec){
+      datos.pinturaEnviada = true;
+      datos.m1 = pinRec.fields[FIELDS_PINTURA.medicion1] ?? "";
+      datos.m2 = pinRec.fields[FIELDS_PINTURA.medicion2] ?? "";
+      datos.m3 = pinRec.fields[FIELDS_PINTURA.medicion3] ?? "";
+      datos.m4 = pinRec.fields[FIELDS_PINTURA.medicion4] ?? "";
+      datos.m5 = pinRec.fields[FIELDS_PINTURA.medicion5] ?? "";
+      datos.m6 = pinRec.fields[FIELDS_PINTURA.medicion6] ?? "";
+      const escRaw = pinRec.fields[FIELDS_PINTURA.escala];
+      const esc4 = (escRaw && escRaw.name) || escRaw || "";
+      datos.escalaSeleccionada = esc4;
+      datos.escalaSel4 = esc4;
+      const metRaw = pinRec.fields[FIELDS_PINTURA.metodo];
+      datos.metodo = (metRaw && metRaw.name) || metRaw || "";
+      datos.comentariosPintura = pinRec.fields[FIELDS_PINTURA.comentarios] || "";
+      if(!datos.fechaRecibo)  datos.fechaRecibo  = pinRec.fields[FIELDS_PINTURA.fechaRecibo] || "";
+      if(!datos.fechaTermino) datos.fechaTermino = pinRec.fields[FIELDS_PINTURA.fechaTermino] || "";
+    }
+
+    return datos;
+  } catch(e){ return null; }
+}
+
+/* ============================================================
+   GUARDAR SIN DUPLICAR
+
+   El patrón viejo era POST a secas: cada vez que se enviaba una pantalla se creaba un
+   registro nuevo. La única protección eran banderas en memoria (checklistYaEnviado,
+   recepcionEnviada, pinturaEnviada) que se pierden al recargar o al cambiar de equipo —
+   así que reenviar desde otro dispositivo generaba una copia. Con A2604102016 pasó en
+   DOS tablas a la vez (EVIDENCIA y CHECKLIST, 16:54 las dos), y el reporte quedó
+   mostrando el registro vacío en vez del bueno.
+
+   Ahora: si ya existe un registro de esta orden, se ACTUALIZA. Solo se crea si de
+   verdad no hay ninguno.
+   ============================================================ */
+async function guardarRegistroUnico(tabla, campoLink, ordenId, fields, idConocido){
+  let recId = idConocido || null;
+  if(!recId){
+    const existente = await buscarPorOrden(tabla, campoLink, ordenId);
+    if(existente) recId = existente.id;
+  }
+  if(recId){
+    const r = await fetch(`/.netlify/functions/airtable?table=${tabla}&recordId=${recId}`, {
+      method: "PATCH",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ fields })
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d?.error?.message || `HTTP ${r.status}`);
+    return recId;
+  }
+  const r = await fetch(`/.netlify/functions/airtable?table=${tabla}`, {
+    method: "POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ records:[{ fields }] })
+  });
+  const d = await r.json();
+  if(!r.ok) throw new Error(d?.error?.message || `HTTP ${r.status}`);
+  return d.records[0].id;
+}
+
+/* Nombres de archivo que YA están en un campo de adjuntos — para no volver a subir
+   una foto que ya se había subido cuando el registro se actualiza en vez de crearse. */
+async function adjuntosExistentes(tabla, recId, fieldId){
+  try{
+    const r = await fetch(`/.netlify/functions/airtable?table=${tabla}&recordId=${recId}&returnFieldsByFieldId=true`,
+      { headers:{} });
+    if(!r.ok) return new Set();
+    const d = await r.json();
+    return new Set(((d.fields || {})[fieldId] || []).map(a => a.filename));
+  } catch(e){ return new Set(); }
+}
+
+async function traerOrdenPorId(recId){
+  try{
+    const r = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${recId}&returnFieldsByFieldId=true`,
+      { headers:{} });
+    return r.ok ? await r.json() : null;
+  } catch(e){ return null; }
+}
+
+/* Busca el registro de una tabla ligado a esta orden. Si hay duplicados (los que ya
+   existen en la base por el bug de POST ciego), se queda con el que trae MÁS contenido
+   — no con el primero que devuelva Airtable, que fue justo lo que hizo que A2604102016
+   mostrara el reporte vacío teniendo el bueno al lado.
+
+   OJO con el filtrado: en una fórmula de Airtable, ARRAYJOIN() de un campo de vínculo
+   devuelve los NOMBRES de los registros ligados, no sus IDs — así que filtrar por
+   FIND("recXXX", ARRAYJOIN({vinculo})) nunca hace match. Se hace en dos pasos: se piden
+   solo los IDs de vínculo (respuesta liviana, ahí sí vienen los "recXXX" de verdad), se
+   compara del lado del navegador, y luego se traen completos solo los que coincidieron. */
+async function buscarPorOrden(tabla, campoLink, ordenId){
+  try{
+    let ids = [];
+    let offset = "";
+    do{
+      const url = `/.netlify/functions/airtable?table=${tabla}&returnFieldsByFieldId=true&fields[]=${campoLink}&pageSize=100${offset ? "&offset=" + offset : ""}`;
+      const r = await fetch(url, { headers:{} });
+      if(!r.ok) return null;
+      const d = await r.json();
+      (d.records || []).forEach(rec => {
+        const links = (rec.fields || {})[campoLink] || [];
+        if(Array.isArray(links) && links.includes(ordenId)) ids.push(rec.id);
+      });
+      offset = d.offset || "";
+    } while(offset);
+
+    if(!ids.length) return null;
+
+    const completos = [];
+    for(const id of ids){
+      const r = await fetch(`/.netlify/functions/airtable?table=${tabla}&recordId=${id}&returnFieldsByFieldId=true`,
+        { headers:{} });
+      if(r.ok) completos.push(await r.json());
+    }
+    if(!completos.length) return null;
+    completos.sort((a, b) => pesoRegistro(b) - pesoRegistro(a));
+    return completos[0];
+  } catch(e){ return null; }
+}
+
+/* "Cuánto trae" un registro: campos con valor + adjuntos. Sirve para elegir el bueno
+   cuando hay un duplicado vacío al lado. */
+function pesoRegistro(rec){
+  const f = rec.fields || {};
+  let n = 0;
+  for(const k in f){
+    const v = f[k];
+    if(v === undefined || v === null || v === "") continue;
+    if(Array.isArray(v)) n += v.length ? 1 + v.length : 0;
+    else n += 1;
+  }
+  return n;
 }
 
 function cargarBorrador(){
@@ -3550,19 +4023,25 @@ async function enviarRecepcion(){
         { method:"PATCH", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ fields: mPatch }) }).catch(()=>{});
     }
 
-    // Subir foto(s) de placa a la Orden (campo compartido con el sistema General) —
-    // solo la primera vez que se guarda Recepción, para no duplicar en reintentos
-    if(!evidenciaRecordIdGlobal){
+    // Foto(s) de placa a la Orden (campo compartido con el sistema General). Antes esto
+    // se saltaba solo si evidenciaRecordIdGlobal estaba en memoria — al reenviar Recepción
+    // desde otro equipo se volvían a subir las mismas fotos, y por eso una orden llegó a
+    // mostrar 4 fotos de placa (dos pares idénticos). Ahora se compara contra lo que la
+    // orden YA tiene, que es lo único confiable.
+    {
+      const yaPlaca = await adjuntosExistentes(TABLA_ORDENES, ordenRecordId, ORDENES_FIELDS.fotosPlaca);
       for(let i = 0; i < fotosPlacaRecepcion.length; i++){
         const f = fotosPlacaRecepcion[i];
+        if(yaPlaca.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${ordenRecordId}&fieldId=${ORDENES_FIELDS.fotosPlaca}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
       }
     }
 
-    // Crear registro EVIDENCIA (o reutilizar el ya creado) con los datos de recepción
-    if(!evidenciaRecordIdGlobal){
+    // Registro EVIDENCIA con los datos de recepción. Se actualiza el de esta orden si
+    // ya existe — reenviar Recepción desde otro equipo ya no crea un segundo registro.
+    {
       const recepcionJson = JSON.stringify({
         cliente: _cliente,
         motorHP: document.getElementById("motorHP").value,
@@ -3581,29 +4060,32 @@ async function enviarRecepcion(){
         observaciones: document.getElementById("observacionesRecepcion").value.trim(),
       });
 
-      const respEv = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
-        { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ records:[{ fields:{
-            [FIELDS_EVIDENCIA.idRegistro]:    `${serie} | ${fechaTermino}`,
-            [FIELDS_EVIDENCIA.ordenServicio]: [ordenRecordId],
-            [FIELDS_EVIDENCIA.recepcionJson]: recepcionJson,
-          } }] }) });
-      const dataEv = await respEv.json();
-      if(!respEv.ok) throw new Error("Recepción: " + (dataEv?.error?.message || respEv.status));
-      evidenciaRecordIdGlobal = dataEv.records[0].id;
+      evidenciaRecordIdGlobal = await guardarRegistroUnico(
+        TABLA_EVIDENCIA, FIELDS_EVIDENCIA.ordenServicio, ordenRecordId,
+        {
+          [FIELDS_EVIDENCIA.idRegistro]:    `${serie} | ${fechaTermino}`,
+          [FIELDS_EVIDENCIA.ordenServicio]: [ordenRecordId],
+          [FIELDS_EVIDENCIA.recepcionJson]: recepcionJson,
+        },
+        evidenciaRecordIdGlobal
+      );
 
-      // Subir fotos de recepción (embalaje / estado general) — solo junto con la creación del registro
+      // Fotos de recepción (embalaje / estado general), saltando las que ya estén
       const fieldIdRecibido = FOTOS_FIELD_MAP["Recibido"];
+      const yaRecibido = await adjuntosExistentes(TABLA_EVIDENCIA, evidenciaRecordIdGlobal, fieldIdRecibido);
       for(let i = 0; i < fotosRecepcion.length; i++){
         const f = fotosRecepcion[i];
+        if(yaRecibido.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
       }
 
-      // Subir fotos de daños (si hay)
+      // Fotos de daños (si hay), mismo criterio
+      const yaDanos = await adjuntosExistentes(TABLA_EVIDENCIA, evidenciaRecordIdGlobal, FIELDS_EVIDENCIA.fotosDanos);
       for(let i = 0; i < fotosDanosRecepcion.length; i++){
         const f = fotosDanosRecepcion[i];
+        if(yaDanos.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${FIELDS_EVIDENCIA.fotosDanos}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
@@ -3751,20 +4233,22 @@ async function enviarChecklist(){
 
     setP("Guardando Checklist Sulzer...", 12);
     const regCK = construirRegistroChecklist(ordenRecordId, serie, fechaTermino);
-    const respCK = await fetch(`/.netlify/functions/airtable?table=${TABLA_CHECKLIST}`,
-      { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ records:[regCK] }) });
-    const dataCK = await respCK.json();
-    if(!respCK.ok) throw new Error("Checklist: " + (dataCK?.error?.message || respCK.status));
-    ckRecordIdGlobal = dataCK.records[0].id;
+    // Actualiza el checklist de esta orden si ya existe (reenvío, otro dispositivo,
+    // reintento tras un error) en vez de crear una copia — ver guardarRegistroUnico().
+    ckRecordIdGlobal = await guardarRegistroUnico(
+      TABLA_CHECKLIST, FIELDS_CHECKLIST.ordenServicio, ordenRecordId, regCK.fields, ckRecordIdGlobal
+    );
 
-    // Subir fotos del checklist
+    // Subir fotos del checklist (saltando las que ese registro ya tenga)
     const fotosCK = [];
     CHECKLIST_ITEMS.forEach((item, index) => {
       const r = respuestasChecklist[index];
       if(r?.fotos?.length) r.fotos.forEach(foto => fotosCK.push({ num: item.num, ...foto }));
     });
+    const yaEnCK = await adjuntosExistentes(TABLA_CHECKLIST, ckRecordIdGlobal, FIELDS_CHECKLIST.fotos);
     for(let i = 0; i < fotosCK.length; i++){
       setP(`Subiendo fotos checklist (${i+1}/${fotosCK.length})...`, 14 + (i/Math.max(fotosCK.length,1))*20);
+      if(yaEnCK.has(fotosCK[i].filename)) continue;
       await fetch(`/.netlify/functions/airtable-upload?recordId=${ckRecordIdGlobal}&fieldId=${FIELDS_CHECKLIST.fotos}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({ contentType: fotosCK[i].contentType, filename: fotosCK[i].filename, file: fotosCK[i].base64 }) });
@@ -3775,24 +4259,28 @@ async function enviarChecklist(){
       { method:"PATCH", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.checklist]: true, [ORDENES_FIELDS.estado]: "En proceso", "fld0rhBYkk5nAnXcT": "Sulzer" } }) }).catch(()=>{});
 
-    // Crear registro EVIDENCIA — solo si Recepción (pantalla 1) no lo creó ya
-    if(!evidenciaRecordIdGlobal){
-      setP("Creando registro de evidencia...", 42);
+    // Registro EVIDENCIA — se reutiliza el de Recepción (pantalla 1) si ya existe.
+    // Antes bastaba con que evidenciaRecordIdGlobal estuviera vacío en memoria (cosa que
+    // pasa siempre al recargar o cambiar de equipo) para crear un SEGUNDO registro.
+    {
+      setP("Guardando registro de evidencia...", 42);
       const regEv = construirRegistroEvidencia(ordenRecordId, serie, fechaTermino);
-      const respEv = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
-        { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ records:[regEv] }) });
-      const dataEv = await respEv.json();
-      if(!respEv.ok) throw new Error("Evidencia: " + (dataEv?.error?.message || respEv.status));
-      evidenciaRecordIdGlobal = dataEv.records[0].id;
+      const eraNuevo = !evidenciaRecordIdGlobal;
+      evidenciaRecordIdGlobal = await guardarRegistroUnico(
+        TABLA_EVIDENCIA, FIELDS_EVIDENCIA.ordenServicio, ordenRecordId, regEv.fields, evidenciaRecordIdGlobal
+      );
 
-      // Subir fotos de recepción
-      const fieldIdRecibido = FOTOS_FIELD_MAP["Recibido"];
-      for(let f = 0; f < fotosRecepcion.length; f++){
-        const foto = fotosRecepcion[f];
-        setP(`Subiendo fotos recepción (${f+1}/${fotosRecepcion.length})...`, 46 + (f/Math.max(fotosRecepcion.length,1))*5);
-        await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
-          { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }).catch(()=>{});
+      if(eraNuevo){
+        const fieldIdRecibido = FOTOS_FIELD_MAP["Recibido"];
+        const yaEnEv = await adjuntosExistentes(TABLA_EVIDENCIA, evidenciaRecordIdGlobal, fieldIdRecibido);
+        for(let f = 0; f < fotosRecepcion.length; f++){
+          const foto = fotosRecepcion[f];
+          setP(`Subiendo fotos recepción (${f+1}/${fotosRecepcion.length})...`, 46 + (f/Math.max(fotosRecepcion.length,1))*5);
+          if(yaEnEv.has(foto.filename)) continue;
+          await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
+            { method:"POST", headers:{ "Content-Type":"application/json" },
+              body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }).catch(()=>{});
+        }
       }
     }
 
@@ -3971,15 +4459,15 @@ async function enviarPintura(){
       [FIELDS_PINTURA.fechaTermino]:     fechaTermino,
       [FIELDS_PINTURA.comentarios]:      document.getElementById("comentariosPintura").value.trim(),
     };
-    const rPintura = await fetch(`/.netlify/functions/airtable?table=${TABLA_PINTURA}`,
-      { method:"POST", headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ records:[{ fields: pinturaFields }] }) });
-    const dPintura = await rPintura.json();
-    if(!rPintura.ok) throw new Error("Pintura: " + (dPintura?.error?.message || rPintura.status));
-    const pinturaRecordId = dPintura.records[0].id;
+    // Actualiza el registro de pintura de esta orden si ya existe, en vez de crear otro.
+    const pinturaRecordId = await guardarRegistroUnico(
+      TABLA_PINTURA, FIELDS_PINTURA.ordenServicio, ordenRecordId, pinturaFields, null
+    );
 
+    const yaAdh = await adjuntosExistentes(TABLA_PINTURA, pinturaRecordId, FIELDS_PINTURA.fotosAdherencia);
     for(let i = 0; i < fotosAdherencia.length; i++){
       const f = fotosAdherencia[i];
+      if(yaAdh.has(f.filename)) continue;
       await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
           body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
@@ -4061,10 +4549,11 @@ async function enviarFinal(){
     if(!evidenciaRecordIdGlobal){
       try{
         const regEvFallback = construirRegistroEvidencia(ordenRecordId, serie, fechaTermino);
-        const respEvFallback = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}`,
-          { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ records:[regEvFallback] }) });
-        const dataEvFallback = await respEvFallback.json();
-        if(respEvFallback.ok) evidenciaRecordIdGlobal = dataEvFallback.records[0].id;
+        // Reutiliza el registro de esta orden si ya existe — antes esta red de seguridad
+        // creaba uno nuevo a ciegas cada vez que la variable en memoria venía vacía.
+        evidenciaRecordIdGlobal = await guardarRegistroUnico(
+          TABLA_EVIDENCIA, FIELDS_EVIDENCIA.ordenServicio, ordenRecordId, regEvFallback.fields, null
+        );
       }catch(e){}
     }
 
@@ -4093,17 +4582,16 @@ async function enviarFinal(){
         [FIELDS_PINTURA.fechaTermino]:     fechaTermino,
         [FIELDS_PINTURA.comentarios]:      document.getElementById("comentariosPintura").value.trim(),
       };
-      const rPintura = await fetch(`/.netlify/functions/airtable?table=${TABLA_PINTURA}`,
-        { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ records:[{ fields: pinturaFields }] }) });
-      const dPintura = await rPintura.json();
-      if(!rPintura.ok) throw new Error("Pintura: " + (dPintura?.error?.message || rPintura.status));
-      const pinturaRecordId = dPintura.records[0].id;
+      const pinturaRecordId = await guardarRegistroUnico(
+        TABLA_PINTURA, FIELDS_PINTURA.ordenServicio, ordenRecordId, pinturaFields, null
+      );
 
-      // 2) Subir fotos adherencia
+      // 2) Subir fotos adherencia (saltando las que el registro ya tenga)
+      const yaAdhF = await adjuntosExistentes(TABLA_PINTURA, pinturaRecordId, FIELDS_PINTURA.fotosAdherencia);
       for(let i = 0; i < fotosAdherencia.length; i++){
         const f = fotosAdherencia[i];
         setP(`Subiendo fotos adherencia (${i+1}/${fotosAdherencia.length})...`, 18 + (i/Math.max(fotosAdherencia.length,1))*18);
+        if(yaAdhF.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
@@ -4423,11 +4911,56 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Si se abrió desde el dashboard con ?serie=XXX, continuar ese borrador directo
   const serieDesdeUrl = new URLSearchParams(window.location.search).get("serie");
-  if(serieDesdeUrl){
+  // Escape hatch manual: ?serie=X&pantalla=N fuerza saltar a esa pantalla, ignorando
+  // por completo la restauración de borrador (local o de Airtable) — esa restauración
+  // es la que falla cuando las banderas del borrador quedaron desactualizadas (checklist/
+  // correcciones ya guardados de verdad, pero el borrador todavía dice que no). Solo se
+  // hace un live-lookup de la orden para llenar los datos generales en pantalla.
+  const pantallaForzada = parseInt(new URLSearchParams(window.location.search).get("pantalla"), 10);
+  if(serieDesdeUrl && pantallaForzada >= 1 && pantallaForzada <= 5){
+    document.getElementById("numSerie").value = serieDesdeUrl;
+    _borradorYaRestaurado = true;
+    try{ await verificarOrdenLive(); }catch(e){}
+    // verificarOrdenLive() solo llena los campos que viven en ORDENES (cliente, HP, etc.).
+    // Fecha de recibo/término, responsable de calidad e inspector viven en
+    // EVIDENCIA.recepcionJson — sin esto, enviarPintura()/enviarFinal() truenan al
+    // mandar fecha vacía a Airtable. Se recuperan aquí en vivo, de la misma fuente
+    // de verdad, sin pasar por la restauración de borrador que falla.
+    try{
+      const evFml = encodeURIComponent(`FIND("${serieDesdeUrl.toUpperCase()} |",{${FIELDS_EVIDENCIA.idRegistro}})`);
+      const evResp = await fetch(`/.netlify/functions/airtable?table=${TABLA_EVIDENCIA}&filterByFormula=${evFml}&returnFieldsByFieldId=true`,
+        { headers:{} });
+      const evData = await evResp.json();
+      const evRec = (evData.records || [])[0];
+      if(evRec){
+        evidenciaRecordIdGlobal = evRec.id;
+        const rj = JSON.parse(evRec.fields[FIELDS_EVIDENCIA.recepcionJson] || "{}");
+        const setVal = (id, val) => { const el = document.getElementById(id); if(el && val) el.value = val; };
+        setVal("fechaRecibo", rj.fechaRecibo);
+        setVal("fechaTermino", rj.fechaTermino);
+        setVal("servicioSolicitado", rj.servicioSolicitado);
+        setVal("responsableCalidad", rj.responsableCalidad);
+        if(rj.inspector){
+          const selInspector = document.getElementById("inspector");
+          const tieneOpcion = selInspector && Array.from(selInspector.options).some(o => o.value === rj.inspector);
+          if(tieneOpcion) selInspector.value = rj.inspector;
+          else if(selInspector){ selInspector.value = "Otro"; setVal("inspectorOtro", rj.inspector); document.getElementById("inspectorOtroWrap")?.classList.remove("hidden"); }
+        }
+      }
+    }catch(e){}
+    if(pantallaForzada === 4){ construirEscalas4(); actualizarBotonPintura4(); }
+    mostrarPantalla(pantallaForzada);
+  } else if(serieDesdeUrl){
     document.getElementById("numSerie").value = serieDesdeUrl;
     _borradorYaRestaurado = true;
     const datos = await buscarEnDB(serieDesdeUrl);
     if(datos){
+      // Antes se restauraba el borrador local tal cual. El problema: sus banderas
+      // ("checklist ya enviado", "recepción ya enviada") pueden estar desactualizadas
+      // respecto a lo que de verdad hay en Airtable — y con la bandera en falso, el
+      // formulario vuelve a hacer POST y crea un registro DUPLICADO. Se cotejan contra
+      // las tablas reales antes de pintar nada.
+      await completarDesdeTablasReales(datos, serieDesdeUrl);
       _borradorPendiente = { datos };
       restaurarBorradorCompleto(datos);
     } else {
@@ -4435,7 +4968,13 @@ window.addEventListener("DOMContentLoaded", async () => {
       // reconstruir desde lo que la Fase 3 ya sincronizó a BORRADORES en Airtable.
       _borradorYaRestaurado = false;
       const recuperadoDeAirtable = await restaurarDesdeAirtableMaestro(serieDesdeUrl);
-      if(!recuperadoDeAirtable) verificarOrdenLive();
+      if(!recuperadoDeAirtable){
+        // Tampoco hay borrador en Airtable. Último recurso: reconstruir desde los
+        // registros ya guardados de verdad (CHECKLIST/EVIDENCIA/PINTURA). Esto es lo
+        // que evita que el técnico rehaga —y duplique— trabajo que ya estaba hecho.
+        const recuperadoDeTablas = await restaurarDesdeTablasRealesMaestro(serieDesdeUrl);
+        if(!recuperadoDeTablas) verificarOrdenLive();
+      }
     }
   } else {
     // Mostrar todos los borradores activos (puede haber varios motores en progreso)

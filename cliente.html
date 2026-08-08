@@ -80,7 +80,9 @@ const OF = {
   evidencia:    "fldvJAyOkHXUKfiov",
   estadoCotizacion:  "fldjUqpqdCRQ8rdCU",
   clienteAutorizo:   "fld0YRjkHOdspFNHe",
-  fechaAutorizacion: "fldmizB5GKLZfVOYM"
+  fechaAutorizacion: "fldmizB5GKLZfVOYM",
+  etapaRechazo:      "fldC6XC0U7JQRYsK4",
+  fechaRechazo:      "fldJK5DWeoNcjBF8w"
 };
 
 const _sesion = (() => {
@@ -111,7 +113,7 @@ async function cargarOrden(){
     const vEsc = valor.replace(/"/g, '\\"');
     const formula = encodeURIComponent(`OR({${OF.serie}}="${vEsc}", {${OF.folio}}="${vEsc}")`);
     const url = `/.netlify/functions/airtable?table=${TABLE_ORDENES}&filterByFormula=${formula}&returnFieldsByFieldId=true`;
-    const resp = await fetch(url, {});
+    const resp = await fetch(url, { headers:{} });
     const data = await resp.json();
     const rec = (data.records || [])[0];
 
@@ -127,19 +129,23 @@ async function cargarOrden(){
     const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
     const estadoNorm = normEstadoCliente(estado);
 
+    const estadoCotRaw = f[OF.estadoCotizacion];
+    const estadoCotizacion = (estadoCotRaw && estadoCotRaw.name) || estadoCotRaw || null;
+
     if(estadoNorm === "no autorizado"){
+      const verCotBtn = estadoCotizacion === "Rechazada"
+        ? `<button class="btn-auth ver" onclick="verCotizacionCliente('${rec.id}','${valor.replace(/'/g,"\\'")}')">💰 Ver cotización que no autorizaste</button>`
+        : "";
       cont.innerHTML = `
         <div class="badge-orden">Orden: ${valor}</div>
         <div class="card" style="text-align:center">
           <h3 style="color:var(--c-red)">Servicio no autorizado</h3>
-          <p style="color:var(--muted);font-size:14px">Contacta a Suministros Industriales para conocer el siguiente paso de tu equipo.</p>
+          <p style="color:var(--muted);font-size:14px">Tu equipo está listo para que lo recojas en Suministros Industriales. No se realizó ningún servicio.</p>
+          ${verCotBtn}
         </div>
       `;
       return;
     }
-
-    const estadoCotRaw = f[OF.estadoCotizacion];
-    const estadoCotizacion = (estadoCotRaw && estadoCotRaw.name) || estadoCotRaw || null;
 
     if(estadoCotizacion === "Enviada"){
       cont.innerHTML = `
@@ -223,15 +229,21 @@ async function autorizarCotizacionCliente(id, autorizado){
     : "¿Confirmas que NO autorizas esta cotización?";
   if(!confirm(msg)) return;
   const nuevoEstado = autorizado ? "Autorizada" : "Rechazada";
+  const fields = {
+    [OF.estadoCotizacion]: nuevoEstado,
+    [OF.clienteAutorizo]: autorizado,
+    [OF.fechaAutorizacion]: new Date().toISOString()
+  };
+  if(!autorizado){
+    fields[OF.estado] = "No autorizado";
+    fields[OF.etapaRechazo] = "Cotización";
+    fields[OF.fechaRechazo] = new Date().toISOString();
+  }
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ORDENES}&recordId=${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: {
-        [OF.estadoCotizacion]: nuevoEstado,
-        [OF.clienteAutorizo]: autorizado,
-        [OF.fechaAutorizacion]: new Date().toISOString()
-      } })
+      body: JSON.stringify({ fields })
     });
     cargarOrden();
   } catch(e){
@@ -245,11 +257,16 @@ async function autorizarComoCliente(id, autorizado){
     : "¿Confirmas que NO autorizas el servicio? La orden quedará pausada.";
   if(!confirm(msg)) return;
   const nuevoEstado = autorizado ? "En proceso" : "No autorizado";
+  const fields = { [OF.estado]: nuevoEstado };
+  if(!autorizado){
+    fields[OF.etapaRechazo] = "Diagnóstico";
+    fields[OF.fechaRechazo] = new Date().toISOString();
+  }
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ORDENES}&recordId=${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [OF.estado]: nuevoEstado } })
+      body: JSON.stringify({ fields })
     });
     cargarOrden();
   } catch(e){
