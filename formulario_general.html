@@ -195,6 +195,11 @@
     <span id="bannerRechazoMotivo"></span>
   </div>
 
+  <div class="banner-correccion hidden" id="bannerFotosPendientes" style="position:sticky;top:0;z-index:50;">
+    <strong>📤 Subiendo fotos…</strong>
+    <span id="bannerFotosPendientesTexto"></span>
+  </div>
+
   <!-- ============ PANTALLA 0: DATOS GENERALES ============ -->
   <div class="screen" id="screen0">
     <div class="card" id="cardBuscarPreReg" style="background:#fff8e1;border:1px solid var(--ambar-borde,#f0c96a);">
@@ -753,6 +758,12 @@ const BF_FOTOS_GENERAL = { // prefix (mismo que usa manejarFotos/getArrByPrefix)
 };
 let _colaFotosBorradorGeneral = []; // [{prefix, foto}] pendientes de subir a BORRADORES
 let _procesandoColaFotosGeneral = false;
+// true mientras restaurarBorradorGeneral() repinta datos que YA vienen guardados (mismo
+// dispositivo o recuperados de Airtable) — evita que cada una de las 9 categorías de fotos
+// dispare su propio guardado del borrador COMPLETO (con órdenes de muchas fotos, ej. un
+// lote de varios motores, eso encadenaba 9+ reescrituras de varios MB en IndexedDB una
+// tras otra y trababa el navegador justo al tocar "Continuar" — ver incidente MOT-026).
+let _restaurandoBorradorGeneral = false;
 
 const STEP_LABELS = [
   "Paso 1 de 7 — Datos generales",
@@ -1266,23 +1277,81 @@ function abrirSelectorFoto(inputId, modo){
   input.click();
 }
 
+const FOTO_MAX_DIM = 1600; // lado más largo, en px
+const FOTO_CALIDAD = 0.8;  // calidad JPEG (0-1)
+
+// Redimensiona/recomprime una foto de celular (que hoy puede pesar varios MB) ANTES de
+// guardarla: menos memoria en el navegador, IndexedDB más rápido, subidas más rápidas a
+// Airtable. Órdenes con muchas fotos (ej. un lote de varios motores, ver incidente MOT-026)
+// eran las que más sufrían el navegador trabado por el puro peso acumulado.
+function comprimirImagen(file, maxDim = FOTO_MAX_DIM, calidad = FOTO_CALIDAD){
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if(width > maxDim || height > maxDim){
+        const escala = maxDim / Math.max(width, height);
+        width = Math.round(width * escala);
+        height = Math.round(height * escala);
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", calidad));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null); }; // se cae a guardar el original sin comprimir
+    img.src = url;
+  });
+}
+
+// Si comprimir falla (formato raro, navegador viejo), guarda el archivo tal cual en vez de
+// perder la foto — la compresión es una mejora de rendimiento, nunca debe bloquear al técnico.
+async function procesarFotoNueva(file){
+  try{
+    const comprimida = await comprimirImagen(file);
+    if(comprimida) return comprimida;
+  }catch(e){}
+  return await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.readAsDataURL(file);
+  });
+}
+
 function manejarFotos(inputEl, arr, gridId, prefix){
   const files = Array.from(inputEl.files || []);
   if(files.length === 0) return;
+  const base = arr.length; // se fija ANTES de comprimir — el nombre de archivo no debe depender de qué foto termine primero
   let pendientes = files.length;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(e){
-      const foto = { dataUrl: e.target.result, filename: `${prefix}_${arr.length + 1}.jpg`, descripcion: "" };
+  files.forEach((file, i) => {
+    procesarFotoNueva(file).then(dataUrl => {
+      const foto = { dataUrl, filename: `${prefix}_${base + i + 1}.jpg`, descripcion: "" };
       arr.push(foto);
       _colaFotosBorradorGeneral.push({ prefix, foto }); // FASE 4: se sube a BORRADORES en cuanto haya registro
       pendientes--;
       if(pendientes === 0) renderizarGrid(arr, gridId, prefix);
-    };
-    reader.readAsDataURL(file);
+      actualizarIndicadorFotosPendientes();
+      procesarColaFotosBorradorGeneral();
+    });
   });
   inputEl.value = "";
-  procesarColaFotosBorradorGeneral();
+}
+
+// Aviso visible mientras haya fotos sin terminar de subir a Airtable — antes esto pasaba en
+// silencio, así que si el técnico cambiaba de celular justo en ese momento (o el navegador
+// se trababa por muchas fotos, ver incidente MOT-026), las fotos pendientes se quedaban
+// atrapadas en ese dispositivo sin ningún aviso de que faltaba algo por guardar.
+function actualizarIndicadorFotosPendientes(){
+  const el = document.getElementById("bannerFotosPendientes");
+  if(!el) return;
+  const n = _colaFotosBorradorGeneral.length;
+  el.classList.toggle("hidden", n === 0);
+  if(n > 0){
+    document.getElementById("bannerFotosPendientesTexto").textContent =
+      `${n} foto${n===1?"":"s"} sin terminar de subir. No cambies de celular ni cierres esta pantalla hasta que este aviso desaparezca — si lo haces antes, esas fotos no se van a recuperar en el otro dispositivo.`;
+  }
 }
 
 function renderizarGrid(arr, gridId, prefix){
@@ -1329,6 +1398,7 @@ function eliminarFoto(prefix, i){
     // FASE 4: si todavía no se subía, basta con sacarla de la cola; si ya estaba en
     // Airtable (borrador), hay que quitarla de allá también, no solo del array local.
     _colaFotosBorradorGeneral = _colaFotosBorradorGeneral.filter(item => item.foto !== foto);
+    actualizarIndicadorFotosPendientes();
     if(foto._borradorAttId) eliminarFotoBorradorAirtable(prefix, foto._borradorAttId);
   }
   const gridMap = { recibido:"gridRecibido", diagnostico:"gridDiagnostico", observaciones:"gridObservaciones", diagnostico_tecnico:"gridDiagnosticoTecnico", placa:"gridPlaca", final:"gridFinal", bitacora:"gridBitacora", pintura_antes:"gridPinturaAntes", pintura_despues:"gridPinturaDespues" };
@@ -1555,6 +1625,7 @@ function eliminarDeDBGeneral(folio){
    puntos clave de edición (listas, chips, fotos).
    ============================================================ */
 async function guardarBorradorGeneral(){
+  if(_restaurandoBorradorGeneral) return; // los datos que se están pintando ya vienen de aquí — nada nuevo que guardar
   if(!_dbGeneral) return;
   const folio = document.getElementById("folio").value.trim();
   if(!folio || folio === "Generando...") return;
@@ -1636,6 +1707,8 @@ async function guardarBorradorGeneral(){
    datos guardados y salta a la pantalla donde se quedó.
    ============================================================ */
 function restaurarBorradorGeneral(datos){
+  _restaurandoBorradorGeneral = true;
+  try{
   const setVal = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined && val !== null) el.value = val; };
 
   ordenRecordId  = datos.ordenRecordId || null;
@@ -1723,6 +1796,12 @@ function restaurarBorradorGeneral(datos){
   // La pantalla 7 (espera de autorización) es un estado transitorio, no un paso editable:
   // si el borrador quedó guardado ahí y ya se reabre el formulario, se retoma en la bitácora.
   mostrarPantalla(datos.pantallaActual === 7 ? 4 : (datos.pantallaActual || 0));
+  } finally {
+    // pase lo que pase (incluso si algo de arriba truena a la mitad), la bandera se libera —
+    // si no, guardarBorradorGeneral() se quedaría apagado en silencio el resto de la sesión.
+    _restaurandoBorradorGeneral = false;
+  }
+  guardarBorradorGeneral(); // un solo guardado real al final, no uno por cada categoría repintada
 }
 
 function restaurarResistencia(data, sufijo){
@@ -1953,16 +2032,25 @@ async function descargarComoDataUrl(url){
   });
 }
 
-async function restaurarFotosBorradorGeneral(rec){
+const BD_KEY_POR_PREFIX_GENERAL = {
+  recibido: "fotosRecibido", diagnostico: "fotosDiagnostico", observaciones: "fotosObservaciones",
+  diagnostico_tecnico: "fotosDiagnosticoTecnico", placa: "fotosPlaca", bitacora: "fotosBitacora",
+  pintura_antes: "fotosPinturaAntes", pintura_despues: "fotosPinturaDespues", final: "fotosFinal",
+};
+
+async function restaurarFotosBorradorGeneral(rec, bd){
   const resultado = {};
   await Promise.all(Object.entries(BF_FOTOS_GENERAL).map(async ([prefix, fieldId]) => {
     const attachments = rec.fields[fieldId] || [];
+    // El adjunto de Airtable no guarda el texto de descripción — se recupera del último
+    // datosJson sincronizado, emparejando por filename (único por foto en esa categoría).
+    const descPorFilename = new Map((bd?.[BD_KEY_POR_PREFIX_GENERAL[prefix]] || []).map(f => [f.filename, f.descripcion || ""]));
     const fotos = await Promise.all(attachments.map(async (att) => {
       try{
         return {
           dataUrl: await descargarComoDataUrl(att.url),
           filename: att.filename,
-          descripcion: "",
+          descripcion: descPorFilename.get(att.filename) || "",
           _borradorAttId: att.id,
           _subidoBorrador: true, // ya está en Airtable — no se vuelve a subir si el técnico no la toca
         };
@@ -1991,11 +2079,17 @@ async function restaurarDesdeOrdenAutorizada(ordenRec){
     const dx = JSON.parse(raw);
     const eIni = dx.pruebasElectricasIniciales || null;
 
+    // Estas 4 categorías ya son fotos FINALES (subidas por generarDiagnostico()), así que
+    // su descripción ya vive en ORDENES.fotosDescripciones, emparejada por el ID real del
+    // adjunto — más confiable que el filename para fotos que ya se dieron por terminadas.
+    let descPorAttId = {};
+    try{ descPorAttId = JSON.parse(ordenRec.fields[OF.fotosDescripciones] || "{}"); }catch(e){}
+
     const [fotosDiagnosticoR, fotosObservacionesR, fotosDiagnosticoTecnicoR, fotosPlacaR] = await Promise.all(
       [OF.fotosDiagnostico, OF.fotosObservaciones, OF.fotosDiagnosticoTecnico, OF.fotosPlaca].map(async (fieldId) => {
         const attachments = ordenRec.fields[fieldId] || [];
         const fotos = await Promise.all(attachments.map(async (att) => {
-          try{ return { dataUrl: await descargarComoDataUrl(att.url), filename: att.filename, descripcion: "" }; }
+          try{ return { dataUrl: await descargarComoDataUrl(att.url), filename: att.filename, descripcion: descPorAttId[att.id] || "" }; }
           catch(e){ return null; }
         }));
         return fotos.filter(Boolean);
@@ -2169,7 +2263,7 @@ async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido, or
     _bfRecordIdGeneral = rec.id; // reutiliza el mismo registro al seguir sincronizando, no crea uno nuevo
 
     // FASE 4: descarga las fotos que ya se habían subido desde el otro dispositivo.
-    const fotosRestauradas = await restaurarFotosBorradorGeneral(rec);
+    const fotosRestauradas = await restaurarFotosBorradorGeneral(rec, bd);
 
     const datos = {
       ordenRecordId: ordenRecordIdConocido,
@@ -2479,9 +2573,11 @@ async function procesarColaFotosBorradorGeneral(){
       if(nuevo) item.foto._borradorAttId = nuevo.id;
       item.foto._subidoBorrador = true;
       _colaFotosBorradorGeneral.shift();
+      actualizarIndicadorFotosPendientes();
     }
   } finally {
     _procesandoColaFotosGeneral = false;
+    actualizarIndicadorFotosPendientes();
   }
 }
 

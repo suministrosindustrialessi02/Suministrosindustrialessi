@@ -1493,7 +1493,7 @@ footer strong{ color: var(--azul); }
     <!-- FILTROS -->
     <div class="filtros-bar">
       <span class="filtros-label">Filtros</span>
-      <input type="text" id="filtroSerie" placeholder="N° de serie..." oninput="aplicarFiltros()">
+      <input type="text" id="filtroSerie" placeholder="N° de serie o folio..." oninput="aplicarFiltros()">
       <input type="text" id="filtroCliente" placeholder="Cliente..." oninput="aplicarFiltros()">
       <select id="filtroEstado" onchange="aplicarFiltros()">
         <option value="">Todos los estados</option>
@@ -1618,6 +1618,7 @@ footer strong{ color: var(--azul); }
               <th>Fecha rechazo</th>
               <th>Cobro diagnóstico</th>
               <th style="text-align:center">Equipo recogido</th>
+              <th style="text-align:center">Reportes</th>
             </tr>
           </thead>
           <tbody id="tbodyRechazadas"></tbody>
@@ -1693,13 +1694,13 @@ footer strong{ color: var(--azul); }
   <div class="ck-modal" style="max-width:480px">
     <div class="ck-modal-header">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <h2>Confirmar entrega — <span id="entregaIdentificador"></span></h2>
+        <h2><span id="entregaTitulo">Confirmar entrega</span> — <span id="entregaIdentificador"></span></h2>
         <button class="modal-close" onclick="cerrarModalEntrega()">✕</button>
       </div>
     </div>
     <div class="ck-modal-body">
       <div class="entrega-seccion">
-        <label>Fotos del equipo entregado</label>
+        <label id="entregaLblFotoEquipo">Fotos del equipo entregado</label>
         <div class="foto-btn-row">
           <button type="button" class="btn-foto" onclick="abrirSelectorFotoEntrega('equipo','camara')">📷 Tomar foto</button>
           <button type="button" class="btn-foto" onclick="abrirSelectorFotoEntrega('equipo','galeria')">🖼️ Elegir de galería</button>
@@ -1967,11 +1968,10 @@ footer strong{ color: var(--azul); }
         <p>Cargando lista de materiales...</p>
       </div>
       <div id="valForm" class="hidden">
-        <div class="prereg-grid" style="margin-bottom:14px">
-          <div class="prereg-campo"><label>Cliente</label><div id="valCliente" style="font-weight:600">—</div></div>
-          <div class="prereg-campo"><label>Equipo</label><div id="valEquipo" style="font-weight:600">—</div></div>
-          <div class="prereg-campo"><label>Técnico</label><div id="valTecnico" style="font-weight:600">—</div></div>
-        </div>
+        <div class="detalle-seccion" style="margin-top:0">Datos del equipo</div>
+        <div class="detalle-grid" id="valDatosGrid" style="margin-bottom:14px"></div>
+        <div id="valProblemaWrap"></div>
+        <div class="detalle-seccion">Lista de materiales</div>
         <table class="cot-tbl">
           <thead>
             <tr><th style="width:64px">Cant.</th><th style="width:80px">Unidad</th><th>Descripción</th><th>Nota</th></tr>
@@ -2286,8 +2286,9 @@ function aplicarFiltros(){
   const fServicio = (document.getElementById("filtroServicio")?.value || "");
 
   filtradas = allOrdenes.filter(o => {
-    const idTxt = (o.serie || o.folio || "").toLowerCase();
-    if(fSerie    && !idTxt.includes(fSerie))                    return false;
+    const serieTxt = (o.serie || "").toLowerCase();
+    const folioTxt = (o.folio || "").toLowerCase();
+    if(fSerie    && !serieTxt.includes(fSerie) && !folioTxt.includes(fSerie)) return false;
     if(fCliente  && !o.cliente.toLowerCase().includes(fCliente)) return false;
     if(fEstado   && normEstado(o.estado) !== fEstado)            return false;
     if(fServicio && o.tipoServicio !== fServicio)                return false;
@@ -2401,30 +2402,11 @@ function renderDashboard(ordenes){
 
 }
 
-// Botón "✅ Marcar recogido" — cierra el ciclo de una orden rechazada/cancelada
-// una vez que el cliente pasó por su equipo.
-async function marcarEquipoRecogido(id, identificador){
-  if(!confirm(`¿Confirmas que el cliente ya recogió el equipo de la orden ${identificador}?`)) return;
-  try{
-    await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type":"application/json" },
-      body: JSON.stringify({ fields: {
-        [F.equipoRecogido]: true,
-        [F.fechaRecogida]: new Date().toISOString().slice(0,10),
-      } })
-    });
-    cargarSoloOrdenes();
-  } catch(e){
-    alert("No se pudo guardar: " + (e.message || ""));
-  }
-}
-
 function renderTablaRechazadas(ordenes){
   const tbody = document.getElementById("tbodyRechazadas");
   const esAdmin = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
   if(ordenes.length === 0){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Sin órdenes rechazadas o canceladas.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="9">Sin órdenes rechazadas o canceladas.</td></tr>`;
     return;
   }
   tbody.innerHTML = ordenes.map(o => {
@@ -2433,9 +2415,11 @@ function renderTablaRechazadas(ordenes){
     const cobroTxt = o.seCobroDiagnostico === "Sí"
       ? `Sí${o.montoCobrado ? ` (${fmtMoneda(o.montoCobrado)})` : ''}`
       : (o.seCobroDiagnostico || "Pendiente");
+    // "Marcar recogido" ahora exige la misma evidencia fotográfica (equipo + remisión firmada)
+    // que una entrega normal, en vez de un simple confirm() — ver abrirModalRecogida().
     const recogidoHtml = o.equipoRecogido
       ? `<span class="chip" style="background:#e6f4eb;color:#1b7a34">✓ Recogido${o.fechaRecogida ? ' ' + esc(o.fechaRecogida) : ''}</span>`
-      : (esAdmin ? `<button class="btn-corr" style="background:#1b7a34" onclick="marcarEquipoRecogido('${o.id}','${esc(identificador)}')">✅ Marcar recogido</button>` : `<span class="chip chip-noautorizado">Pendiente</span>`);
+      : (esAdmin ? `<button class="btn-corr" style="background:#1b7a34" onclick="abrirModalRecogida('${o.id}','${esc(identificador)}')">📦 Marcar recogido</button>` : `<span class="chip chip-noautorizado">Pendiente</span>`);
     return `<tr>
       <td class="td-serie">${esc(identificador)}</td>
       <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
@@ -2445,6 +2429,7 @@ function renderTablaRechazadas(ordenes){
       <td>${o.fechaRechazo ? esc(new Date(o.fechaRechazo).toLocaleDateString("es-MX")) : "—"}</td>
       <td>${esc(cobroTxt)}</td>
       <td style="text-align:center">${recogidoHtml}</td>
+      <td style="text-align:center"><button class="btn-ver" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button></td>
     </tr>`;
   }).join("");
 }
@@ -2878,16 +2863,27 @@ async function cambiarEntregado(id, identificador, marcar){
    entrega con fotos del equipo y de la remisión firmada. Al
    confirmar, la orden pasa a "Entregado" automáticamente (no hace
    falta un botón/paso aparte para marcarlo).
+
+   El mismo modal se reutiliza en modo "recogida" para equipos
+   rechazados/cancelados (ver abrirModalRecogida) — misma evidencia
+   fotográfica exigida, pero al confirmar solo marca equipoRecogido
+   (el estado se queda en "No autorizado", no pasa a "Entregado").
+   La remisión en sí (documento imprimible) se genera aparte desde
+   reportes.html → "Remisión de Entrega", igual para ambos casos.
    ============================================================ */
 let _entregaOrdenId = null;
 let _entregaFotosEquipo = [];
 let _entregaFotosRemision = [];
+let _entregaModo = "entrega"; // "entrega" | "recogida"
 
-function abrirModalEntrega(id, identificador){
+function abrirModalEntrega(id, identificador, modo){
   _entregaOrdenId = id;
+  _entregaModo = modo === "recogida" ? "recogida" : "entrega";
   _entregaFotosEquipo = [];
   _entregaFotosRemision = [];
   document.getElementById("entregaIdentificador").textContent = identificador;
+  document.getElementById("entregaTitulo").textContent = _entregaModo === "recogida" ? "Recolección de equipo rechazado" : "Confirmar entrega";
+  document.getElementById("entregaLblFotoEquipo").textContent = _entregaModo === "recogida" ? "Fotos del equipo recolectado" : "Fotos del equipo entregado";
   document.getElementById("entregaGridEquipo").innerHTML = "";
   document.getElementById("entregaGridRemision").innerHTML = "";
   document.getElementById("entregaCounterEquipo").textContent = "0 fotos seleccionadas";
@@ -2895,8 +2891,14 @@ function abrirModalEntrega(id, identificador){
   document.getElementById("entregaError").classList.add("hidden");
   const btn = document.getElementById("btnConfirmarEntrega");
   btn.disabled = false;
-  btn.textContent = "✓ Confirmar entrega";
+  btn.textContent = _entregaModo === "recogida" ? "✓ Confirmar recolección" : "✓ Confirmar entrega";
   document.getElementById("modalEntrega").classList.remove("hidden");
+}
+
+// Botón "📦 Marcar recogido" en Rechazadas/Canceladas — misma evidencia fotográfica que
+// una entrega normal, pero sin tocar el estado (se queda en "No autorizado").
+function abrirModalRecogida(id, identificador){
+  abrirModalEntrega(id, identificador, "recogida");
 }
 
 function cerrarModalEntrega(){ document.getElementById("modalEntrega").classList.add("hidden"); }
@@ -2966,13 +2968,18 @@ async function confirmarEntregaConEvidencia(){
   const btn = document.getElementById("btnConfirmarEntrega");
   btn.disabled = true;
   btn.textContent = "Guardando...";
+  const esRecogida = _entregaModo === "recogida";
   try{
     await subirFotosEntregaA(_entregaOrdenId, F.fotosEntregaEquipo, _entregaFotosEquipo);
     await subirFotosEntregaA(_entregaOrdenId, F.fotosEntregaRemision, _entregaFotosRemision);
+    const fechaRecogida = new Date().toISOString().slice(0,10);
+    const fields = esRecogida
+      ? { [F.equipoRecogido]: true, [F.fechaRecogida]: fechaRecogida }
+      : { [F.estado]: "Entregado", [F.fechaEntregaReal]: new Date().toISOString() };
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_entregaOrdenId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields: { [F.estado]: "Entregado", [F.fechaEntregaReal]: new Date().toISOString() } })
+      body: JSON.stringify({ fields })
     });
     if(!res.ok){
       const d = await res.json().catch(() => ({}));
@@ -2980,7 +2987,9 @@ async function confirmarEntregaConEvidencia(){
     }
     [allOrdenes, filtradas].forEach(lista => {
       const o = lista.find(x => x.id === _entregaOrdenId);
-      if(o) o.estado = "Entregado";
+      if(!o) return;
+      if(esRecogida){ o.equipoRecogido = true; o.fechaRecogida = fechaRecogida; }
+      else o.estado = "Entregado";
     });
     cerrarModalEntrega();
     renderDashboard(filtradas);
@@ -2988,7 +2997,7 @@ async function confirmarEntregaConEvidencia(){
     errEl.textContent = "No se pudo guardar: " + (e.message || "");
     errEl.classList.remove("hidden");
     btn.disabled = false;
-    btn.textContent = "✓ Confirmar entrega";
+    btn.textContent = esRecogida ? "✓ Confirmar recolección" : "✓ Confirmar entrega";
   }
 }
 
@@ -3408,6 +3417,7 @@ async function guardarPreRegistro(){
     [F.serie]:        gv("preSerie"),
     "fldkkXFzqKeGSIqJQ": gv("preSpec"),   // SPEC
     "fldSvMeOGe98aT2e0": gv("preFrame"),  // Frame
+    "fldE3gDF6mRR71Vnk": gv("preDescripcionProblema"),  // Servicio solicitado
   };
   const tecnicosMarcados = [...document.querySelectorAll('#preTecnicoChecks input:checked')].map(c => c.value);
   if(tecnicosMarcados.length) fields[F.tecnicoAsignado] = tecnicosMarcados.join(", ");
@@ -3902,7 +3912,8 @@ function renderValidacionMateriales(){
   const pendientes = allOrdenes.filter(o =>
     o.tipoServicio === "General" &&
     o.estadoValidacionMateriales === "Pendiente" &&
-    normEstado(o.estado) !== "encorreccion"
+    normEstado(o.estado) !== "encorreccion" &&
+    normEstado(o.estado) !== "noautorizado"
   );
   renderTablaDireccion(pendientes);
 }
@@ -3946,7 +3957,7 @@ async function abrirValidacion(id, folio){
   document.getElementById("modalValidacion").classList.remove("hidden");
 
   const T_RG = "tbluHVpYNulSFFvnw";
-  const RGV = { ordenServicio:"fldSIaStYemOiievZ", folio:"fldKBCvEigK6R8hOQ", materialesJson:"fldDjAainIuzcjOxe" };
+  const RGV = { ordenServicio:"fldSIaStYemOiievZ", folio:"fldKBCvEigK6R8hOQ", materialesJson:"fldDjAainIuzcjOxe", nombreCorto:"fldWoaxMR962Fj2HF", marca:"fldL9OPmEgJ9XkKoq", descripcionProblema:"fld97fTrbIGRZUXjF" };
 
   try{
     const ordenRes = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} });
@@ -3958,27 +3969,65 @@ async function abrirValidacion(id, folio){
     const tipoEquipoRaw = of[F.tipoEquipo];
     const tipoEquipo = (tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "—";
 
-    document.getElementById("valCliente").textContent  = of[F.cliente] || "—";
-    document.getElementById("valEquipo").textContent   = tipoEquipo;
-    document.getElementById("valTecnico").textContent  = of[F.tecnicoAsignado] || "—";
+    // El diagnóstico (ORDENES.diagnosticoTexto) se escribe justo cuando la lista de
+    // materiales entra a "Pendiente" (ver generarDiagnostico() en formulario_general.html)
+    // — trae marca/nombre corto/descripción del problema/diagnóstico técnico, disponibles
+    // aunque el reporte final todavía no exista.
+    let diag = {};
+    try{ diag = JSON.parse(of[COT.diagnosticoTexto] || "{}"); }catch(e){ diag = {}; }
 
     // La validación se dispara desde el checkpoint de diagnóstico (antes de que exista el
     // reporte final en REPORTES_GENERAL) — se busca ahí primero por si ya existe (reenvíos/
     // correcciones), y si no, se usa la lista que el técnico propuso en el diagnóstico.
     let materiales = [];
+    let rgExtra = { nombreCorto:"", marca:"", descripcionProblema:"" };
     const rgFormula = encodeURIComponent(`OR(FIND("${id}",ARRAYJOIN({${RGV.ordenServicio}})),{${RGV.folio}}="${folio}")`);
     const rgRes = await fetch(`/.netlify/functions/airtable?table=${T_RG}&filterByFormula=${rgFormula}&returnFieldsByFieldId=true`, { headers:{} });
     if(rgRes.ok){
       const rgData = await rgRes.json();
       const rg = (rgData.records||[])[0];
-      if(rg){ try{ materiales = JSON.parse(rg.fields[RGV.materialesJson] || "[]"); }catch(e){} }
+      if(rg){
+        try{ materiales = JSON.parse(rg.fields[RGV.materialesJson] || "[]"); }catch(e){}
+        rgExtra = {
+          nombreCorto: rg.fields[RGV.nombreCorto] || "",
+          marca:       rg.fields[RGV.marca] || "",
+          descripcionProblema: rg.fields[RGV.descripcionProblema] || "",
+        };
+      }
     }
     if(!materiales.length){
-      try{
-        const diag = JSON.parse(of[COT.diagnosticoTexto] || "{}");
-        materiales = diag.materialesPropuestos || [];
-      }catch(e){}
+      materiales = diag.materialesPropuestos || [];
     }
+
+    // Datos generales del equipo, para que Dirección pueda distinguir cuál equipo es
+    // (folio/serie no siempre alcanza) y qué se le va a hacer, sin salir del modal.
+    const item = (lbl, val) => `<div class="detalle-item"><div class="lbl">${esc(lbl)}</div><div class="val">${(val || val === 0) ? esc(String(val)) : "—"}</div></div>`;
+    document.getElementById("valDatosGrid").innerHTML = [
+      item("Folio", of[F.folio] || folio),
+      item("Cliente", of[F.cliente]),
+      item("Tipo de equipo", tipoEquipo),
+      item("Nombre / Apodo", rgExtra.nombreCorto || diag.nombreCorto),
+      item("Marca", rgExtra.marca || diag.marca),
+      item("Técnico", of[F.tecnicoAsignado]),
+      item("N° de serie", of[F.serie] || diag.numSerie),
+      item("Modelo / SPEC", of[F.spec] || diag.spec),
+      item("Frame", of[F.frame] || diag.frame),
+      item("Volts", of[F.volts] || diag.volts),
+      item("HP", of[F.hp] || diag.potencia),
+    ].join("");
+
+    const descripcionProblema = rgExtra.descripcionProblema || diag.descripcionProblema || "";
+    const diagnosticoTecnico  = diag.diagnosticoTecnico || "";
+    document.getElementById("valProblemaWrap").innerHTML = `
+      ${descripcionProblema ? `
+      <div class="detalle-seccion">Problema reportado</div>
+      <div style="font-size:0.85rem;line-height:1.5;white-space:pre-wrap;color:var(--gris-oscuro);background:var(--fondo);border-radius:6px;padding:10px 12px;margin-bottom:8px;">${esc(descripcionProblema)}</div>
+      ` : ""}
+      ${diagnosticoTecnico ? `
+      <div class="detalle-seccion">Diagnóstico técnico — qué se le va a hacer</div>
+      <div style="font-size:0.85rem;line-height:1.5;white-space:pre-wrap;color:var(--gris-oscuro);background:var(--fondo);border-radius:6px;padding:10px 12px;margin-bottom:8px;">${esc(diagnosticoTecnico)}</div>
+      ` : ""}
+    `;
 
     document.getElementById("valMaterialesBody").innerHTML = materiales.length
       ? materiales.map(m => `<tr><td>${esc(m.cantidad||"—")}</td><td>${esc(m.unidad||"—")}</td><td>${esc(m.descripcion||"")}</td><td>${esc(m.nota||"")}</td></tr>`).join("")

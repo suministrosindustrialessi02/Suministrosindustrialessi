@@ -943,6 +943,7 @@ const ORDENES_FIELDS = {
   spec:    "fldkkXFzqKeGSIqJQ",
   fotosPlaca: "fldNUJRgVWwI6JRjH",
   diagnosticoTexto: "fldqrQ3SL3P4N06RJ",
+  fechaRecibido: "fldxXn7E5ypw06ga8",
 };
 
 const FIELDS_CHECKLIST = {
@@ -1458,6 +1459,7 @@ async function buscarOCrearOrden(serie){
       [ORDENES_FIELDS.frame]:   document.getElementById("motorFrame").value.trim() || null,
       [ORDENES_FIELDS.volts]:   parseFloat(document.getElementById("motorVolts").value) || null,
       [ORDENES_FIELDS.spec]:    document.getElementById("motorSpec").value.trim() || null,
+      [ORDENES_FIELDS.fechaRecibido]: new Date().toISOString().split("T")[0],
     }})
   });
   const createData = await createResp.json();
