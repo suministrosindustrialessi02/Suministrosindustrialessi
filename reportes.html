@@ -1453,6 +1453,7 @@ function generarChecklist(esCliente){
   const nNema  = norma.includes("NEMA")  ? "✓" : "";
   const nApi   = norma.includes("API")   ? "✓" : "";
   const nIeee  = norma.includes("IEEE")  ? "✓" : "";
+  const nIec   = norma.includes("IEC")   ? "✓" : "";
 
   // Construir mapa num → resp
   const respMap = {};
@@ -1524,7 +1525,7 @@ function generarChecklist(esCliente){
   <table class="ck-info-tbl" style="margin-top:6px">
     <tr>
       <td class="lbl" style="width:45%">Norma aplicable / Standard applicable:</td>
-      <td>NEMA [${nNema}] &nbsp;&nbsp; API [${nApi}] &nbsp;&nbsp; IEEE [${nIeee}] &nbsp;&nbsp; ${esc(norma)}</td>
+      <td>NEMA [${nNema}] &nbsp;&nbsp; API [${nApi}] &nbsp;&nbsp; IEEE [${nIeee}] &nbsp;&nbsp; IEC [${nIec}]</td>
     </tr>
   </table>
 
@@ -1947,8 +1948,19 @@ function abrirEditor(tipo, origen){
     edInicializarFotos("servicio");
     edRenderTodasFotos("servicio");
   } else if(tipo === "materiales"){
-    if(!G.general && !G.materialesBorrador){ alert("No hay materiales registrados todavía para esta orden."); return; }
-    let base = G.general ? (() => { try{ return JSON.parse(G.general.fields[RG.materialesJson] || "[]"); }catch(e){ return []; } })() : (G.materialesBorrador.materiales || []);
+    let base;
+    if(G.general){
+      try{ base = JSON.parse(G.general.fields[RG.materialesJson] || "[]"); }catch(e){ base = []; }
+    } else if(G.materialesBorrador){
+      base = G.materialesBorrador.materiales || [];
+    } else {
+      // Sulzer nunca tiene REPORTES_GENERAL ni borrador, y General puede no
+      // tenerlos todavía (diagnóstico hecho pero servicio sin terminar) — en
+      // ambos casos los materiales de la etapa de diagnóstico viven en
+      // ORDENES.diagnosticoTexto.materialesPropuestos (ver generarListaMaterialesGeneral).
+      // Se usa como fallback aunque venga vacío, para poder agregar materiales por primera vez.
+      base = jparseObj(fv(G.orden, FO.diagnosticoTexto)).materialesPropuestos || [];
+    }
     _edMateriales = base.map(m => (typeof m === "string") ? {cantidad:"",unidad:"",descripcion:m,nota:""} : {cantidad:"",unidad:"",descripcion:"",nota:"",...m});
     titulo.textContent = "Editar lista de materiales";
     body.innerHTML = `<div id="edMaterialesList"></div><button type="button" class="btn-add-ed" onclick="edAgregarMaterial()">+ Agregar material</button>`;
@@ -2480,7 +2492,7 @@ async function guardarEdicion(){
         });
         G.general.fields[RG.materialesJson] = JSON.stringify(materialesValidos);
         await incrementarContadorEdicion(FO.edicionesMateriales);
-      } else {
+      } else if(G.materialesBorrador){
         // Editar el borrador (BORRADORES) — se fusiona solo "materiales" dentro de datosJson sin perder los demás datos guardados ahí
         const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
         const BF_SERIE = "fldegmWGpcWW7Awzn";
@@ -2500,6 +2512,19 @@ async function guardarEdicion(){
           });
           G.materialesBorrador.materiales = materialesValidos;
         }
+      } else {
+        // Sin REPORTES_GENERAL ni borrador (Sulzer siempre, o General antes de terminar
+        // el servicio) — los materiales viven en ORDENES.diagnosticoTexto.materialesPropuestos
+        const raw = fv(G.orden, FO.diagnosticoTexto);
+        let d = {};
+        try{ d = JSON.parse(raw || "{}"); }catch(e){}
+        d.materialesPropuestos = materialesValidos;
+        await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
+          method:"PATCH",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ fields: { [FO.diagnosticoTexto]: JSON.stringify(d) } })
+        });
+        G.orden.fields[FO.diagnosticoTexto] = JSON.stringify(d);
       }
       cerrarEditor();
       regenerarConVentanaReservada(wPre, generarListaMaterialesGeneral);
