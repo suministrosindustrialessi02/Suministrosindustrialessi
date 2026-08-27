@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de Equipos (QR) — Suministros Industriales SI</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<style>
+:root{
+  --navy:#0c1e35; --azul:#12325a; --azul-claro:#1d5496; --azul-medio:#2563a8; --azul-acento:#3b82c4;
+  --azul-bg:#e8f0fb; --blanco:#fff; --fondo:#eef1f6; --gris:#dde3ec; --gris-texto:#485568; --gris-oscuro:#3d4a5c;
+  --verde:#0e7a3c; --verde-bg:#e3f5ec; --verde-borde:#a3d9b8;
+  --rojo:#991b1b; --rojo-bg:#fde8e8; --rojo-borde:#f5a5a5;
+  --radio:10px; --radio-sm:6px;
+  --sombra:0 1px 4px rgba(12,30,53,0.07), 0 4px 12px rgba(12,30,53,0.05);
+  --grad-marca:linear-gradient(90deg,#f2741a 0%,#a0228e 52%,#1d5496 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#eef2f8 0%,#e6ebf3 100%);background-attachment:fixed;color:var(--gris-oscuro);min-height:100vh;font-size:14px}
+header{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;position:relative}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--grad-marca)}
+header h1{font-size:0.95rem;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+header p{font-size:0.72rem;color:rgba(255,255,255,0.5);margin-top:2px}
+.btn-volver{color:#fff;text-decoration:none;font-size:0.8rem;font-weight:600;background:rgba(255,255,255,0.12);padding:7px 14px;border-radius:var(--radio-sm)}
+.btn-volver:hover{background:rgba(255,255,255,0.2)}
+main{max-width:1100px;margin:24px auto;padding:0 20px 60px;display:grid;grid-template-columns:1.3fr 1fr;gap:20px}
+@media(max-width:880px){main{grid-template-columns:1fr}}
+.card{background:#fff;border-radius:var(--radio);box-shadow:var(--sombra);padding:20px 22px}
+.card h2{font-size:1rem;color:var(--azul);margin-bottom:4px}
+.card .sub{font-size:0.78rem;color:var(--gris-texto);margin-bottom:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.campo{margin-bottom:0}
+.campo.full{grid-column:1/-1}
+.campo label{display:block;font-size:0.68rem;font-weight:700;color:var(--gris-texto);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px}
+.campo input,.campo select,.campo textarea{width:100%;padding:8px 10px;border:1px solid var(--gris);border-radius:var(--radio-sm);font-size:0.85rem;font-family:inherit}
+.campo textarea{min-height:60px;resize:vertical}
+.req{color:var(--rojo)}
+.acciones{margin-top:18px;display:flex;gap:10px;align-items:center}
+.btn{padding:9px 18px;border-radius:var(--radio-sm);border:none;font-size:0.85rem;font-weight:700;cursor:pointer}
+.btn-primario{background:var(--azul-claro);color:#fff}
+.btn-primario:hover{background:var(--azul-medio)}
+.btn-primario:disabled{background:var(--gris);color:var(--gris-texto);cursor:not-allowed}
+.btn-secundario{background:var(--fondo);color:var(--gris-oscuro);border:1px solid var(--gris)}
+#formStatus{font-size:0.82rem;font-weight:600;margin-left:4px}
+.ok{color:var(--verde)}
+.err{color:var(--rojo)}
+
+/* Panel QR */
+.qr-panel{display:flex;flex-direction:column;align-items:center;text-align:center}
+.qr-panel .vacio{color:var(--gris-texto);font-size:0.85rem;padding:40px 10px}
+#qrcodeBox{margin:10px 0;padding:14px;background:#fff;border:1px solid var(--gris);border-radius:var(--radio-sm)}
+#qrDatos{font-size:0.85rem;line-height:1.7;text-align:left;width:100%;margin-top:6px}
+#qrDatos b{color:var(--azul)}
+#qrLink{font-size:0.72rem;color:var(--gris-texto);word-break:break-all;margin-top:8px}
+
+/* Buscador / lista */
+.buscador{margin-top:26px}
+.buscador input{width:100%;padding:9px 12px;border:1px solid var(--gris);border-radius:var(--radio-sm);font-size:0.85rem;margin-bottom:10px}
+table{width:100%;border-collapse:collapse;font-size:0.82rem}
+th{text-align:left;padding:8px 10px;background:var(--fondo);color:var(--gris-texto);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.4px}
+td{padding:8px 10px;border-bottom:1px solid var(--gris)}
+tr:hover td{background:var(--azul-bg)}
+.btn-mini{padding:5px 10px;border-radius:var(--radio-sm);border:1px solid var(--azul-claro);background:#fff;color:var(--azul-claro);font-size:0.75rem;font-weight:600;cursor:pointer}
+.btn-mini:hover{background:var(--azul-bg)}
+.vacio-tabla{padding:20px;text-align:center;color:var(--gris-texto);font-size:0.82rem}
+
+/* Etiqueta imprimible */
+#etiquetaImprimir{display:none}
+@media print{
+  body *{visibility:hidden}
+  #etiquetaImprimir, #etiquetaImprimir *{visibility:visible}
+  #etiquetaImprimir{display:block;position:absolute;top:0;left:0;width:100%;text-align:center;padding:20px}
+  #etiquetaImprimir img{width:180px;height:180px}
+  #etiquetaImprimir .etq-serie{font-size:16px;font-weight:700;margin-top:8px}
+  #etiquetaImprimir .etq-info{font-size:12px;margin-top:4px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Registro de Equipos</h1>
+    <p>Alta de equipo + código QR de identificación</p>
+  </div>
+  <a class="btn-volver" href="dashboard.html">&larr; Volver al dashboard</a>
+</header>
+
+<main>
+  <div class="card">
+    <h2>Datos del equipo</h2>
+    <p class="sub">Estos datos se guardan en Airtable (tabla EQUIPOS) y son los que se muestran al escanear el QR.</p>
+    <div class="grid">
+      <div class="campo"><label>Cliente <span class="req">*</span></label><input type="text" id="fCliente" placeholder="Ej. ABB"></div>
+      <div class="campo"><label>Usuario (quien lo opera)</label><input type="text" id="fUsuario" placeholder="Ej. Juan Pérez"></div>
+      <div class="campo"><label>Tipo de equipo</label>
+        <select id="fTipo">
+          <option value="">-- Seleccione --</option>
+          <option value="Motor">Motor</option>
+          <option value="Reductor">Reductor</option>
+          <option value="Motobomba">Motobomba</option>
+          <option value="Motoreductor">Motoreductor</option>
+          <option value="Cilindro">Cilindro</option>
+          <option value="Válvula">Válvula</option>
+          <option value="Otro">Otro</option>
+        </select>
+      </div>
+      <div class="campo"><label>N° de serie <span class="req">*</span></label><input type="text" id="fSerie" placeholder="Ej. F2404185885"></div>
+      <div class="campo"><label>Marca</label><input type="text" id="fMarca" placeholder="Ej. ABB, Sew, Nord"></div>
+      <div class="campo"><label>Modelo / SPEC</label><input type="text" id="fModelo" placeholder="Ej. M3BP 200 MLA 4"></div>
+      <div class="campo"><label>HP</label><input type="number" step="0.01" id="fHP" placeholder="Ej. 30"></div>
+      <div class="campo"><label>Volts</label><input type="number" id="fVolts" placeholder="Ej. 460"></div>
+      <div class="campo"><label>Amperes</label><input type="number" step="0.01" id="fAmperes" placeholder="Ej. 42.5"></div>
+      <div class="campo"><label>Frame</label><input type="text" id="fFrame" placeholder="Ej. 213T"></div>
+      <div class="campo"><label>RPM</label><input type="number" id="fRPM" placeholder="Ej. 1750"></div>
+      <div class="campo full"><label>Notas</label><textarea id="fNotas" placeholder="Cualquier dato adicional útil para identificar el equipo"></textarea></div>
+    </div>
+    <div class="acciones">
+      <button class="btn btn-primario" id="btnGuardar" onclick="guardarEquipo()">Registrar equipo y generar QR</button>
+      <button class="btn btn-secundario" onclick="limpiarFormulario()">Limpiar</button>
+      <span id="formStatus"></span>
+    </div>
+
+    <div class="buscador">
+      <h2 style="margin-bottom:10px">Equipos registrados aquí</h2>
+      <input type="text" id="buscarInput" placeholder="Buscar por serie, cliente o modelo..." oninput="filtrarLista()">
+      <table>
+        <thead><tr><th>N° Serie</th><th>Cliente</th><th>Modelo</th><th>Tipo</th><th></th></tr></thead>
+        <tbody id="tablaEquipos"><tr><td colspan="5" class="vacio-tabla">Cargando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card qr-panel">
+    <h2 style="align-self:flex-start">Código QR</h2>
+    <p class="sub" style="align-self:flex-start">Al guardar (o al elegir un equipo de la lista) aparece aquí el QR listo para imprimir.</p>
+    <div id="qrVacio" class="vacio">Aún no hay un equipo seleccionado.</div>
+    <div id="qrContenido" style="display:none">
+      <div id="qrcodeBox"></div>
+      <div id="qrDatos"></div>
+      <div id="qrLink"></div>
+      <div class="acciones" style="margin-top:14px">
+        <button class="btn btn-primario" onclick="imprimirEtiqueta()">🖨️ Imprimir etiqueta</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="etiquetaImprimir">
+  <img id="etqImg" src="">
+  <div class="etq-serie" id="etqSerie"></div>
+  <div class="etq-info" id="etqInfo"></div>
+</div>
+
+<script>
+/* ===== Sesión ===== */
+const _sesion = (() => { try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; } })();
+const _sesionValida = !!(_sesion && _sesion.rol && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion"));
+if(!_sesionValida){ window.location.href = "login.html"; }
+
+/* ===== Config Airtable (proxy de seguridad, ver netlify/functions/airtable.js) ===== */
+const TABLA_EQUIPOS = "tblkDJc5rUtSevPD4";
+const EF = {
+  serie:    "fldrFxsJ9zxNtWyvG",
+  cliente:  "fldDnhRp9uQeJUpNX",
+  usuario:  "fldV86Vxj8XvVhkwI",
+  tipo:     "fldJqyffVuDQz2cFv",
+  marca:    "fldTcefImjWn9tjAT",
+  modelo:   "fldb8vt1uM9YzDKFj",
+  hp:       "fldrGrAINvi5QyVAS",
+  volts:    "fld5EAAct1tGAYWha",
+  amperes:  "fldM4gqT7PeiTKl0A",
+  frame:    "fldqwaSI9d324tjk9",
+  rpm:      "fldQoOoed64K9Od3I",
+  notas:    "fld6D9k55yS8UWnMB",
+  fecha:    "fldgaKpczBjP4NaqQ",
+  regPor:   "fldTuaDet3rdF04E8",
+};
+
+let _qrObj = null;
+let _equiposCache = [];
+
+async function guardarEquipo(){
+  const cliente = document.getElementById("fCliente").value.trim();
+  const serie = document.getElementById("fSerie").value.trim();
+  const status = document.getElementById("formStatus");
+  if(!cliente || !serie){
+    status.textContent = "Cliente y N° de serie son obligatorios.";
+    status.className = "err";
+    return;
+  }
+  const btn = document.getElementById("btnGuardar");
+  btn.disabled = true;
+  status.textContent = "Guardando...";
+  status.className = "";
+
+  const fields = {};
+  fields[EF.cliente] = cliente;
+  fields[EF.serie] = serie;
+  const usuario = document.getElementById("fUsuario").value.trim();
+  if(usuario) fields[EF.usuario] = usuario;
+  const tipo = document.getElementById("fTipo").value;
+  if(tipo) fields[EF.tipo] = tipo;
+  const marca = document.getElementById("fMarca").value.trim();
+  if(marca) fields[EF.marca] = marca;
+  const modelo = document.getElementById("fModelo").value.trim();
+  if(modelo) fields[EF.modelo] = modelo;
+  const hp = document.getElementById("fHP").value;
+  if(hp !== "") fields[EF.hp] = parseFloat(hp);
+  const volts = document.getElementById("fVolts").value;
+  if(volts !== "") fields[EF.volts] = parseFloat(volts);
+  const amperes = document.getElementById("fAmperes").value;
+  if(amperes !== "") fields[EF.amperes] = parseFloat(amperes);
+  const frame = document.getElementById("fFrame").value.trim();
+  if(frame) fields[EF.frame] = frame;
+  const rpm = document.getElementById("fRPM").value;
+  if(rpm !== "") fields[EF.rpm] = parseFloat(rpm);
+  const notas = document.getElementById("fNotas").value.trim();
+  if(notas) fields[EF.notas] = notas;
+  fields[EF.fecha] = new Date().toISOString();
+  fields[EF.regPor] = (_sesion && _sesion.nombre) ? _sesion.nombre : "";
+
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLA_EQUIPOS}&returnFieldsByFieldId=true`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ records: [{ fields }] })
+    });
+    if(!resp.ok){ throw new Error("Airtable respondió " + resp.status); }
+    const data = await resp.json();
+    const rec = data.records[0];
+    status.textContent = "Equipo registrado correctamente.";
+    status.className = "ok";
+    mostrarQR(rec.id, {
+      serie, cliente, modelo, marca, tipo,
+      hp: hp || "", volts: volts || ""
+    });
+    await cargarEquipos();
+  }catch(e){
+    console.error(e);
+    status.textContent = "Error al guardar: " + e.message;
+    status.className = "err";
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+function limpiarFormulario(){
+  ["fCliente","fUsuario","fSerie","fMarca","fModelo","fHP","fVolts","fAmperes","fFrame","fRPM","fNotas"].forEach(id=>{
+    document.getElementById(id).value = "";
+  });
+  document.getElementById("fTipo").value = "";
+  document.getElementById("formStatus").textContent = "";
+}
+
+function mostrarQR(recordId, datos){
+  document.getElementById("qrVacio").style.display = "none";
+  document.getElementById("qrContenido").style.display = "block";
+
+  const box = document.getElementById("qrcodeBox");
+  box.innerHTML = "";
+  const url = `${location.origin}${location.pathname.replace(/registro_equipo\.html$/, "equipo.html")}?id=${recordId}`;
+  _qrObj = new QRCode(box, { text: url, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+
+  const partes = [];
+  partes.push(`<b>N° de serie:</b> ${esc(datos.serie)}`);
+  partes.push(`<b>Cliente:</b> ${esc(datos.cliente)}`);
+  if(datos.modelo) partes.push(`<b>Modelo:</b> ${esc(datos.modelo)}`);
+  if(datos.marca) partes.push(`<b>Marca:</b> ${esc(datos.marca)}`);
+  if(datos.tipo) partes.push(`<b>Tipo:</b> ${esc(datos.tipo)}`);
+  if(datos.hp) partes.push(`<b>HP:</b> ${esc(String(datos.hp))}`);
+  if(datos.volts) partes.push(`<b>Volts:</b> ${esc(String(datos.volts))}`);
+  document.getElementById("qrDatos").innerHTML = partes.join("<br>");
+  document.getElementById("qrLink").textContent = url;
+
+  document.getElementById("etqSerie").textContent = datos.serie;
+  document.getElementById("etqInfo").textContent = [datos.cliente, datos.modelo].filter(Boolean).join(" · ");
+  document.getElementById("qrContenido").dataset.url = url;
+}
+
+function imprimirEtiqueta(){
+  const canvas = document.querySelector("#qrcodeBox canvas");
+  const img = document.querySelector("#qrcodeBox img");
+  const src = canvas ? canvas.toDataURL("image/png") : (img ? img.src : "");
+  document.getElementById("etqImg").src = src;
+  window.print();
+}
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+async function cargarEquipos(){
+  try{
+    const url = `/.netlify/functions/airtable?table=${TABLA_EQUIPOS}&returnFieldsByFieldId=true&sort[0][field]=${EF.fecha}&sort[0][direction]=desc`;
+    const resp = await fetch(url, { headers:{} });
+    const data = await resp.json();
+    _equiposCache = (data.records || []).map(r => ({
+      id: r.id,
+      serie: r.fields[EF.serie] || "",
+      cliente: r.fields[EF.cliente] || "",
+      modelo: r.fields[EF.modelo] || "",
+      marca: r.fields[EF.marca] || "",
+      tipo: r.fields[EF.tipo] || "",
+      hp: r.fields[EF.hp] || "",
+      volts: r.fields[EF.volts] || "",
+    }));
+    renderTabla(_equiposCache);
+  }catch(e){
+    console.error(e);
+    document.getElementById("tablaEquipos").innerHTML = `<tr><td colspan="5" class="vacio-tabla">Error al cargar</td></tr>`;
+  }
+}
+
+function renderTabla(lista){
+  const tbody = document.getElementById("tablaEquipos");
+  if(!lista.length){
+    tbody.innerHTML = `<tr><td colspan="5" class="vacio-tabla">Sin equipos registrados aún</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(eq => `
+    <tr>
+      <td>${esc(eq.serie)}</td>
+      <td>${esc(eq.cliente)}</td>
+      <td>${esc(eq.modelo)}</td>
+      <td>${esc(eq.tipo)}</td>
+      <td><button class="btn-mini" onclick='mostrarQR("${eq.id}", ${JSON.stringify(eq).replace(/'/g,"&#39;")})'>Ver QR</button></td>
+    </tr>
+  `).join("");
+}
+
+function filtrarLista(){
+  const q = document.getElementById("buscarInput").value.trim().toLowerCase();
+  if(!q){ renderTabla(_equiposCache); return; }
+  renderTabla(_equiposCache.filter(eq =>
+    eq.serie.toLowerCase().includes(q) || eq.cliente.toLowerCase().includes(q) || eq.modelo.toLowerCase().includes(q)
+  ));
+}
+
+cargarEquipos();
+</script>
+</body>
+</html>
