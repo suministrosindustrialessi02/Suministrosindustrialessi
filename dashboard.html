@@ -1593,7 +1593,6 @@ footer strong{ color: var(--azul); }
     <!-- SECCIÓN ÓRDENES -->
     <div id="secOrdenes" style="display:none">
     <div id="avisoRechazadas" class="hidden" style="background:#fdecea;color:#991b1b;border:1px solid #f5b5ac;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;font-weight:600;cursor:pointer" onclick="document.getElementById('seccionRechazadasTabla').scrollIntoView({behavior:'smooth'})"></div>
-    <div id="avisoRespaldo" class="hidden" style="background:#e8f0fe;color:#1a3d7c;border:1px solid #a9c3ee;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;font-weight:600"></div>
     <!-- FILTROS -->
     <div class="filtros-bar">
       <span class="filtros-label">Filtros</span>
@@ -2405,10 +2404,6 @@ const F = {
   // e inspeccion_pintura.html).
   pinturaPlaneada:         "fldP5myqTtCEe17zr",
   checklistSulzerPlaneado: "fldgdAdOAEavXDEVJ",
-  // Respaldo mensual a Google Drive (agregado 2026-08-24)
-  respaldado:              "fldDvyOQxdyBxDmwG",
-  fechaRespaldo:           "fldWGI2ANJ6ytJqfX",
-  driveBackupUrl:          "fldEQMai5t8VsJzyZ",
 };
 
 /* ============================================================
@@ -2556,9 +2551,6 @@ function parsear(rec){
     guiaEnvio: f[F.guiaEnvio] || "",
     pinturaPlaneada: (f[F.pinturaPlaneada] && f[F.pinturaPlaneada].name) || f[F.pinturaPlaneada] || "",
     checklistSulzerPlaneado: (f[F.checklistSulzerPlaneado] && f[F.checklistSulzerPlaneado].name) || f[F.checklistSulzerPlaneado] || "",
-    respaldado: !!f[F.respaldado],
-    fechaRespaldo: f[F.fechaRespaldo] || "",
-    driveBackupUrl: f[F.driveBackupUrl] || "",
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -2779,7 +2771,6 @@ function renderDashboard(ordenes){
   document.getElementById("badgeRechazadas").textContent = rechazadas.length;
   renderTablaRechazadas(rechazadas.slice().sort(byDiasDesc));
   renderAvisoRechazadas(rechazadas, esAdmin);
-  renderAvisoRespaldo(entregadas, esAdmin);
 
   document.getElementById("content").classList.remove("hidden");
 
@@ -2830,29 +2821,6 @@ function renderAvisoRechazadas(rechazadas, esAdmin){
   el.classList.remove("hidden");
   el.innerHTML = `⚠ ${pendientes.length} equipo${pendientes.length>1?'s':''} rechazado${pendientes.length>1?'s':''} esperando que el cliente pase a recogerlo${pendientes.length>1?'s':''}: `
     + pendientes.slice(0,5).map(o => esc(o.serie || o.folio || "—")).join(", ")
-    + (pendientes.length>5 ? ` +${pendientes.length-5} más` : "");
-}
-
-// Aviso para Admin/Dirección de órdenes ya Entregadas hace más de 30 días que
-// todavía no se han respaldado a Google Drive (Fase 1 del respaldo mensual —
-// ver memoria plan_respaldo_mensual). Cada serie/folio abre directo esa orden
-// en reportes.html, donde vive el botón real "☁️ Respaldar a Drive".
-const DIAS_MIN_PARA_RESPALDO = 30;
-function renderAvisoRespaldo(entregadas, esAdmin){
-  const el = document.getElementById("avisoRespaldo");
-  if(!el) return;
-  const pendientes = entregadas.filter(o => {
-    if(o.respaldado || !o.fechaEntregaReal) return false;
-    const dias = (Date.now() - new Date(o.fechaEntregaReal)) / (1000 * 60 * 60 * 24);
-    return dias >= DIAS_MIN_PARA_RESPALDO;
-  });
-  if(!esAdmin || pendientes.length === 0){
-    el.classList.add("hidden");
-    return;
-  }
-  el.classList.remove("hidden");
-  el.innerHTML = `📦 ${pendientes.length} orden${pendientes.length>1?'es':''} entregada${pendientes.length>1?'s':''} hace más de ${DIAS_MIN_PARA_RESPALDO} días sin respaldar a Drive: `
-    + pendientes.slice(0,5).map(o => `<a href="#" onclick="event.preventDefault();abrirReportes('${o.id}','${esc(o.serie||o.folio||"")}')" style="color:#1a3d7c;text-decoration:underline">${esc(o.serie || o.folio || "—")}</a>`).join(", ")
     + (pendientes.length>5 ? ` +${pendientes.length-5} más` : "");
 }
 

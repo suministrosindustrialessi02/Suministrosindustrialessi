@@ -2118,8 +2118,8 @@ function abrirEditor(tipo, origen){
     const opcionesTipoEquipo = ["Motor","Reductor","Motobomba","Motoreductor","Cilindro","Valvula","Otro"];
     body.innerHTML = `
       <div class="ed-field"><label>Cliente</label><input type="text" id="edInfoCliente" value="${esc(fv(G.orden, FO.cliente)||"")}"></div>
-      ${G.esGeneral ? `
       <div class="ed-field"><label>Usuario / contacto</label><input type="text" id="edInfoUsuario" value="${esc(fv(G.orden, FO.usuario)||"")}"></div>
+      ${G.esGeneral ? `
       <div class="ed-field"><label>Tipo de equipo</label>
         <select id="edInfoTipoEquipo">
           ${opcionesTipoEquipo.map(o => `<option value="${o}" ${tipoEquipoVal===o?"selected":""}>${o}</option>`).join("")}
@@ -2672,9 +2672,9 @@ async function guardarEdicion(){
         [FO.frame]:   document.getElementById("edInfoFrame").value.trim(),
         [FO.hp]:      aNumero("edInfoHp", "Potencia (HP / kW)"),
         [FO.volts]:   aNumero("edInfoVolts", "Volts"),
+        [FO.usuario]: document.getElementById("edInfoUsuario").value.trim(),
       };
       if(G.esGeneral){
-        fieldsOrden[FO.usuario] = document.getElementById("edInfoUsuario").value.trim();
         fieldsOrden[FO.tipoEquipo] = document.getElementById("edInfoTipoEquipo").value;
         fieldsOrden[FO.descripcionOtro] = document.getElementById("edInfoDescripcionOtro").value.trim();
       } else {
