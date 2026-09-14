@@ -99,6 +99,9 @@ main{ max-width:1100px; margin:0 auto; padding:24px 24px 56px; }
 .progreso-plan-sub{ font-size:0.72rem; color:var(--gris-texto); margin-top:6px; }
 
 .toolbar{ display:flex; justify-content:flex-end; gap:10px; margin-bottom:12px; }
+.toolbar-tecnico{ display:flex; justify-content:flex-end; margin-bottom:12px; }
+.toggle-ver-todo{ display:flex; align-items:center; gap:6px; font-size:14px; color:#444; cursor:pointer; user-select:none; }
+.toggle-ver-todo input{ width:16px; height:16px; cursor:pointer; }
 .btn-add{
   background:var(--azul); color:#fff; border:1px solid var(--azul-claro); padding:9px 18px;
   border-radius:var(--radio-sm); font-size:0.82rem; font-weight:700; cursor:pointer;
@@ -240,6 +243,13 @@ td{ padding:11px 14px; vertical-align:middle; }
     <button class="btn-add" onclick="abrirModal()">+ Agregar tarea</button>
   </div>
 
+  <div class="toolbar-tecnico hidden" id="toolbarTecnico">
+    <label class="toggle-ver-todo">
+      <input type="checkbox" id="chkVerTodo" onchange="toggleVerTodo(this.checked)">
+      Ver todas las actividades del equipo
+    </label>
+  </div>
+
   <div id="spinnerWrap" class="spinner-wrap">Cargando plan del día...</div>
 
   <div class="tabla-wrap hidden" id="tablaWrap">
@@ -337,6 +347,18 @@ if(!_sesionValida){
   window.location.href = "login.html";
 }
 const esAdmin = _sesionValida && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
+
+// Técnico: por default el plan diario solo muestra lo asignado a él/ella; puede activar
+// "Ver todas las actividades del equipo" y la preferencia se recuerda por técnico (localStorage).
+let verTodoTecnico = false;
+if(_sesionValida && _sesion.rol === "Tecnico"){
+  try{ verTodoTecnico = localStorage.getItem("si_plan_ver_todo_" + _sesion.nombre) === "1"; }catch(e){}
+}
+function toggleVerTodo(checked){
+  verTodoTecnico = checked;
+  try{ localStorage.setItem("si_plan_ver_todo_" + _sesion.nombre, checked ? "1" : "0"); }catch(e){}
+  renderTodo();
+}
 
 /* ============================================================
    CONFIG
@@ -512,14 +534,19 @@ function renderTodo(){
   document.getElementById("btnVerOcultos").classList.toggle("hidden", ocultosCount === 0);
   document.getElementById("cntOcultos").textContent = ocultosCount;
 
-  // Técnico: el plan diario solo muestra lo que se le asignó a él/ella (tareas manuales y órdenes de servicio)
+  // Técnico: por default el plan diario solo muestra lo que se le asignó a él/ella
+  // (tareas manuales y órdenes de servicio), salvo que haya activado "Ver todas las actividades del equipo".
   const esTecnico = _sesion.rol === "Tecnico";
+  const filtrarPorTecnico = esTecnico && !verTodoTecnico;
+
+  document.getElementById("toolbarTecnico").classList.toggle("hidden", !esTecnico);
+  document.getElementById("chkVerTodo").checked = verTodoTecnico;
 
   // Barra de progreso — solo cuenta tareas manuales (tienen checkbox de completado);
   // las órdenes de servicio inyectadas no aplican, se completan al terminar el servicio,
   // no con un check, y siempre están "activas" mientras aparecen en el plan.
   let tareasDelDia = tareasParaFecha(fechaSeleccionada);
-  if(esTecnico) tareasDelDia = tareasDelDia.filter(t => incluyeTecnico(t.tecnico, _sesion.nombre));
+  if(filtrarPorTecnico) tareasDelDia = tareasDelDia.filter(t => incluyeTecnico(t.tecnico, _sesion.nombre));
   const totalTareas = tareasDelDia.length;
   const completadas = tareasDelDia.filter(t => t.completado).length;
   const pct = totalTareas > 0 ? Math.round((completadas / totalTareas) * 100) : 0;
@@ -535,7 +562,7 @@ function renderTodo(){
   const items = tareasDelDia.map(t => ({ ...t, _tipo: "tarea" }));
   if(fechaSeleccionada === hoyISO()){
     let ordenesDelDia = ordenesActivas.filter(o => !o.oculto);
-    if(esTecnico) ordenesDelDia = ordenesDelDia.filter(o => incluyeTecnico(o.tecnico, _sesion.nombre));
+    if(filtrarPorTecnico) ordenesDelDia = ordenesDelDia.filter(o => incluyeTecnico(o.tecnico, _sesion.nombre));
     ordenesDelDia.forEach(o => items.push({ ...o, _tipo: "orden" }));
   }
   items.sort((a,b) => {
