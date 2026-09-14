@@ -1611,6 +1611,9 @@ footer strong{ color: var(--azul); }
         <option value="Sulzer">Sulzer</option>
         <option value="General">General</option>
       </select>
+      <select id="filtroHP" onchange="aplicarFiltros()">
+        <option value="">Todos los HP</option>
+      </select>
       <button class="btn-mis-asignaciones" id="btnMisAsignaciones" style="display:none" onclick="toggleMisAsignaciones()">Mis asignaciones</button>
       <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
       <span class="filtro-resultado" id="filtroResultado"></span>
@@ -2597,6 +2600,7 @@ async function cargarDatos(){
     borradorLookup = borradores;
     tecnicosList = tecnicos;
     allTareasPlan = tareasPlan;
+    poblarFiltroHP();
     aplicarFiltros();
     tsActualizacion = new Date();
     actualizarSyncInfo();
@@ -2617,6 +2621,7 @@ async function cargarDatos(){
 async function cargarSoloOrdenes(){
   try{
     allOrdenes = (await fetchAll()).map(parsear);
+    poblarFiltroHP();
     aplicarFiltros();
     tsActualizacion = new Date();
     actualizarSyncInfo();
@@ -2627,6 +2632,7 @@ async function cargarOrdenesYBorradores(){
     const [recs, borradores] = await Promise.all([fetchAll(), fetchBorradores()]);
     allOrdenes = recs.map(parsear);
     borradorLookup = borradores;
+    poblarFiltroHP();
     aplicarFiltros();
     tsActualizacion = new Date();
     actualizarSyncInfo();
@@ -2641,6 +2647,7 @@ function aplicarFiltros(){
   const fCliente  = (document.getElementById("filtroCliente")?.value  || "").toLowerCase().trim();
   const fEstado   = (document.getElementById("filtroEstado")?.value   || "");
   const fServicio = (document.getElementById("filtroServicio")?.value || "");
+  const fHP       = (document.getElementById("filtroHP")?.value       || "");
 
   filtradas = allOrdenes.filter(o => {
     const serieTxt = (o.serie || "").toLowerCase();
@@ -2649,6 +2656,7 @@ function aplicarFiltros(){
     if(fCliente  && !o.cliente.toLowerCase().includes(fCliente)) return false;
     if(fEstado   && normEstado(o.estado) !== fEstado)            return false;
     if(fServicio && o.tipoServicio !== fServicio)                return false;
+    if(fHP       && String(o.hp ?? "") !== fHP)                  return false;
     if(misAsignacionesActivo && !esMiAsignacionOSinAsignar(o))   return false;
     return true;
   });
@@ -2656,7 +2664,7 @@ function aplicarFiltros(){
   const totalFiltradas = filtradas.length;
   const totales        = allOrdenes.length;
   document.getElementById("filtroResultado").textContent =
-    (fSerie || fCliente || fEstado || fServicio || misAsignacionesActivo)
+    (fSerie || fCliente || fEstado || fServicio || fHP || misAsignacionesActivo)
       ? `${totalFiltradas} de ${totales} resultados`
       : "";
 
@@ -2671,7 +2679,21 @@ function limpiarFiltros(){
   document.getElementById("filtroCliente").value  = "";
   document.getElementById("filtroEstado").value   = "";
   document.getElementById("filtroServicio").value = "";
+  document.getElementById("filtroHP").value       = "";
   aplicarFiltros();
+}
+
+// Reconstruye las opciones del filtro de HP con los valores realmente presentes en las
+// órdenes cargadas (evita mantener a mano una lista fija de potencias).
+function poblarFiltroHP(){
+  const sel = document.getElementById("filtroHP");
+  if(!sel) return;
+  const valorActual = sel.value;
+  const valores = [...new Set(allOrdenes.map(o => o.hp).filter(v => v !== "" && v !== null && v !== undefined))]
+    .sort((a,b) => parseFloat(a) - parseFloat(b));
+  sel.innerHTML = `<option value="">Todos los HP</option>` +
+    valores.map(v => `<option value="${esc(String(v))}">${esc(String(v))} HP</option>`).join("");
+  if(valores.map(String).includes(valorActual)) sel.value = valorActual;
 }
 
 function esMiAsignacionOSinAsignar(o){
