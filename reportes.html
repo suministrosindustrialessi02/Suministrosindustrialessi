@@ -164,6 +164,17 @@ input[type="file"].hidden-input{ display:none; }
     </button>
   </div>
 
+  <!-- Datos generales del equipo (N° de serie, usuario, marca, HP, etc.) — editable en
+       cualquier momento porque esos datos aparecen en el encabezado de TODOS los reportes,
+       no pertenecen a uno solo. editor-only: mismo criterio de rol que el resto de los ✏️. -->
+  <div class="rep-card-wrap editor-only hidden" style="max-width:460px;margin:0 auto 18px;">
+    <button type="button" class="rep-btn" style="width:100%" onclick="abrirEditor('infoGeneral')">
+      <span class="rep-btn-icon">🏷️</span>
+      <span class="rep-btn-name">Datos generales del equipo</span>
+      <span class="rep-btn-desc">N° de serie, usuario, marca, HP, frame, volts, etc. — se corrigen en todos los reportes a la vez</span>
+    </button>
+  </div>
+
   <div class="rep-title">Selecciona el reporte a generar</div>
   <!-- Reporte Consolidado: solo Admin y Dirección lo ven — Técnico y Cliente no. -->
   <div class="rep-card-wrap admin-only hidden" id="reporteConsolidadoWrap" style="max-width:460px;margin:0 auto 18px;">
@@ -428,6 +439,7 @@ const FO = {
   frame:            "fldSvMeOGe98aT2e0",
   hp:               "fldjyFFAaL0dIFWIE",
   volts:            "fldLxVAorFAGaboOF",
+  catNo:            "fld4BE7lLXKOu48LR",
   remisionTexto:    "fldefjJlNZIHGaqZg",
   detalleServicios:        "fldNRxyyyhyZn9qhI",
   subtotal:                "fldI0EhIItl3f6oQv",
@@ -2095,6 +2107,41 @@ function abrirEditor(tipo, origen){
       `;
     }).join("");
     _edNoOkIndices.forEach(i => { edCorrRenderFotos(i,"antes"); edCorrRenderFotos(i,"despues"); });
+  } else if(tipo === "infoGeneral"){
+    // Datos de identificación del equipo — viven en ORDENES (ambos tipos de servicio) y,
+    // para General, además en REPORTES_GENERAL (marca/color/nombre/n° de parte) una vez que
+    // el técnico terminó el Reporte de Servicio. Aparecen en el encabezado de TODOS los
+    // reportes de esta orden, así que un solo editor los corrige todos a la vez.
+    const tipoEquipoRaw = fv(G.orden, FO.tipoEquipo);
+    const tipoEquipoVal = (tipoEquipoRaw && tipoEquipoRaw.name) || tipoEquipoRaw || "";
+    titulo.textContent = "Editar datos generales del equipo";
+    const opcionesTipoEquipo = ["Motor","Reductor","Motobomba","Motoreductor","Cilindro","Valvula","Otro"];
+    body.innerHTML = `
+      <div class="ed-field"><label>Cliente</label><input type="text" id="edInfoCliente" value="${esc(fv(G.orden, FO.cliente)||"")}"></div>
+      ${G.esGeneral ? `
+      <div class="ed-field"><label>Usuario / contacto</label><input type="text" id="edInfoUsuario" value="${esc(fv(G.orden, FO.usuario)||"")}"></div>
+      <div class="ed-field"><label>Tipo de equipo</label>
+        <select id="edInfoTipoEquipo">
+          ${opcionesTipoEquipo.map(o => `<option value="${o}" ${tipoEquipoVal===o?"selected":""}>${o}</option>`).join("")}
+        </select>
+      </div>
+      <div class="ed-field"><label>Descripción (si "Otro")</label><input type="text" id="edInfoDescripcionOtro" value="${esc(fv(G.orden, FO.descripcionOtro)||"")}"></div>
+      ` : ""}
+      <div class="ed-field"><label>N° de serie</label><input type="text" id="edInfoSerie" value="${esc(fv(G.orden, FO.serie)||"")}"></div>
+      <div class="ed-field"><label>Modelo / SPEC</label><input type="text" id="edInfoSpec" value="${esc(fv(G.orden, FO.spec)||"")}"></div>
+      <div class="ed-field"><label>Potencia (HP / kW)</label><input type="text" id="edInfoHp" value="${esc(fv(G.orden, FO.hp) ?? "")}"></div>
+      <div class="ed-field"><label>Frame</label><input type="text" id="edInfoFrame" value="${esc(fv(G.orden, FO.frame)||"")}"></div>
+      <div class="ed-field"><label>Volts</label><input type="text" id="edInfoVolts" value="${esc(fv(G.orden, FO.volts) ?? "")}"></div>
+      ${!G.esGeneral ? `
+      <div class="ed-field"><label>Cat. N°</label><input type="text" id="edInfoCatNo" value="${esc(fv(G.orden, FO.catNo)||"")}"></div>
+      ` : ""}
+      ${G.esGeneral ? (G.general ? `
+      <div class="ed-field"><label>Nombre / apodo del equipo</label><input type="text" id="edInfoNombreCorto" value="${esc(fv(G.general, RG.nombreCorto)||"")}"></div>
+      <div class="ed-field"><label>Marca</label><input type="text" id="edInfoMarca" value="${esc(fv(G.general, RG.marca)||"")}"></div>
+      <div class="ed-field"><label>Color</label><input type="text" id="edInfoColor" value="${esc(fv(G.general, RG.color)||"")}"></div>
+      <div class="ed-field"><label>N° de parte</label><input type="text" id="edInfoNumParte" value="${esc(fv(G.general, RG.numParte)||"")}"></div>
+      ` : `<div class="ed-field" style="color:#976010;font-size:0.8rem">Nombre, marca, color y N° de parte se podrán editar aquí cuando el técnico termine el Reporte de Servicio.</div>`) : ""}
+    `;
   }
 
   document.getElementById("modalEditor").classList.remove("hidden");
@@ -2445,7 +2492,9 @@ async function guardarEdicion(){
   if(!_puedeEditarReportes) return;
   const btn = document.getElementById("btnGuardarEditor");
   btn.disabled = true; btn.textContent = "Guardando...";
-  const wPre = window.open("", "_blank"); // reservar ANTES del await
+  // infoGeneral no abre/regenera ningún reporte — solo corrige datos que cada reporte
+  // ya lee en vivo de ORDENES/REPORTES_GENERAL — así que no reserva ventana emergente.
+  const wPre = _editorTipo === "infoGeneral" ? null : window.open("", "_blank"); // reservar ANTES del await
   try{
     if(_editorTipo === "diagnostico"){
       const raw = fv(G.orden, FO.diagnosticoTexto);
@@ -2606,6 +2655,54 @@ async function guardarEdicion(){
       await edGuardarFotosCorrecciones();
       cerrarEditor();
       regenerarConVentanaReservada(wPre, _editorOrigen === "correcciones" ? generarCorrecciones : generarNoConformidades);
+    } else if(_editorTipo === "infoGeneral"){
+      // Convierte a número los campos numéricos; vacío -> null (borra el valor en Airtable),
+      // texto no numérico -> aborta con aviso en vez de mandar algo que Airtable rechazaría.
+      const aNumero = (id, etiqueta) => {
+        const raw = document.getElementById(id).value.trim();
+        if(raw === "") return null;
+        const n = parseFloat(raw);
+        if(isNaN(n)) throw new Error(`"${etiqueta}" debe ser un número (o dejarse vacío).`);
+        return n;
+      };
+      const fieldsOrden = {
+        [FO.cliente]: document.getElementById("edInfoCliente").value.trim(),
+        [FO.serie]:   document.getElementById("edInfoSerie").value.trim(),
+        [FO.spec]:    document.getElementById("edInfoSpec").value.trim(),
+        [FO.frame]:   document.getElementById("edInfoFrame").value.trim(),
+        [FO.hp]:      aNumero("edInfoHp", "Potencia (HP / kW)"),
+        [FO.volts]:   aNumero("edInfoVolts", "Volts"),
+      };
+      if(G.esGeneral){
+        fieldsOrden[FO.usuario] = document.getElementById("edInfoUsuario").value.trim();
+        fieldsOrden[FO.tipoEquipo] = document.getElementById("edInfoTipoEquipo").value;
+        fieldsOrden[FO.descripcionOtro] = document.getElementById("edInfoDescripcionOtro").value.trim();
+      } else {
+        fieldsOrden[FO.catNo] = document.getElementById("edInfoCatNo").value.trim();
+      }
+      await fetch(`/.netlify/functions/airtable?table=${T_ORDENES}&recordId=${G.orden.id}`, {
+        method:"PATCH",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ fields: fieldsOrden })
+      });
+      Object.assign(G.orden.fields, fieldsOrden);
+      if(G.esGeneral && G.general){
+        const fieldsGeneral = {
+          [RG.nombreCorto]: document.getElementById("edInfoNombreCorto").value.trim(),
+          [RG.marca]:       document.getElementById("edInfoMarca").value.trim(),
+          [RG.color]:       document.getElementById("edInfoColor").value.trim(),
+          [RG.numParte]:    document.getElementById("edInfoNumParte").value.trim(),
+        };
+        await fetch(`/.netlify/functions/airtable?table=${T_REPORTES_GENERAL}&recordId=${G.general.id}`, {
+          method:"PATCH",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify({ fields: fieldsGeneral })
+        });
+        Object.assign(G.general.fields, fieldsGeneral);
+      }
+      await incrementarContadorEdicion(FO.edicionesReporte);
+      cerrarEditor();
+      actualizarUI();
     }
   } catch(e){
     alert("No se pudieron guardar los cambios: " + (e.message||""));
