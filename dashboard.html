@@ -1232,6 +1232,90 @@ footer strong{ color: var(--azul); }
 .cal-divval{ text-align:right; font-weight:700; }
 .cal-empty{ font-size:0.76rem; color:var(--gris-texto); padding:10px 0; }
 
+/* ===== PLANEACIÓN — calendario mensual + Gantt ===== */
+.plan-toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+.plan-nav{ display:flex; align-items:center; gap:6px; }
+.plan-nav button{
+  background:var(--blanco); border:1px solid var(--gris); color:var(--gris-oscuro);
+  border-radius:var(--radio-sm); padding:6px 11px; font-size:0.82rem; font-weight:700;
+  cursor:pointer; font-family:inherit; transition:all 0.15s;
+}
+.plan-nav button:hover{ background:var(--fondo); border-color:var(--azul-acento); }
+.plan-mes{ font-size:0.95rem; font-weight:700; color:var(--azul); min-width:170px; text-align:center; text-transform:capitalize; }
+.plan-leyenda{ display:flex; gap:14px; flex-wrap:wrap; margin-left:auto; font-size:0.74rem; color:var(--gris-texto); font-weight:600; }
+.plan-leyenda span{ display:inline-flex; align-items:center; gap:5px; }
+.plan-punto{ width:9px; height:9px; border-radius:50%; display:inline-block; flex-shrink:0; }
+.pp-llegada{ background:#2563a8; }
+.pp-recoleccion{ background:#8a5a2b; }
+.pp-compra{ background:#6d3fa8; }
+.pp-envio{ background:#0e7a3c; }
+.pp-retraso{ background:#991b1b; }
+
+.cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:1px; background:var(--gris); border:1px solid var(--gris); border-radius:var(--radio); overflow:hidden; }
+.cal-dow{ background:var(--navy); color:rgba(255,255,255,0.72); font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; padding:7px 8px; text-align:center; }
+.cal-dia{ background:var(--blanco); min-height:104px; padding:5px 6px; display:flex; flex-direction:column; gap:3px; }
+.cal-dia.fuera{ background:#f7f9fc; }
+.cal-dia.fuera .cal-dia-num{ color:#a9b4c4; }
+.cal-dia.hoy{ background:var(--azul-bg); box-shadow:inset 0 0 0 2px var(--azul-acento); }
+.cal-dia-num{ font-size:0.72rem; font-weight:700; color:var(--gris-oscuro); margin-bottom:1px; }
+.cal-ev{
+  display:flex; align-items:center; gap:5px; font-size:0.68rem; font-weight:600; line-height:1.25;
+  border-radius:4px; padding:3px 5px; cursor:pointer; border-left:3px solid transparent;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.cal-ev:hover{ filter:brightness(0.95); }
+.cal-ev.llegada{ background:#e8f0fb; color:#12325a; border-left-color:#2563a8; }
+.cal-ev.recoleccion{ background:#f6ecdf; color:#6b4519; border-left-color:#8a5a2b; }
+.cal-ev.compra{ background:#efe7fa; color:#4a2a7a; border-left-color:#6d3fa8; }
+.cal-ev.envio{ background:var(--verde-bg); color:#0b5c2e; border-left-color:#0e7a3c; }
+.cal-ev.retraso{ background:var(--rojo-bg); color:var(--rojo); border-left-color:#991b1b; }
+.cal-ev.cumplido{ opacity:0.5; text-decoration:line-through; }
+.cal-mas{ font-size:0.66rem; color:var(--gris-texto); font-weight:700; cursor:pointer; padding-left:3px; }
+
+.agenda-dia{ margin-bottom:14px; }
+.agenda-dia:last-child{ margin-bottom:0; }
+.agenda-dia-lbl{ font-size:0.78rem; font-weight:700; color:var(--azul); text-transform:capitalize; margin-bottom:6px; }
+.agenda-dia.hoy .agenda-dia-lbl{ color:var(--azul-acento); }
+.agenda-dia.atrasado .agenda-dia-lbl{ color:var(--rojo); }
+.agenda-lista{ display:flex; flex-direction:column; gap:5px; }
+.agenda-item{ white-space:normal; height:auto; align-items:flex-start; flex-direction:column; gap:1px; padding:7px 10px; }
+.agenda-item-titulo{ font-size:0.82rem; font-weight:700; }
+.agenda-item-detalle{ font-size:0.72rem; font-weight:500; opacity:0.85; }
+
+.gantt-wrap{ overflow-x:auto; }
+.gantt{ min-width:760px; }
+.gantt-head{ display:grid; grid-template-columns:210px 1fr; border-bottom:1px solid var(--gris); }
+.gantt-head-dias{ display:grid; }
+.gantt-head-dia{ font-size:0.6rem; font-weight:700; color:var(--gris-texto); text-align:center; padding:5px 0 6px; border-left:1px solid #eef1f6; }
+.gantt-head-dia.fin{ background:#f7f9fc; }
+.gantt-head-dia.hoy{ background:var(--azul-bg); color:var(--azul); }
+.gantt-row{ display:grid; grid-template-columns:210px 1fr; border-bottom:1px solid #eef1f6; align-items:center; }
+.gantt-row:hover{ background:#fafbfd; }
+.gantt-lbl{ padding:7px 10px; font-size:0.76rem; overflow:hidden; }
+.gantt-lbl b{ color:var(--azul); }
+.gantt-lbl .sub{ color:var(--gris-texto); font-size:0.7rem; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.gantt-pista{ position:relative; height:32px; }
+.gantt-fondo{ position:absolute; inset:0; display:grid; }
+.gantt-celda{ border-left:1px solid #f1f4f8; }
+.gantt-celda.fin{ background:#f9fafc; }
+.gantt-hoy{ position:absolute; top:0; bottom:0; width:2px; background:var(--rojo); opacity:0.55; z-index:3; }
+.gantt-barra{
+  position:absolute; top:8px; height:16px; border-radius:8px; z-index:2; cursor:pointer;
+  background:linear-gradient(90deg,#3b82c4,#12325a); box-shadow:0 1px 3px rgba(12,30,53,0.2);
+}
+.gantt-barra.retrasada{ background:linear-gradient(90deg,#d05a5a,#991b1b); }
+.gantt-barra.cerrada{ background:linear-gradient(90deg,#7bbf95,#0e7a3c); }
+.gantt-hito{ position:absolute; top:6px; width:11px; height:11px; border-radius:50%; z-index:4; border:2px solid #fff; box-shadow:0 1px 2px rgba(0,0,0,0.25); cursor:pointer; }
+.gantt-hito.recoleccion{ background:#8a5a2b; top:18px; }
+.gantt-hito.compra{ background:#6d3fa8; top:18px; }
+.gantt-hito.llegada{ background:#2563a8; }
+.gantt-hito.envio{ background:#0e7a3c; }
+@media (max-width: 700px){
+  .cal-dia{ min-height:76px; }
+  .cal-ev{ font-size:0.62rem; }
+  .gantt-head, .gantt-row{ grid-template-columns:130px 1fr; }
+}
+
 /* ===== QR de equipo ===== */
 .qr-modal-body{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:24px; }
 #qrModalBox{ margin:10px 0; padding:14px; background:#fff; border:1px solid var(--gris); border-radius:var(--radio-sm); }
@@ -1297,7 +1381,9 @@ footer strong{ color: var(--azul); }
 <div class="topbar">
   <div class="topbar-item active" id="tab-general"    onclick="cambiarTab('general')">General</div>
   <div class="topbar-item"        id="tab-ordenes"    onclick="cambiarTab('ordenes')">Órdenes</div>
+  <div class="topbar-item"        id="tab-planeacion" onclick="cambiarTab('planeacion')">📅 Planeación</div>
   <div class="topbar-item"        id="tab-validacion" onclick="cambiarTab('validacion')">Validación Materiales <span class="badge" id="badgeDireccionPend" style="margin-left:4px">0</span></div>
+  <div class="topbar-item"        id="tab-costos"      onclick="cambiarTab('costos')">🧮 Control de Costos</div>
 </div>
 
 <main>
@@ -1507,6 +1593,7 @@ footer strong{ color: var(--azul); }
     <!-- SECCIÓN ÓRDENES -->
     <div id="secOrdenes" style="display:none">
     <div id="avisoRechazadas" class="hidden" style="background:#fdecea;color:#991b1b;border:1px solid #f5b5ac;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;font-weight:600;cursor:pointer" onclick="document.getElementById('seccionRechazadasTabla').scrollIntoView({behavior:'smooth'})"></div>
+    <div id="avisoRespaldo" class="hidden" style="background:#e8f0fe;color:#1a3d7c;border:1px solid #a9c3ee;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:0.85rem;font-weight:600"></div>
     <!-- FILTROS -->
     <div class="filtros-bar">
       <span class="filtros-label">Filtros</span>
@@ -1645,6 +1732,47 @@ footer strong{ color: var(--azul); }
 
     </div><!-- /secOrdenes -->
 
+    <!-- ===== PLANEACIÓN (calendario + Gantt) ===== -->
+    <div id="secPlaneacion" style="display:none">
+      <div class="section-label">Planeación logística</div>
+      <p style="font-size:0.8rem;color:var(--gris-texto);margin-bottom:12px">
+        Qué equipos están por llegar, qué material hay que ir a recoger y qué está programado para salir.
+        No sustituye al Plan Diario (eso es lo que hace cada técnico hoy) — esto es el nivel de arriba.
+      </p>
+
+      <div id="planAvisos" style="margin-bottom:14px"></div>
+
+      <div class="plan-toolbar">
+        <div class="vista-toggle">
+          <button class="vista-btn active" id="planBtnCal"     onclick="cambiarVistaPlan('calendario')">🗓️ Calendario</button>
+          <button class="vista-btn"        id="planBtnGantt"   onclick="cambiarVistaPlan('gantt')">📊 Gantt</button>
+          <button class="vista-btn"        id="planBtnAgenda"  onclick="cambiarVistaPlan('agenda')">📋 Agenda</button>
+          <button class="vista-btn"        id="planBtnCompras" onclick="cambiarVistaPlan('compras')">📦 Compras</button>
+        </div>
+        <div class="plan-nav" id="planNav">
+          <button onclick="planMoverMes(-1)">‹</button>
+          <div class="plan-mes" id="planMesLbl">—</div>
+          <button onclick="planMoverMes(1)">›</button>
+          <button onclick="planIrHoy()">Hoy</button>
+        </div>
+        <div class="plan-leyenda" id="planLeyenda">
+          <span><i class="plan-punto pp-llegada"></i>Llegada</span>
+          <span><i class="plan-punto pp-recoleccion"></i>Recolección de material</span>
+          <span><i class="plan-punto pp-compra"></i>Compra de material</span>
+          <span><i class="plan-punto pp-envio"></i>Envío / entrega</span>
+          <span><i class="plan-punto pp-retraso"></i>Retrasada</span>
+        </div>
+        <button class="btn-header btn-refresh" id="btnImprimirSemanaPlan" onclick="imprimirPlaneacionSemanal()" style="margin-left:auto">🖨️ Imprimir semana</button>
+      </div>
+
+      <div class="table-section" style="padding:14px">
+        <div id="planCalendario"></div>
+        <div id="planGantt" class="hidden"></div>
+        <div id="planAgenda" class="hidden"></div>
+        <div id="planCompras" class="hidden"></div>
+      </div>
+    </div>
+
     <!-- ===== VALIDACIÓN DE MATERIALES (Admin + Dirección) ===== -->
     <div id="secValidacion" style="display:none">
       <div class="section-label">Validación de listas de materiales</div>
@@ -1667,6 +1795,25 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
+
+    <!-- ===== CONTROL DE COSTOS (Admin + Dirección, uso interno) ===== -->
+    <div id="secCostos" style="display:none">
+      <div class="section-label">Control de costos internos <span style="background:var(--rojo-bg);color:var(--rojo);border:1px solid var(--rojo-borde);font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.3px;margin-left:6px;vertical-align:middle">SOLO INTERNO</span></div>
+      <div id="costosControlResumen" class="cot-totales" style="margin-bottom:16px"></div>
+      <div class="card">
+        <div class="card-title"><span class="card-title-dot"></span>Tablas de costos guardadas</div>
+        <div class="table-section" style="margin-top:8px">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Folio/Serie</th><th>Cliente</th><th style="text-align:right">Costo</th><th style="text-align:right">Precio venta</th><th style="text-align:right">Utilidad</th><th style="text-align:right">Margen</th><th>Actualizado</th><th></th></tr>
+              </thead>
+              <tbody id="tbodyCostosControl"><tr class="empty-row"><td colspan="8">Cargando...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </div><!-- /content -->
 </main>
@@ -1705,8 +1852,9 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
-<!-- MODAL CONFIRMAR ENTREGA — cualquiera (Técnico o Admin) documenta la entrega con
-     fotos del equipo y de la remisión firmada; al confirmar, la orden pasa a Entregado. -->
+<!-- MODAL CONFIRMAR ENTREGA — cualquiera (Técnico o Admin) documenta la entrega (o, en
+     modo recogida, la devolución de un equipo rechazado) con fotos del equipo y de la
+     remisión firmada; al confirmar, la orden pasa a Entregado (o se marca recogida). -->
 <div class="modal-overlay hidden" id="modalEntrega" onclick="cerrarEntregaSiFuera(event)">
   <div class="ck-modal" style="max-width:480px">
     <div class="ck-modal-header">
@@ -1783,6 +1931,14 @@ footer strong{ color: var(--azul); }
       </p>
       <div class="prereg-grid">
         <div class="prereg-campo">
+          <label>Tipo de servicio *</label>
+          <select id="preTipoServicio" onchange="togglePreSulzerCampos()">
+            <option value="">-- Seleccione --</option>
+            <option value="Sulzer">Sulzer</option>
+            <option value="General">General</option>
+          </select>
+        </div>
+        <div class="prereg-campo">
           <label>Tipo de equipo *</label>
           <select id="preTipoEquipo" onchange="preRegGenerarFolio()">
             <option value="">-- Seleccione --</option>
@@ -1802,6 +1958,39 @@ footer strong{ color: var(--azul); }
         <div class="prereg-campo">
           <label>Cliente *</label>
           <input type="text" id="preCliente" placeholder="Ej. ABB">
+        </div>
+        <div class="prereg-campo">
+          <label>Fecha de llegada programada</label>
+          <input type="date" id="preFechaLlegada">
+        </div>
+        <div class="prereg-campo">
+          <label>¿Cómo llega el equipo?</label>
+          <select id="preModoRecepcion" onchange="togglePreDireccionRecoleccion()">
+            <option value="">-- Sin definir --</option>
+            <option value="Cliente lo trae">Cliente lo trae</option>
+            <option value="Lo recogemos nosotros">Lo recogemos nosotros</option>
+            <option value="Paqueteria">Paquetería</option>
+          </select>
+        </div>
+        <div class="prereg-campo hidden" id="preDireccionWrap" style="grid-column:1 / -1">
+          <label>¿Dónde lo recogemos?</label>
+          <input type="text" id="preDireccionRecoleccion" placeholder="Ej. Planta ABB Tlalnepantla, andén 3">
+        </div>
+        <div class="prereg-campo hidden" id="preSulzerCamposWrap">
+          <label>¿Llevará pintura?</label>
+          <select id="prePinturaPlaneada">
+            <option value="Aun no se sabe">Aún no se sabe</option>
+            <option value="Si">Sí</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+        <div class="prereg-campo hidden" id="preChecklistCamposWrap">
+          <label>¿Se le hará checklist Sulzer?</label>
+          <select id="preChecklistPlaneado">
+            <option value="Aun no se sabe">Aún no se sabe</option>
+            <option value="Si">Sí</option>
+            <option value="No">No</option>
+          </select>
         </div>
         <div class="prereg-campo" style="grid-column:1 / -1">
           <label>Descripción del problema (lo que reporta el cliente/usuario)</label>
@@ -1854,6 +2043,23 @@ footer strong{ color: var(--azul); }
       <button class="btn-cancelar" onclick="cerrarPreRegistro()">Cancelar</button>
       <button class="btn-imprimir" id="btnGuardarPreReg" onclick="guardarPreRegistro()">Guardar pre-registro</button>
     </div>
+  </div>
+</div>
+
+<!-- MODAL PLANEACIÓN DE UNA ORDEN (fechas de llegada/envío + material por recoger) -->
+<div class="modal-overlay hidden" id="modalPlaneacion" onclick="cerrarPlaneacionSiFuera(event)">
+  <div class="ck-modal" style="max-width:660px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Planeación — <span id="planFolioTitulo">—</span></h2>
+        <button class="modal-close" onclick="cerrarPlaneacionOrden()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body">
+      <div id="planModalBody"></div>
+      <div id="planStatus" style="margin-top:12px;font-size:0.83rem;font-weight:600"></div>
+    </div>
+    <div class="ck-modal-footer" id="planModalFooter"></div>
   </div>
 </div>
 
@@ -1996,9 +2202,67 @@ footer strong{ color: var(--azul); }
   </div>
 </div>
 
+<!-- MODAL TABLA DE COSTOS INTERNOS (solo Admin/Dirección) — costo→precio de venta,
+     JAMÁS visible para el cliente ni el técnico. Uso interno, no publicado todavía. -->
+<div class="modal-overlay hidden" id="modalCostos" onclick="cerrarCostosSiFuera(event)">
+  <div class="ck-modal" style="max-width:980px">
+    <div class="ck-modal-header">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <h2>Tabla de costos — <span id="costFolioTitulo">—</span>
+          <span style="background:var(--rojo-bg);color:var(--rojo);border:1px solid var(--rojo-borde);font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.3px;margin-left:6px;vertical-align:middle">SOLO INTERNO</span>
+        </h2>
+        <button class="modal-close" onclick="cerrarCostos()">✕</button>
+      </div>
+    </div>
+    <div class="ck-modal-body" id="costBody">
+      <div style="text-align:center;padding:40px;color:var(--gris-texto)" id="costCargando">
+        <div class="spinner" style="margin:0 auto 16px"></div>
+        <p>Cargando tabla de costos...</p>
+      </div>
+      <div id="costForm" class="hidden">
+        <table class="cot-tbl" id="costTabla">
+          <thead>
+            <tr><th>Servicio / Descripción</th><th style="width:64px">% Margen</th><th style="width:96px">Costo</th><th style="width:96px">Precio venta</th><th style="width:96px">Utilidad</th><th style="width:30px"></th></tr>
+          </thead>
+          <tbody id="costFilasBody"></tbody>
+          <tfoot>
+            <tr>
+              <td style="text-align:right;font-weight:700;color:var(--azul);border:1px solid var(--gris)">TOTALES:</td>
+              <td style="border:1px solid var(--gris)"></td>
+              <td id="costSumCosto" style="font-weight:700;text-align:right;border:1px solid var(--gris)"></td>
+              <td id="costSumVenta" style="font-weight:700;text-align:right;color:var(--azul);border:1px solid var(--gris)"></td>
+              <td id="costSumUtilidad" style="font-weight:700;text-align:right;color:var(--verde);border:1px solid var(--gris)"></td>
+              <td style="border:1px solid var(--gris)"></td>
+            </tr>
+          </tfoot>
+        </table>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          <button type="button" class="btn-cancelar" onclick="costAgregarItem()">+ Agregar renglón con costo</button>
+          <button type="button" class="btn-cancelar" onclick="costAgregarCategoria()">+ Agregar categoría</button>
+          <button type="button" class="btn-cancelar" onclick="costAgregarNota()">+ Agregar nota</button>
+        </div>
+
+        <div class="cot-totales" style="margin-bottom:14px">
+          <div>Costo total: <strong id="costStatCosto">$0.00</strong></div>
+          <div>Precio de venta: <strong id="costStatVenta">$0.00</strong></div>
+          <div>Utilidad: <strong id="costStatUtilidad" style="color:var(--verde)">$0.00</strong> <span id="costStatMargen" style="color:var(--gris-texto)"></span></div>
+        </div>
+
+        <div style="background:var(--fondo);border-radius:var(--radio-sm);padding:14px 16px">
+          <div style="font-weight:700;color:var(--azul);margin-bottom:8px;font-size:0.85rem">👁️ Lo que vería el cliente (solo precio de venta, nunca costo/utilidad)</div>
+          <div id="costPreviewCliente" style="font-size:0.82rem"></div>
+        </div>
+
+        <div id="costStatus" style="margin-top:10px;font-size:0.83rem;font-weight:600"></div>
+      </div>
+    </div>
+    <div class="ck-modal-footer" id="costFooter"></div>
+  </div>
+</div>
+
 <!-- MODAL VALIDACIÓN DE MATERIALES (rol Dirección) -->
 <div class="modal-overlay hidden" id="modalValidacion" onclick="cerrarValidacionSiFuera(event)">
-  <div class="ck-modal" style="max-width:640px">
+  <div class="ck-modal" style="max-width:900px">
     <div class="ck-modal-header">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
         <h2>Validar materiales — <span id="valFolioTitulo">—</span></h2>
@@ -2014,13 +2278,23 @@ footer strong{ color: var(--azul); }
         <div class="detalle-seccion" style="margin-top:0">Datos del equipo</div>
         <div class="detalle-grid" id="valDatosGrid" style="margin-bottom:14px"></div>
         <div id="valProblemaWrap"></div>
-        <div class="detalle-seccion">Lista de materiales</div>
-        <table class="cot-tbl">
-          <thead>
-            <tr><th style="width:64px">Cant.</th><th style="width:80px">Unidad</th><th>Descripción</th><th>Nota</th></tr>
-          </thead>
-          <tbody id="valMaterialesBody"></tbody>
-        </table>
+        <div class="detalle-seccion">Lista de materiales y su logística</div>
+        <p style="font-size:0.78rem;color:var(--gris-texto);margin:0 0 8px" id="valLogisticaAyuda">
+          El técnico solo arma la lista. Aquí se resuelve de dónde sale cada material: lo que se recoge con proveedor
+          o hay que comprar genera un evento en el <b>calendario de Planeación</b> con su fecha estimada.
+        </p>
+        <div class="table-wrap">
+          <table class="cot-tbl" id="valMaterialesTabla">
+            <thead>
+              <tr>
+                <th style="width:52px">Cant.</th><th style="width:70px">Unidad</th><th>Descripción</th><th style="width:120px">Nota</th>
+                <th style="width:150px">Origen</th><th style="width:130px">Proveedor</th><th style="width:130px">Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="valMaterialesBody"></tbody>
+          </table>
+        </div>
+        <div id="valSinResolver" class="hidden" style="margin-top:10px;background:var(--ambar-bg);border:1px solid var(--ambar-borde);color:#7a5b00;border-radius:8px;padding:9px 12px;font-size:0.8rem;font-weight:600"></div>
         <div id="valStatus" style="margin-top:10px;font-size:0.83rem;font-weight:600"></div>
       </div>
     </div>
@@ -2107,6 +2381,31 @@ const F = {
   montoCobrado:            "fldJHOcyHWfJwclMy",
   equipoRecogido:          "fldIrJToATnURZwdt",
   fechaRecogida:           "fldxl6Ht2S5EtCPZq",
+  // Planeación logística (agregados 2026-08-19)
+  fechaLlegadaProgramada:  "fldjQaDhI9WBaByBl",
+  modoRecepcion:           "fldC5IpKzHZRUu0EX",
+  direccionRecoleccion:    "fldgF7O6JqfZQgboc",
+  modoEnvio:               "fldaM6PeczIFP1GZN",
+  motivoRetraso:           "fldZ40CWOzYqf6Hyu",
+  logisticaMateriales:     "fld6o8dgUybubWuSb",
+  // Paquetería/guía de planeación (agregados 2026-09-07) — captura temprana al planear
+  // recepción/envío, separada de la guía de la Remisión de Entrega en reportes.html
+  // (esa se llena al momento real de la entrega).
+  paqueteriaRecepcion:     "fldKM8S4pqTfhm5YX",
+  guiaRecepcion:           "fldAAdnmX9sGDGcoi",
+  paqueteriaEnvio:         "fldMnssPc7w28euVS",
+  guiaEnvio:               "fldWcZx5bG37KWYS5",
+  // Pre-registro Sulzer con anticipación (agregados 2026-08-31): a diferencia de General,
+  // un Sulzer casi nunca trae serie/SPEC de antemano, pero sí se suele saber si llevará
+  // pintura y/o checklist SI-ABB. OJO: NO son lo mismo que F.pintura/F.checklist (esos
+  // son los checkbox de "esa etapa ya se completó", marcados por checklist_sulzer.html
+  // e inspeccion_pintura.html).
+  pinturaPlaneada:         "fldP5myqTtCEe17zr",
+  checklistSulzerPlaneado: "fldgdAdOAEavXDEVJ",
+  // Respaldo mensual a Google Drive (agregado 2026-08-24)
+  respaldado:              "fldDvyOQxdyBxDmwG",
+  fechaRespaldo:           "fldWGI2ANJ6ytJqfX",
+  driveBackupUrl:          "fldEQMai5t8VsJzyZ",
 };
 
 /* ============================================================
@@ -2242,6 +2541,21 @@ function parsear(rec){
     montoCobrado: (f[F.montoCobrado] !== undefined && f[F.montoCobrado] !== null) ? Number(f[F.montoCobrado]) : null,
     equipoRecogido: !!f[F.equipoRecogido],
     fechaRecogida: f[F.fechaRecogida] || "",
+    fechaLlegadaProgramada: f[F.fechaLlegadaProgramada] || "",
+    modoRecepcion: (f[F.modoRecepcion] && f[F.modoRecepcion].name) || f[F.modoRecepcion] || "",
+    direccionRecoleccion: f[F.direccionRecoleccion] || "",
+    modoEnvio: (f[F.modoEnvio] && f[F.modoEnvio].name) || f[F.modoEnvio] || "",
+    motivoRetraso: (f[F.motivoRetraso] && f[F.motivoRetraso].name) || f[F.motivoRetraso] || "",
+    logisticaMateriales: f[F.logisticaMateriales] || "",
+    paqueteriaRecepcion: f[F.paqueteriaRecepcion] || "",
+    guiaRecepcion: f[F.guiaRecepcion] || "",
+    paqueteriaEnvio: f[F.paqueteriaEnvio] || "",
+    guiaEnvio: f[F.guiaEnvio] || "",
+    pinturaPlaneada: (f[F.pinturaPlaneada] && f[F.pinturaPlaneada].name) || f[F.pinturaPlaneada] || "",
+    checklistSulzerPlaneado: (f[F.checklistSulzerPlaneado] && f[F.checklistSulzerPlaneado].name) || f[F.checklistSulzerPlaneado] || "",
+    respaldado: !!f[F.respaldado],
+    fechaRespaldo: f[F.fechaRespaldo] || "",
+    driveBackupUrl: f[F.driveBackupUrl] || "",
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
@@ -2347,6 +2661,9 @@ function aplicarFiltros(){
       : "";
 
   renderDashboard(filtradas);
+  // La Planeación no usa los filtros de la tabla (es una vista de calendario, no una
+  // lista), pero sí depende de allOrdenes — se repinta cuando llegan datos nuevos.
+  if(document.getElementById("tab-planeacion")?.classList.contains("active")) renderPlaneacion();
 }
 
 function limpiarFiltros(){
@@ -2440,6 +2757,7 @@ function renderDashboard(ordenes){
   document.getElementById("badgeRechazadas").textContent = rechazadas.length;
   renderTablaRechazadas(rechazadas.slice().sort(byDiasDesc));
   renderAvisoRechazadas(rechazadas, esAdmin);
+  renderAvisoRespaldo(entregadas, esAdmin);
 
   document.getElementById("content").classList.remove("hidden");
 
@@ -2493,6 +2811,29 @@ function renderAvisoRechazadas(rechazadas, esAdmin){
     + (pendientes.length>5 ? ` +${pendientes.length-5} más` : "");
 }
 
+// Aviso para Admin/Dirección de órdenes ya Entregadas hace más de 30 días que
+// todavía no se han respaldado a Google Drive (Fase 1 del respaldo mensual —
+// ver memoria plan_respaldo_mensual). Cada serie/folio abre directo esa orden
+// en reportes.html, donde vive el botón real "☁️ Respaldar a Drive".
+const DIAS_MIN_PARA_RESPALDO = 30;
+function renderAvisoRespaldo(entregadas, esAdmin){
+  const el = document.getElementById("avisoRespaldo");
+  if(!el) return;
+  const pendientes = entregadas.filter(o => {
+    if(o.respaldado || !o.fechaEntregaReal) return false;
+    const dias = (Date.now() - new Date(o.fechaEntregaReal)) / (1000 * 60 * 60 * 24);
+    return dias >= DIAS_MIN_PARA_RESPALDO;
+  });
+  if(!esAdmin || pendientes.length === 0){
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML = `📦 ${pendientes.length} orden${pendientes.length>1?'es':''} entregada${pendientes.length>1?'s':''} hace más de ${DIAS_MIN_PARA_RESPALDO} días sin respaldar a Drive: `
+    + pendientes.slice(0,5).map(o => `<a href="#" onclick="event.preventDefault();abrirReportes('${o.id}','${esc(o.serie||o.folio||"")}')" style="color:#1a3d7c;text-decoration:underline">${esc(o.serie || o.folio || "—")}</a>`).join(", ")
+    + (pendientes.length>5 ? ` +${pendientes.length-5} más` : "");
+}
+
 function renderTablaPorLlegar(ordenes){
   const tbody = document.getElementById("tbodyPorLlegar");
   const esAdmin = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
@@ -2504,7 +2845,8 @@ function renderTablaPorLlegar(ordenes){
     <td class="td-serie">${esc(o.folio || "—")}</td>
     <td>${esc(o.tipoEquipo || "—")}${(o.hp || o.hp === 0) ? ` · ${esc(String(o.hp))} HP` : ""}</td>
     <td class="td-cliente" title="${esc(o.cliente)}">${esc(o.cliente)||"—"}</td>
-    <td>${esc(o.serie || "—")}</td>
+    <td><input type="text" class="sel-fila" value="${esc(o.serie||"")}" placeholder="Aún sin serie" style="width:120px"
+      onchange="actualizarCampoOrden('${o.id}','serie',this.value.trim()||null,this)"></td>
     <td>${esc(o.tecnicoAsignado) || "<span style='color:var(--gris-texto)'>— Sin asignar —</span>"}</td>
     <td class="td-num">
       <button class="btn-ver" onclick="verDetalleGeneral('${o.id}','${esc(o.folio)}')">Ver detalle</button>
@@ -2513,6 +2855,7 @@ function renderTablaPorLlegar(ordenes){
     <td class="td-num">${esAdmin
       ? `<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap">
            <button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(o.folio)}')">&#128176; Cotizar</button>
+           <button class="btn-corr" style="background:#4b3f72" onclick="abrirCostos('${o.id}','${esc(o.folio)}')">🧮 Costos</button>
            <button class="btn-corr" style="background:#991b1b" onclick="cancelarPreRegistro('${o.id}','${esc(o.folio)}')">&#10005; Cancelar</button>
          </div>`
       : `<span style="color:var(--gris-texto);font-size:0.78rem">Esperando llegada</span>`}</td>
@@ -2535,13 +2878,17 @@ function byPrioridadYDias(a, b){
    ============================================================ */
 function cambiarTab(tab){
   // Tabs
-  ["general","ordenes","validacion"].forEach(t => {
+  ["general","ordenes","planeacion","validacion","costos"].forEach(t => {
     document.getElementById("tab-"+t).classList.toggle("active", t === tab);
   });
   // Secciones
   document.getElementById("secGeneral").style.display    = tab === "general"    ? "" : "none";
   document.getElementById("secOrdenes").style.display    = tab === "ordenes"    ? "" : "none";
+  document.getElementById("secPlaneacion").style.display = tab === "planeacion" ? "" : "none";
   document.getElementById("secValidacion").style.display = tab === "validacion" ? "" : "none";
+  document.getElementById("secCostos").style.display     = tab === "costos"     ? "" : "none";
+  if(tab === "costos") renderControlCostos();
+  if(tab === "planeacion") renderPlaneacion();
 }
 
 /* ============================================================
@@ -2592,6 +2939,7 @@ function datosFila(o, esAdmin){
         : ''}
       <button class="btn-rep" onclick="abrirReportes('${o.id}','${esc(identificador)}')">Reportes</button>
       ${esAdmin ? `<button class="btn-corr" style="background:#976010" onclick="abrirCotizacion('${o.id}','${esc(identificador)}')" ${o.estadoValidacionMateriales==="Pendiente" ? `title="Materiales aún sin validar por Dirección"` : ''}>&#128176; Cotizar${o.estadoValidacionMateriales==="Pendiente" ? ` <span style="background:#fde68a;color:#7a5b00;border-radius:8px;padding:0 5px;font-size:0.68rem;margin-left:2px">&#9888;</span>` : ''}</button>` : ''}
+      ${esAdmin ? `<button class="btn-corr" style="background:#4b3f72" onclick="abrirCostos('${o.id}','${esc(identificador)}')">🧮 Costos</button>` : ''}
     ` : `
       <button class="btn-ver" onclick="verChecklist('${o.id}','${esc(o.serie)}')">Ver detalle</button>
       <button class="btn-corr" style="background:#0e7a3c" onclick="generarQROrden('${o.id}','${esc(identificador)}')">🏷️ QR</button>
@@ -2648,6 +2996,716 @@ function renderTabla(tbodyId, ordenes){
       </td>
     </tr>`;
   }).join("");
+}
+
+/* ============================================================
+   PLANEACIÓN — calendario mensual + Gantt
+
+   Es el nivel de arriba del Plan Diario: qué entra al taller, qué material
+   hay que ir a recoger y qué está programado para salir. Todos los eventos
+   se derivan de campos que ya existen en la orden — no hay tabla nueva:
+     🔵 Llegada     ← ORDENES.fechaLlegadaProgramada (se captura en Pre-registro)
+     🟤 Recolección ← materiales con origen "Recoger con proveedor" y fecha
+     🟣 Compra      ← materiales con origen "Hay que comprar" y fecha
+                      (recolección y compra se capturan en el modal de Validación
+                      de materiales)
+     🟢 Envío       ← ORDENES.fechaEntregaProgramada (campo viejo, aquí se pone en uso)
+     🔴 Retraso     ← se CALCULA (fecha ya pasó y la orden no avanzó), nunca se captura
+   ============================================================ */
+let planVista = "calendario";
+let planAncla = new Date();      // cualquier día del mes que se está viendo
+let planDiaExpandido = null;     // día del calendario con "+N más" desplegado
+
+const PLAN_DOW  = ["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
+const PLAN_MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
+// Mismo catálogo de formas de entrega que ya usa la Remisión de Entrega real
+// (reportes.html, etiquetaTipoEntrega()) — para que Planeación hable el mismo idioma.
+// Los valores viejos ("Cliente lo recoge"/"Nosotros lo llevamos"/"Paqueteria", de cuando
+// se creó este campo el 2026-08-19) NO se borran de Airtable ni de aquí para no perder
+// lo ya guardado en órdenes existentes; ver abrirPlaneacionOrden().
+const MODO_ENVIO_OPCIONES = ["Entrega directa en instalaciones del cliente","Envío por paquetería","Servicio en sitio (instalaciones del cliente)","Cliente recoge en C.S."];
+
+// Fecha local en ISO. new Date().toISOString() da UTC y en México adelanta el día
+// después de las 6 pm — ya mordió antes en este proyecto (bug de fecha off-by-one).
+function isoLocal(d){
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function hoyISO(){ return isoLocal(new Date()); }
+function planEsFinde(iso){
+  const [y,m,d] = iso.split("-").map(Number);
+  const dow = new Date(y, m-1, d).getDay();
+  return dow === 0 || dow === 6;
+}
+
+// Técnico solo ve la planeación de las órdenes que le tocan — mismo criterio
+// que ya usa el filtro "Mis asignaciones" y el Plan Diario.
+function ordenesVisiblesPlan(){
+  const esTecnico = _sesion && _sesion.rol === "Tecnico";
+  return allOrdenes.filter(o => !esTecnico || esMiAsignacionOSinAsignar(o));
+}
+function puedeEditarPlan(){
+  return !!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion"));
+}
+
+function eventosPlaneacion(){
+  const hoy = hoyISO();
+  const evs = [];
+  ordenesVisiblesPlan().forEach(o => {
+    const est = normEstado(o.estado);
+    const ident = o.folio || o.serie || "—";
+    const cerrada = ["terminado","entregado"].includes(est);
+
+    if(o.fechaLlegadaProgramada){
+      const cumplido = est !== "porllegar"; // ya está en el taller
+      evs.push({
+        fecha: o.fechaLlegadaProgramada, base: "llegada", cumplido,
+        retrasado: !cumplido && o.fechaLlegadaProgramada < hoy,
+        orden: o, ident,
+        titulo: `Llega ${ident}`,
+        detalle: [o.cliente, o.modoRecepcion].filter(Boolean).join(" · "),
+      });
+    }
+
+    recoleccionesDeOrden(o).forEach(l => {
+      const esCompra = l.origen === "Hay que comprar";
+      evs.push({
+        fecha: l.fecha, base: esCompra ? "compra" : "recoleccion", cumplido: !!l.recogido,
+        retrasado: !l.recogido && l.fecha < hoy,
+        orden: o, ident,
+        titulo: `${esCompra ? "Recibir" : "Recoger"}: ${l.descripcion || "material"}`,
+        detalle: [l.proveedor, `para ${ident}`].filter(Boolean).join(" · "),
+      });
+    });
+
+    if(o.fechaEntregaProgramada){
+      const cumplido = est === "entregado";
+      evs.push({
+        fecha: o.fechaEntregaProgramada, base: "envio", cumplido,
+        retrasado: !cumplido && o.fechaEntregaProgramada < hoy,
+        orden: o, ident,
+        titulo: `${cerrada ? "Entregar" : "Enviar"} ${ident}`,
+        detalle: [o.cliente, o.modoEnvio].filter(Boolean).join(" · "),
+      });
+    }
+  });
+  return evs;
+}
+
+function claseEvento(ev){
+  if(ev.cumplido) return ev.base + " cumplido";
+  return ev.retrasado ? "retraso" : ev.base;
+}
+
+function cambiarVistaPlan(v){
+  planVista = v;
+  document.getElementById("planBtnCal").classList.toggle("active", v === "calendario");
+  document.getElementById("planBtnGantt").classList.toggle("active", v === "gantt");
+  document.getElementById("planBtnAgenda").classList.toggle("active", v === "agenda");
+  document.getElementById("planBtnCompras").classList.toggle("active", v === "compras");
+  document.getElementById("planCalendario").classList.toggle("hidden", v !== "calendario");
+  document.getElementById("planGantt").classList.toggle("hidden", v !== "gantt");
+  document.getElementById("planAgenda").classList.toggle("hidden", v !== "agenda");
+  document.getElementById("planCompras").classList.toggle("hidden", v !== "compras");
+  // El nav de mes y la leyenda de colores solo aplican a Calendario/Gantt —
+  // Agenda es "próximos 7 días desde hoy" y Compras no tiene eje de tiempo por mes.
+  const conMes = (v === "calendario" || v === "gantt");
+  document.getElementById("planNav").classList.toggle("hidden", !conMes);
+  document.getElementById("planLeyenda").classList.toggle("hidden", !conMes);
+  renderPlaneacion();
+}
+function planMoverMes(delta){
+  planAncla = new Date(planAncla.getFullYear(), planAncla.getMonth() + delta, 1);
+  planDiaExpandido = null;
+  renderPlaneacion();
+}
+function planIrHoy(){
+  planAncla = new Date();
+  planDiaExpandido = null;
+  renderPlaneacion();
+}
+
+function renderPlaneacion(){
+  if(!document.getElementById("planMesLbl")) return;
+  document.getElementById("planMesLbl").textContent = `${PLAN_MESES[planAncla.getMonth()]} ${planAncla.getFullYear()}`;
+  const evs = eventosPlaneacion();
+  renderAvisosPlan(evs);
+  if(planVista === "calendario") renderCalendarioPlan(evs);
+  else if(planVista === "gantt") renderGanttPlan(evs);
+  else if(planVista === "agenda") renderAgendaPlan(evs);
+  else if(planVista === "compras") renderComprasPlan();
+}
+
+// Eventos de los próximos N días (incluye hoy), más cualquiera ya retrasado sin
+// cumplir aunque su fecha quedó en el pasado — para que no "desaparezca" de la agenda.
+function eventosProximos(evs, dias){
+  const hoy = hoyISO();
+  const limite = isoLocal(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + dias));
+  return evs.filter(e => !e.cumplido && (e.retrasado || (e.fecha >= hoy && e.fecha <= limite)));
+}
+
+/* ---------- Vista Agenda: "qué toca hoy / esta semana" ---------- */
+function renderAgendaPlan(evs){
+  const cont = document.getElementById("planAgenda");
+  if(!cont) return;
+  const hoy = hoyISO();
+  const manana = isoLocal(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + 1));
+  const proximos = eventosProximos(evs, 7).slice().sort((a,b) => (a.fecha||"9999").localeCompare(b.fecha||"9999"));
+
+  if(!proximos.length){
+    cont.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--gris-texto)">Sin nada pendiente en los próximos 7 días. 🎉</div>`;
+    return;
+  }
+
+  const porFecha = {};
+  proximos.forEach(e => (porFecha[e.fecha] = porFecha[e.fecha] || []).push(e));
+  const fechas = Object.keys(porFecha).sort();
+
+  const etiquetaFecha = iso => {
+    if(iso === hoy) return "Hoy";
+    if(iso === manana) return "Mañana";
+    if(iso < hoy) return `${formatoFechaCorta(iso)} — atrasado`;
+    return formatoFechaCorta(iso);
+  };
+
+  cont.innerHTML = fechas.map(iso => `
+    <div class="agenda-dia${iso < hoy ? " atrasado" : ""}${iso === hoy ? " hoy" : ""}">
+      <div class="agenda-dia-lbl">${esc(etiquetaFecha(iso))}</div>
+      <div class="agenda-lista">
+        ${porFecha[iso].map(e => `
+          <div class="cal-ev agenda-item ${claseEvento(e)}" onclick="abrirPlaneacionOrden('${e.orden.id}')">
+            <span class="agenda-item-titulo">${esc(e.titulo)}</span>
+            ${e.detalle ? `<span class="agenda-item-detalle">${esc(e.detalle)}</span>` : ""}
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+
+/* ---------- Vista Compras: marcar recogido/recibido en bloque ---------- */
+function renderComprasPlan(){
+  const cont = document.getElementById("planCompras");
+  if(!cont) return;
+  if(!puedeEditarPlan()){
+    cont.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--gris-texto)">Solo Admin y Dirección pueden ver esta vista.</div>`;
+    return;
+  }
+  const pendientes = [];
+  ordenesVisiblesPlan().forEach(o => {
+    recoleccionesDeOrden(o).filter(l => !l.recogido).forEach(l => {
+      pendientes.push({ orden: o, item: l });
+    });
+  });
+  if(!pendientes.length){
+    cont.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--gris-texto)">✅ Sin material pendiente de recoger o recibir.</div>`;
+    return;
+  }
+  const porProveedor = {};
+  pendientes.forEach(p => {
+    const prov = p.item.proveedor || "Sin proveedor asignado";
+    (porProveedor[prov] = porProveedor[prov] || []).push(p);
+  });
+  const proveedores = Object.keys(porProveedor).sort();
+
+  cont.innerHTML = `
+    <div style="margin-bottom:12px;display:flex;justify-content:flex-end">
+      <button class="btn-imprimir" onclick="marcarLoteRecogido()">✅ Marcar seleccionados como recogidos</button>
+    </div>
+    ${proveedores.map(prov => {
+      const items = porProveedor[prov].slice().sort((a,b) => (a.item.fecha||"9999").localeCompare(b.item.fecha||"9999"));
+      const slug = slugCompras(prov);
+      return `<div class="table-section" style="margin-bottom:14px">
+        <div class="section-header">
+          <h2>${esc(prov)} <span class="badge">${items.length}</span></h2>
+          <label style="font-size:0.78rem;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer">
+            <input type="checkbox" onchange="marcarTodosCompras('${slug}', this.checked)"> Seleccionar todo
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th style="width:36px"></th><th>Orden</th><th>Material</th><th>Cantidad</th><th>Origen</th><th>Fecha</th></tr></thead>
+            <tbody>
+              ${items.map(p => `<tr>
+                <td><input type="checkbox" class="compras-chk compras-${slug}" data-orden="${p.orden.id}" data-desc="${esc(p.item.descripcion||"")}"></td>
+                <td>${esc(p.orden.folio || p.orden.serie || "—")} <span style="color:var(--gris-texto)">· ${esc(p.orden.cliente||"—")}</span></td>
+                <td>${esc(p.item.descripcion||"—")}</td>
+                <td>${esc(String(p.item.cantidad ?? "—"))}</td>
+                <td>${p.item.origen === "Hay que comprar" ? "🟣 Comprar" : "🟤 Recoger"}</td>
+                <td>${p.item.fecha ? formatoFechaCorta(p.item.fecha) : "—"}</td>
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+    }).join("")}
+  `;
+}
+function slugCompras(s){ return (s||"").toString().replace(/[^a-zA-Z0-9]+/g,"_"); }
+function marcarTodosCompras(slug, checked){
+  document.querySelectorAll(`.compras-${slug}`).forEach(chk => chk.checked = checked);
+}
+
+// Marca en bloque los materiales seleccionados como recogidos/recibidos. Agrupa por
+// orden (varios materiales de la misma orden = un solo PATCH) para no refrescar de más.
+async function marcarLoteRecogido(){
+  if(!puedeEditarPlan()) return;
+  const seleccionados = [...document.querySelectorAll(".compras-chk:checked")]
+    .map(chk => ({ ordenId: chk.dataset.orden, descripcion: chk.dataset.desc }));
+  if(!seleccionados.length){ alert("No seleccionaste ningún material."); return; }
+
+  const porOrden = {};
+  seleccionados.forEach(s => (porOrden[s.ordenId] = porOrden[s.ordenId] || []).push(s.descripcion));
+
+  try{
+    await Promise.all(Object.keys(porOrden).map(async ordenId => {
+      const o = allOrdenes.find(x => x.id === ordenId);
+      if(!o) return;
+      const descs = new Set(porOrden[ordenId]);
+      const logArr = parseLogistica(o.logisticaMateriales).map(l =>
+        descs.has(l.descripcion || "") ? { ...l, recogido: true, fechaRecogidaReal: hoyISO() } : l
+      );
+      const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: { [F.logisticaMateriales]: JSON.stringify(logArr) } })
+      });
+      if(!resp.ok) throw new Error(`Error HTTP ${resp.status} en orden ${ordenId}`);
+    }));
+    await cargarSoloOrdenes();
+    renderPlaneacion();
+  } catch(e){
+    alert("No se pudo guardar todo: " + (e.message||""));
+  }
+}
+
+function renderAvisosPlan(evs){
+  const cont = document.getElementById("planAvisos");
+  if(!cont) return;
+  const bloques = [];
+
+  const atrasados = evs.filter(e => e.retrasado && !e.cumplido);
+  if(atrasados.length){
+    const lista = atrasados.slice(0, 6).map(e =>
+      `<span style="cursor:pointer;text-decoration:underline" onclick="abrirPlaneacionOrden('${e.orden.id}')">${esc(e.ident)}</span>`
+    ).join(", ");
+    bloques.push(`<div style="background:var(--rojo-bg);border:1px solid var(--rojo-borde);color:var(--rojo);border-radius:8px;padding:10px 14px;font-size:0.83rem;font-weight:600;margin-bottom:8px">
+      🔴 ${atrasados.length} fecha(s) programada(s) ya pasaron sin cumplirse: ${lista}${atrasados.length > 6 ? ` y ${atrasados.length-6} más` : ""}.
+    </div>`);
+  }
+
+  // Materiales que alguien tiene que conseguir pero todavía sin proveedor o sin fecha:
+  // no pueden salir como evento (no hay día que poner), así que se avisan aparte.
+  const conPendientes = ordenesVisiblesPlan()
+    .map(o => ({ o, faltan: materialesSinResolver(o).length }))
+    .filter(x => x.faltan > 0);
+  if(conPendientes.length && puedeEditarPlan()){
+    const lista = conPendientes.slice(0, 6).map(x =>
+      `<span style="cursor:pointer;text-decoration:underline" onclick="abrirValidacion('${x.o.id}','${esc(x.o.folio||x.o.serie)}')">${esc(x.o.folio||x.o.serie)} (${x.faltan})</span>`
+    ).join(", ");
+    bloques.push(`<div style="background:var(--ambar-bg);border:1px solid var(--ambar-borde);color:#7a5b00;border-radius:8px;padding:10px 14px;font-size:0.83rem;font-weight:600">
+      ⚠ Materiales sin resolver (falta proveedor o fecha): ${lista}${conPendientes.length > 6 ? ` y ${conPendientes.length-6} más` : ""}.
+    </div>`);
+  }
+
+  cont.innerHTML = bloques.join("");
+}
+
+function renderCalendarioPlan(evs){
+  const y = planAncla.getFullYear(), m = planAncla.getMonth();
+  const primero = new Date(y, m, 1);
+  const diasMes = new Date(y, m+1, 0).getDate();
+  // getDay(): 0=domingo. La semana aquí arranca en lunes.
+  const offset = (primero.getDay() + 6) % 7;
+
+  const porDia = {};
+  evs.forEach(e => (porDia[e.fecha] = porDia[e.fecha] || []).push(e));
+
+  const hoy = hoyISO();
+  let html = PLAN_DOW.map(d => `<div class="cal-dow">${d}</div>`).join("");
+
+  const totalCeldas = Math.ceil((offset + diasMes) / 7) * 7;
+  for(let i = 0; i < totalCeldas; i++){
+    const numDia = i - offset + 1;
+    const fuera = numDia < 1 || numDia > diasMes;
+    const fecha = new Date(y, m, numDia);
+    const iso = isoLocal(fecha);
+    const lista = (porDia[iso] || []).slice().sort((a,b) => a.base.localeCompare(b.base));
+    const expandido = planDiaExpandido === iso;
+    const visibles = expandido ? lista : lista.slice(0, 3);
+    const ocultos = lista.length - visibles.length;
+    html += `<div class="cal-dia${fuera ? " fuera" : ""}${iso === hoy ? " hoy" : ""}">
+      <div class="cal-dia-num">${fecha.getDate()}</div>
+      ${visibles.map(e => `<div class="cal-ev ${claseEvento(e)}" title="${esc(e.titulo)}${e.detalle ? " — " + esc(e.detalle) : ""}" onclick="abrirPlaneacionOrden('${e.orden.id}')">${esc(e.titulo)}</div>`).join("")}
+      ${ocultos > 0 ? `<div class="cal-mas" onclick="expandirDiaPlan('${iso}')">+${ocultos} más</div>` : ""}
+    </div>`;
+  }
+  document.getElementById("planCalendario").innerHTML = `<div class="cal-grid">${html}</div>`;
+}
+
+function expandirDiaPlan(iso){
+  planDiaExpandido = (planDiaExpandido === iso) ? null : iso;
+  renderPlaneacion();
+}
+
+function renderGanttPlan(evs){
+  const y = planAncla.getFullYear(), m = planAncla.getMonth();
+  const diasMes = new Date(y, m+1, 0).getDate();
+  const primerISO = isoLocal(new Date(y, m, 1));
+  const ultimoISO = isoLocal(new Date(y, m, diasMes));
+  const hoy = hoyISO();
+
+  // Índice de columna (0..diasMes-1) de una fecha, recortada al mes visible.
+  const col = iso => Math.min(diasMes - 1, Math.max(0, Number(iso.slice(8,10)) - 1));
+  const dentro = iso => iso >= primerISO && iso <= ultimoISO;
+
+  const filas = [];
+  ordenesVisiblesPlan().forEach(o => {
+    const est = normEstado(o.estado);
+    const inicio = o.fechaLlegadaProgramada || (o.createdAt ? isoLocal(new Date(o.createdAt)) : "");
+    const fin    = o.fechaEntregaProgramada || inicio;
+    const recol  = recoleccionesDeOrden(o);
+    if(!inicio && !fin && !recol.length) return;
+    // Una orden ya cerrada y sin ninguna fecha programada no aporta nada al Gantt:
+    // su "barra" sería un solo día sacado de la fecha de creación. Las órdenes
+    // abiertas sí se muestran aunque no tengan fechas (ahí se ve lo que lleva atorado).
+    const tieneProgramacion = o.fechaLlegadaProgramada || o.fechaEntregaProgramada || recol.length;
+    if(!tieneProgramacion && ["terminado","entregado"].includes(est)) return;
+    // La orden aparece si su barra o alguno de sus hitos toca el mes visible.
+    const tocaMes = (inicio && fin && inicio <= ultimoISO && fin >= primerISO)
+                    || recol.some(l => dentro(l.fecha));
+    if(!tocaMes) return;
+    filas.push({ o, inicio, fin, recol, est });
+  });
+  filas.sort((a,b) => (a.inicio||"9999").localeCompare(b.inicio||"9999"));
+
+  if(!filas.length){
+    document.getElementById("planGantt").innerHTML =
+      `<div style="text-align:center;padding:40px 0;color:var(--gris-texto)">Sin órdenes programadas en ${PLAN_MESES[m]}.</div>`;
+    return;
+  }
+
+  const cols = `grid-template-columns:repeat(${diasMes},1fr)`;
+  let cabeza = "";
+  for(let d = 1; d <= diasMes; d++){
+    const iso = isoLocal(new Date(y, m, d));
+    cabeza += `<div class="gantt-head-dia${planEsFinde(iso) ? " fin" : ""}${iso === hoy ? " hoy" : ""}">${d}</div>`;
+  }
+
+  let fondoCeldas = "";
+  for(let d = 1; d <= diasMes; d++){
+    const iso = isoLocal(new Date(y, m, d));
+    fondoCeldas += `<div class="gantt-celda${planEsFinde(iso) ? " fin" : ""}"></div>`;
+  }
+
+  const pct = i => (i / diasMes) * 100;
+  const filasHtml = filas.map(f => {
+    const o = f.o;
+    const ident = o.folio || o.serie || "—";
+    let barra = "";
+    if(f.inicio && f.fin && f.inicio <= ultimoISO && f.fin >= primerISO){
+      const ini = f.inicio < primerISO ? 0 : col(f.inicio);
+      const finC = f.fin > ultimoISO ? diasMes - 1 : col(f.fin);
+      const cerrada = ["terminado","entregado"].includes(f.est);
+      const retrasada = !cerrada && o.fechaEntregaProgramada && o.fechaEntregaProgramada < hoy;
+      const cls = cerrada ? "cerrada" : (retrasada ? "retrasada" : "");
+      barra = `<div class="gantt-barra ${cls}" style="left:${pct(ini)}%;width:${pct(finC - ini + 1)}%"
+        title="${esc(ident)} · ${f.inicio ? formatoFechaCorta(f.inicio) : "?"} → ${f.fin ? formatoFechaCorta(f.fin) : "?"}"
+        onclick="abrirPlaneacionOrden('${o.id}')"></div>`;
+    }
+    const hitos = []
+      .concat(dentro(f.inicio||"") && o.fechaLlegadaProgramada ? [{ tipo:"llegada", iso:f.inicio, txt:"Llegada programada" }] : [])
+      .concat(dentro(o.fechaEntregaProgramada||"") ? [{ tipo:"envio", iso:o.fechaEntregaProgramada, txt:"Envío programado" }] : [])
+      .concat(f.recol.filter(l => dentro(l.fecha)).map(l => {
+        const esCompra = l.origen === "Hay que comprar";
+        return { tipo: esCompra ? "compra" : "recoleccion", iso: l.fecha, txt:`${esCompra ? "Recibir" : "Recoger"} ${l.descripcion||"material"}${l.proveedor ? " · "+l.proveedor : ""}` };
+      }))
+      .map(h => `<div class="gantt-hito ${h.tipo}" style="left:${pct(col(h.iso) + 0.5)}%;transform:translateX(-50%)" title="${esc(h.txt)} — ${formatoFechaCorta(h.iso)}" onclick="abrirPlaneacionOrden('${o.id}')"></div>`)
+      .join("");
+    const hoyMarca = (hoy >= primerISO && hoy <= ultimoISO)
+      ? `<div class="gantt-hoy" style="left:${pct(col(hoy) + 0.5)}%"></div>` : "";
+    return `<div class="gantt-row">
+      <div class="gantt-lbl"><b>${esc(ident)}</b><span class="sub">${esc(o.cliente || "—")}</span></div>
+      <div class="gantt-pista">
+        <div class="gantt-fondo" style="${cols}">${fondoCeldas}</div>
+        ${hoyMarca}${barra}${hitos}
+      </div>
+    </div>`;
+  }).join("");
+
+  document.getElementById("planGantt").innerHTML = `<div class="gantt-wrap"><div class="gantt">
+    <div class="gantt-head">
+      <div class="gantt-lbl" style="font-size:0.68rem;font-weight:700;color:var(--gris-texto);text-transform:uppercase;letter-spacing:0.5px">Orden</div>
+      <div class="gantt-head-dias" style="${cols}">${cabeza}</div>
+    </div>
+    ${filasHtml}
+  </div></div>`;
+}
+
+/* ---------- Modal de planeación de una orden ---------- */
+let _planOrdenId = null;
+
+function abrirPlaneacionOrden(id){
+  const o = allOrdenes.find(x => x.id === id);
+  if(!o) return;
+  _planOrdenId = id;
+  const editable = puedeEditarPlan();
+  const hoy = hoyISO();
+  const ident = o.folio || o.serie || "—";
+  document.getElementById("planFolioTitulo").textContent = ident;
+  document.getElementById("planStatus").textContent = "";
+
+  const recol = recoleccionesDeOrden(o);
+  const sinResolver = materialesSinResolver(o);
+  const retrasada = (o.fechaLlegadaProgramada && o.fechaLlegadaProgramada < hoy && normEstado(o.estado) === "porllegar")
+                 || (o.fechaEntregaProgramada && o.fechaEntregaProgramada < hoy && !["entregado"].includes(normEstado(o.estado)));
+
+  const selOpts = (opciones, valor) =>
+    `<option value="">— sin definir —</option>` + opciones.map(op => `<option value="${op}"${valor===op?" selected":""}>${op}</option>`).join("");
+
+  // Si la orden ya trae un modoEnvio "viejo" que no está en el catálogo canónico
+  // actual, se agrega igual como opción seleccionada — nunca se muestra "sin definir"
+  // sobre un dato que sí existe, ni se sobreescribe por accidente al guardar.
+  const opcionesEnvio = MODO_ENVIO_OPCIONES.slice();
+  if(o.modoEnvio && !opcionesEnvio.includes(o.modoEnvio)) opcionesEnvio.push(o.modoEnvio);
+
+  document.getElementById("planModalBody").innerHTML = `
+    <div class="detalle-grid" style="margin-bottom:14px">
+      <div class="detalle-item"><div class="lbl">Cliente</div><div class="val">${esc(o.cliente)||"—"}</div></div>
+      <div class="detalle-item"><div class="lbl">Equipo</div><div class="val">${esc(o.tipoEquipo || "Motor")}</div></div>
+      <div class="detalle-item"><div class="lbl">Estado</div><div class="val">${chipEstado(o.estado)}</div></div>
+      <div class="detalle-item"><div class="lbl">Técnico</div><div class="val">${esc(o.tecnicoAsignado)||"—"}</div></div>
+    </div>
+
+    <div class="detalle-seccion">Entrada al taller</div>
+    ${(o.tipoServicio === "Sulzer" && normEstado(o.estado) === "porllegar" && !o.serie) ? `
+    <div style="background:var(--ambar-bg);border:1px solid var(--ambar-borde);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:0.78rem;color:#7a5b00;font-weight:600">
+      ⚠ Sin N° de serie todavía. En cuanto se sepa, captúralo aquí <b>antes</b> de que el técnico arranque el reporte —
+      si no, el formulario crea una orden nueva por separado y esta queda huérfana.
+    </div>` : ""}
+    <div class="prereg-grid" style="margin-bottom:14px">
+      <div class="prereg-campo">
+        <label>N° de serie</label>
+        <input type="text" id="planSerie" value="${esc(o.serie)}" placeholder="Ej. F2404185885" ${editable?"":"disabled"}>
+      </div>
+      <div class="prereg-campo">
+        <label>Fecha de llegada programada</label>
+        <input type="date" id="planFechaLlegada" value="${esc(o.fechaLlegadaProgramada)}" ${editable?"":"disabled"}>
+      </div>
+      <div class="prereg-campo">
+        <label>¿Cómo llega?</label>
+        <select id="planModoRecepcion" onchange="togglePlanDireccion(); togglePlanPaqueteriaRecepcion();" ${editable?"":"disabled"}>
+          ${selOpts(["Cliente lo trae","Lo recogemos nosotros","Paqueteria"], o.modoRecepcion)}
+        </select>
+      </div>
+      <div class="prereg-campo hidden" id="planDireccionWrap" style="grid-column:1 / -1">
+        <label>¿Dónde lo recogemos?</label>
+        <input type="text" id="planDireccionRecoleccion" value="${esc(o.direccionRecoleccion)}" ${editable?"":"disabled"}>
+      </div>
+      <div class="prereg-campo hidden" id="planPaqueteriaRecepcionWrap">
+        <label>Paquetería</label>
+        <input type="text" id="planPaqueteriaRecepcion" value="${esc(o.paqueteriaRecepcion)}" placeholder="Ej. DHL, Estafeta..." ${editable?"":"disabled"}>
+      </div>
+      <div class="prereg-campo hidden" id="planGuiaRecepcionWrap">
+        <label>N° de guía</label>
+        <input type="text" id="planGuiaRecepcion" value="${esc(o.guiaRecepcion)}" ${editable?"":"disabled"}>
+      </div>
+      ${o.tipoServicio === "Sulzer" ? `
+      <div class="prereg-campo">
+        <label>¿Llevará pintura?</label>
+        <select id="planPinturaPlaneada" ${editable?"":"disabled"}>
+          <option value="Aun no se sabe"${o.pinturaPlaneada==="Aun no se sabe"||!o.pinturaPlaneada?" selected":""}>Aún no se sabe</option>
+          <option value="Si"${o.pinturaPlaneada==="Si"?" selected":""}>Sí</option>
+          <option value="No"${o.pinturaPlaneada==="No"?" selected":""}>No</option>
+        </select>
+      </div>
+      <div class="prereg-campo">
+        <label>¿Se le hará checklist Sulzer?</label>
+        <select id="planChecklistPlaneado" ${editable?"":"disabled"}>
+          <option value="Aun no se sabe"${o.checklistSulzerPlaneado==="Aun no se sabe"||!o.checklistSulzerPlaneado?" selected":""}>Aún no se sabe</option>
+          <option value="Si"${o.checklistSulzerPlaneado==="Si"?" selected":""}>Sí</option>
+          <option value="No"${o.checklistSulzerPlaneado==="No"?" selected":""}>No</option>
+        </select>
+      </div>` : ""}
+    </div>
+
+    <div class="detalle-seccion">Salida al cliente</div>
+    <div class="prereg-grid" style="margin-bottom:14px">
+      <div class="prereg-campo">
+        <label>Fecha de envío / entrega programada</label>
+        <input type="date" id="planFechaEnvio" value="${esc(o.fechaEntregaProgramada)}" ${editable?"":"disabled"}>
+      </div>
+      <div class="prereg-campo">
+        <label>¿Cómo se envía?</label>
+        <select id="planModoEnvio" onchange="togglePlanPaqueteriaEnvio()" ${editable?"":"disabled"}>
+          ${selOpts(opcionesEnvio, o.modoEnvio)}
+        </select>
+      </div>
+      <div class="prereg-campo hidden" id="planPaqueteriaEnvioWrap">
+        <label>Paquetería</label>
+        <input type="text" id="planPaqueteriaEnvio" value="${esc(o.paqueteriaEnvio)}" placeholder="Ej. DHL, Estafeta..." ${editable?"":"disabled"}>
+      </div>
+      <div class="prereg-campo hidden" id="planGuiaEnvioWrap">
+        <label>N° de guía</label>
+        <input type="text" id="planGuiaEnvio" value="${esc(o.guiaEnvio)}" ${editable?"":"disabled"}>
+      </div>
+    </div>
+
+    ${retrasada ? `
+    <div class="detalle-seccion">Retraso detectado</div>
+    <div style="background:var(--rojo-bg);border:1px solid var(--rojo-borde);border-radius:8px;padding:10px 12px;margin-bottom:14px">
+      <p style="font-size:0.8rem;color:var(--rojo);font-weight:600;margin-bottom:8px">Una fecha programada ya pasó. ¿A qué se debió?</p>
+      <select id="planMotivoRetraso" class="sel-fila" style="width:100%" ${editable?"":"disabled"}>
+        ${selOpts(["Interno","Cliente no manda guia","Paqueteria","Proveedor"], o.motivoRetraso)}
+      </select>
+    </div>` : ""}
+
+    <div class="detalle-seccion">Material por recoger / comprar</div>
+    ${recol.length ? `<table class="cot-tbl" style="margin-bottom:6px"><thead>
+        <tr><th>Material</th><th style="width:100px">Origen</th><th style="width:130px">Proveedor</th><th style="width:100px">Fecha</th><th style="width:110px;text-align:center">Listo</th></tr>
+      </thead><tbody>
+      ${recol.map((l, i) => `<tr>
+        <td>${esc(l.descripcion||"—")}</td>
+        <td>${l.origen === "Hay que comprar" ? "🟣 Comprar" : "🟤 Recoger"}</td>
+        <td>${esc(l.proveedor||"—")}</td>
+        <td>${l.fecha ? formatoFechaCorta(l.fecha) : "—"}</td>
+        <td style="text-align:center">${
+          l.recogido
+            ? `<span style="color:var(--verde);font-weight:700">✓ Sí</span>`
+            : (editable ? `<button class="btn-corr" style="background:var(--verde)" onclick="marcarMaterialRecogido('${o.id}','${esc(l.descripcion||"")}')">${l.origen === "Hay que comprar" ? "Marcar recibido" : "Marcar recogido"}</button>` : "—")
+        }</td>
+      </tr>`).join("")}
+      </tbody></table>` : `<p style="font-size:0.8rem;color:var(--gris-texto)">Sin material por recoger con proveedor.</p>`}
+    ${sinResolver.length && editable ? `<p style="font-size:0.79rem;color:#7a5b00;font-weight:600;margin-top:6px">
+      ⚠ ${sinResolver.length} material(es) sin proveedor o sin fecha —
+      <span style="cursor:pointer;text-decoration:underline" onclick="cerrarPlaneacionOrden(); abrirValidacion('${o.id}','${esc(ident)}')">resolver en Validación de materiales</span>.
+    </p>` : ""}
+  `;
+
+  document.getElementById("planModalFooter").innerHTML = editable ? `
+    <button class="btn-cancelar" onclick="cerrarPlaneacionOrden()">Cerrar</button>
+    <button class="btn-imprimir" onclick="guardarPlaneacionOrden()">Guardar planeación</button>
+  ` : `
+    <span style="font-size:0.8rem;color:var(--gris-texto);margin-right:auto;align-self:center">Solo Admin y Dirección pueden cambiar las fechas.</span>
+    <button class="btn-cancelar" onclick="cerrarPlaneacionOrden()">Cerrar</button>
+  `;
+
+  togglePlanDireccion();
+  togglePlanPaqueteriaRecepcion();
+  togglePlanPaqueteriaEnvio();
+  document.getElementById("modalPlaneacion").classList.remove("hidden");
+}
+
+function togglePlanDireccion(){
+  const sel = document.getElementById("planModoRecepcion");
+  const wrap = document.getElementById("planDireccionWrap");
+  if(!sel || !wrap) return;
+  wrap.classList.toggle("hidden", sel.value !== "Lo recogemos nosotros");
+}
+
+function togglePlanPaqueteriaRecepcion(){
+  const sel = document.getElementById("planModoRecepcion");
+  if(!sel) return;
+  const esPaqueteria = sel.value === "Paqueteria";
+  document.getElementById("planPaqueteriaRecepcionWrap").classList.toggle("hidden", !esPaqueteria);
+  document.getElementById("planGuiaRecepcionWrap").classList.toggle("hidden", !esPaqueteria);
+}
+
+// "Paqueteria" (valor viejo) se sigue aceptando por compatibilidad con órdenes
+// que ya lo tenían guardado antes de alinear el catálogo con la Remisión de Entrega.
+function togglePlanPaqueteriaEnvio(){
+  const sel = document.getElementById("planModoEnvio");
+  if(!sel) return;
+  const esPaqueteria = sel.value === "Envío por paquetería" || sel.value === "Paqueteria";
+  document.getElementById("planPaqueteriaEnvioWrap").classList.toggle("hidden", !esPaqueteria);
+  document.getElementById("planGuiaEnvioWrap").classList.toggle("hidden", !esPaqueteria);
+}
+
+function cerrarPlaneacionOrden(){ document.getElementById("modalPlaneacion").classList.add("hidden"); }
+function cerrarPlaneacionSiFuera(e){ if(e.target.id === "modalPlaneacion") cerrarPlaneacionOrden(); }
+
+async function guardarPlaneacionOrden(){
+  if(!puedeEditarPlan()) return;
+  const statusEl = document.getElementById("planStatus");
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando...";
+  const v = id => { const el = document.getElementById(id); return el ? el.value : null; };
+  const modoRec = v("planModoRecepcion");
+  const modoEnv = v("planModoEnvio");
+  const esPaqRecepcion = modoRec === "Paqueteria";
+  const esPaqEnvio = modoEnv === "Envío por paquetería" || modoEnv === "Paqueteria";
+  const fields = {
+    [F.fechaLlegadaProgramada]: v("planFechaLlegada") || null,
+    [F.modoRecepcion]:          modoRec || null,
+    // Si ya no lo recogemos nosotros, la dirección deja de aplicar y se limpia.
+    [F.direccionRecoleccion]:   modoRec === "Lo recogemos nosotros" ? (v("planDireccionRecoleccion") || null) : null,
+    // Paquetería/guía se limpian igual si ya no aplica el modo correspondiente.
+    [F.paqueteriaRecepcion]:    esPaqRecepcion ? (v("planPaqueteriaRecepcion") || null) : null,
+    [F.guiaRecepcion]:          esPaqRecepcion ? (v("planGuiaRecepcion") || null) : null,
+    [F.fechaEntregaProgramada]: v("planFechaEnvio") || null,
+    [F.modoEnvio]:              modoEnv || null,
+    [F.paqueteriaEnvio]:        esPaqEnvio ? (v("planPaqueteriaEnvio") || null) : null,
+    [F.guiaEnvio]:              esPaqEnvio ? (v("planGuiaEnvio") || null) : null,
+  };
+  const serie = v("planSerie");
+  if(serie !== null) fields[F.serie] = serie.trim() || null;
+  // Solo presentes en órdenes Sulzer (ver abrirPlaneacionOrden) — v() da null en General.
+  const pinturaPlaneada = v("planPinturaPlaneada");
+  if(pinturaPlaneada !== null) fields[F.pinturaPlaneada] = pinturaPlaneada;
+  const checklistPlaneado = v("planChecklistPlaneado");
+  if(checklistPlaneado !== null) fields[F.checklistSulzerPlaneado] = checklistPlaneado;
+  const motivo = v("planMotivoRetraso");
+  if(motivo !== null) fields[F.motivoRetraso] = motivo || null;
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_planOrdenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      // typecast:true — así "Modo de envio" acepta los 4 valores canónicos nuevos
+      // (alineados con la Remisión de Entrega) sin tener que editar las choices del
+      // campo en Airtable por separado; Airtable las crea solas la primera vez.
+      body: JSON.stringify({ fields, typecast: true })
+    });
+    if(!resp.ok){
+      const d = await resp.json().catch(()=>({}));
+      throw new Error((d.error && d.error.message) || `Error HTTP ${resp.status}`);
+    }
+    statusEl.style.color = "var(--verde)";
+    statusEl.textContent = "✓ Guardado.";
+    await cargarSoloOrdenes();
+    renderPlaneacion();
+    setTimeout(cerrarPlaneacionOrden, 600);
+  } catch(e){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Error al guardar: " + (e.message||"");
+  }
+}
+
+// Marca un material como ya recogido: el evento se ve cumplido en el calendario
+// y deja de contar como retraso.
+async function marcarMaterialRecogido(ordenId, descripcion){
+  if(!puedeEditarPlan()) return;
+  const o = allOrdenes.find(x => x.id === ordenId);
+  if(!o) return;
+  const logArr = parseLogistica(o.logisticaMateriales).map(l =>
+    (l.descripcion || "") === descripcion ? { ...l, recogido: true, fechaRecogidaReal: hoyISO() } : l
+  );
+  const statusEl = document.getElementById("planStatus");
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando...";
+  try{
+    const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [F.logisticaMateriales]: JSON.stringify(logArr) } })
+    });
+    if(!resp.ok) throw new Error(`Error HTTP ${resp.status}`);
+    await cargarSoloOrdenes();
+    renderPlaneacion();
+    abrirPlaneacionOrden(ordenId); // repinta el modal con el material ya marcado
+  } catch(e){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "No se pudo guardar: " + (e.message||"");
+  }
 }
 
 /* ============================================================
@@ -2887,7 +3945,7 @@ async function cambiarEntregado(id, identificador, marcar){
     if(marcar) fields[F.fechaEntregaReal] = new Date().toISOString();
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields })
     });
     if(!res.ok){
@@ -3057,7 +4115,7 @@ async function autorizarDiagnostico(id, autorizado){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: { fldRtvzailqq6WbQu: nuevoEstado } })
     });
     cerrarDetalleGeneral();
@@ -3095,7 +4153,6 @@ const COT = {
   montoCobrado:            "fldJHOcyHWfJwclMy",
   equipoRecogido:          "fldIrJToATnURZwdt",
   fechaRecogida:           "fldxl6Ht2S5EtCPZq",
-  usuario:                 "fldJmwtkHIJLsveaC",
 };
 
 // Arma el renglón por defecto (1 SERV) a partir de los servicios que el técnico marcó
@@ -3249,7 +4306,7 @@ async function cotMarcarRechazada(){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${cotOrdenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields })
     });
     cotEstadoActual = "Rechazada";
@@ -3353,7 +4410,7 @@ async function cotGuardar(estadoDestino){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${cotOrdenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields })
     });
     if(estadoDestino) cotEstadoActual = estadoDestino;
@@ -3391,22 +4448,527 @@ function cerrarCotizacion(){ document.getElementById("modalCotizacion").classLis
 function cerrarCotizacionSiFuera(e){ if(e.target.id === "modalCotizacion") cerrarCotizacion(); }
 
 /* ============================================================
+   TABLA DE COSTOS INTERNOS (solo Admin/Dirección) — costo → precio de
+   venta por orden/motor. Vive en tabla Airtable separada COSTOS_INTERNOS
+   (nunca en ORDENES) para que cliente.html, que solo hace fetch de ORDENES,
+   jamás pueda ver costo ni utilidad aunque inspeccione la red del navegador.
+   USO INTERNO — todavía no publicado a Pagina web SI.
+   ============================================================ */
+const TABLA_COSTOS = "tblXYpYEYHFDcWi60";
+const CI = {
+  identificador:       "fldi0FKcpG08GpX9t",
+  ordenServicio:       "fldr5YQIDrKb0R7rN",
+  filasJson:           "fldQLZJRBKLicgZr3",
+  costoTotal:          "fldySJEifkheMn9I6",
+  ventaTotal:          "fldQPfJt9xbnHoEbT",
+  utilidadTotal:       "fldMmtHv7GF04fE4H",
+  ultimaActualizacion: "fldk1jeXEWqUVTFiu",
+};
+const COST_OCULTAR = "__ocultar__";
+
+let costOrdenId     = null;
+let costFolio       = "";
+let costRegistroId  = null; // id del record en COSTOS_INTERNOS; null si todavía no existe
+let costFilas       = [];
+let costNextId      = 1;
+let costOrdenFields = {}; // fields de ORDENES cargados al abrir (aplicaIVA, estadoCotizacion) — se reusan al guardar para sincronizar con la cotización real
+
+// Arma renglones por defecto a partir del diagnóstico (servicios propuestos + lista de
+// materiales que ya armó el técnico) — mismo criterio que ya usa cotRenglonPorDefecto
+// para la cotización real. Solo se usa la PRIMERA vez que se abre la tabla de costos
+// (si ya hay un registro guardado en COSTOS_INTERNOS, nunca se pisa lo que el admin
+// ya editó ahí, igual que abrirCotizacion nunca pisa un detalleServicios existente).
+function costFilasPorDefecto(diagnosticoRaw){
+  let d = {};
+  try{ d = JSON.parse(diagnosticoRaw || "{}"); }catch(e){}
+  const servicios  = Array.isArray(d.serviciosPropuestos)  ? d.serviciosPropuestos  : [];
+  const materiales = Array.isArray(d.materialesPropuestos) ? d.materialesPropuestos : [];
+  let id = 1;
+  const filas = [];
+  servicios.forEach(s => {
+    const texto = (s || "").trim();
+    if(!texto) return;
+    filas.push({ id:id++, tipo:"item", descripcion:texto, margen:null, costo:null, precio:null, combinarCon:null });
+  });
+  materiales.forEach(m => {
+    const desc = (m.descripcion || "").trim();
+    if(!desc) return;
+    const cantUnidad = [m.cantidad, m.unidad].filter(Boolean).join(" ");
+    let texto = cantUnidad ? `(${cantUnidad}) ${desc}` : desc;
+    const nota = (m.nota || "").trim();
+    if(nota) texto += ` — ${nota}`;
+    filas.push({ id:id++, tipo:"item", descripcion:texto, margen:null, costo:null, precio:null, combinarCon:null });
+  });
+  return filas;
+}
+
+async function abrirCostos(id, identificador){
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
+  costOrdenId = id;
+  costFolio = identificador;
+  costRegistroId = null;
+  document.getElementById("costFolioTitulo").textContent = identificador;
+  document.getElementById("costForm").classList.add("hidden");
+  document.getElementById("costCargando").classList.remove("hidden");
+  document.getElementById("costCargando").innerHTML = `<div class="spinner" style="margin:0 auto 16px"></div><p>Cargando tabla de costos...</p>`;
+  document.getElementById("costFooter").innerHTML = "";
+  document.getElementById("costStatus").textContent = "";
+  document.getElementById("modalCostos").classList.remove("hidden");
+
+  try{
+    // Trae TODOS los registros de COSTOS_INTERNOS y filtra en JS por el link real a esta
+    // orden — NO se puede usar filterByFormula con FIND(id, ARRAYJOIN(link)): Airtable
+    // expone en un campo de link el campo primario de los registros ligados (ej. "TST01"),
+    // nunca su record id, así que ese FIND nunca encontraba nada y cada guardado creaba un
+    // registro duplicado en vez de actualizar el existente (bug real encontrado 2026-07-28
+    // al construir Control de Costos). Si hubiera duplicados viejos de antes del fix, se
+    // toma el más reciente por ultimaActualizacion.
+    const [ordenRes, todosCostos] = await Promise.all([
+      fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} }),
+      fetchCostosInternos(),
+    ]);
+    if(!ordenRes.ok) throw new Error("No se pudo cargar la orden.");
+    const orden = await ordenRes.json();
+    costOrdenFields = orden.fields || {};
+    const diagnosticoRaw = costOrdenFields[COT.diagnosticoTexto];
+
+    // El link viene como arreglo de IDs en texto plano (["recXXX"]), NO como objetos
+    // {id,name} — ese formato {id,name} solo lo agrega la herramienta MCP de Airtable
+    // al leer, la API REST real (la que usa este fetch) da el string del id directo.
+    const candidatos = todosCostos.filter(r => (r.fields[CI.ordenServicio] || []).includes(id));
+    candidatos.sort((a,b) => new Date(b.fields[CI.ultimaActualizacion]||0) - new Date(a.fields[CI.ultimaActualizacion]||0));
+    const registro = candidatos[0];
+
+    if(registro){
+      costRegistroId = registro.id;
+      try{ costFilas = JSON.parse(registro.fields[CI.filasJson] || "[]"); }catch(e){ costFilas = []; }
+    } else {
+      costFilas = costFilasPorDefecto(diagnosticoRaw);
+    }
+    costNextId = costFilas.reduce((max,f) => Math.max(max, f.id||0), 0) + 1;
+
+    costRender();
+    document.getElementById("costFooter").innerHTML = `
+      <button class="btn-cancelar" onclick="cerrarCostos()">Cerrar</button>
+      <button class="btn-imprimir" onclick="costGuardar()">Guardar tabla de costos</button>
+    `;
+    document.getElementById("costCargando").classList.add("hidden");
+    document.getElementById("costForm").classList.remove("hidden");
+  } catch(e){
+    document.getElementById("costCargando").innerHTML = `<p style="color:var(--rojo)">Error al cargar: ${esc(e.message)}</p>`;
+  }
+}
+
+function costFmt(n){
+  n = parseFloat(n);
+  if(n === null || n === undefined || isNaN(n)) return "";
+  return "$" + n.toLocaleString("es-MX", { minimumFractionDigits:2, maximumFractionDigits:2 });
+}
+
+function costRecalcularFila(r, campoEditado){
+  const costo = (r.costo != null && r.costo !== "" && !isNaN(r.costo)) ? parseFloat(r.costo) : null;
+  if(campoEditado === "costo"){
+    if(costo != null && r.margen != null) r.precio = Math.round(costo * (1 + r.margen/100) * 100) / 100;
+    else if(costo != null && costo !== 0 && r.precio != null) r.margen = Math.round((r.precio - costo) / costo * 10000) / 100;
+    else if(costo == null) r.margen = null;
+  } else if(campoEditado === "margen"){
+    if(costo != null && r.margen != null) r.precio = Math.round(costo * (1 + r.margen/100) * 100) / 100;
+  } else if(campoEditado === "precio"){
+    if(costo != null && costo !== 0 && r.precio != null) r.margen = Math.round((r.precio - costo) / costo * 10000) / 100;
+    else if(costo == null) r.margen = null;
+  }
+}
+
+function costActualizar(i, campo, valor){
+  const r = costFilas[i];
+  if(campo === "costo" || campo === "margen" || campo === "precio"){
+    r[campo] = valor === "" ? null : parseFloat(valor);
+    costRecalcularFila(r, campo);
+  } else if(campo === "combinarCon"){
+    r[campo] = valor === "" ? null : (valor === COST_OCULTAR ? COST_OCULTAR : parseInt(valor, 10));
+  } else {
+    r[campo] = valor;
+  }
+  costRender();
+}
+
+function costAgregarItem(){ costFilas.push({ id:costNextId++, tipo:"item", descripcion:"", margen:null, costo:null, precio:null, combinarCon:null }); costRender(); }
+function costAgregarCategoria(){ costFilas.push({ id:costNextId++, tipo:"cat", descripcion:"" }); costRender(); }
+function costAgregarNota(){ costFilas.push({ id:costNextId++, tipo:"nota", fecha:"", texto:"" }); costRender(); }
+function costEliminarFila(i){
+  const idEliminado = costFilas[i].id;
+  costFilas.forEach(f => { if(f.combinarCon === idEliminado) f.combinarCon = null; });
+  costFilas.splice(i, 1);
+  costRender();
+}
+
+// Preserva el foco/cursor del input que se estaba editando entre un render() y el
+// siguiente — sin esto, cada tecla presionada perdería el cursor (mismo patrón que
+// ya usa el resto del dashboard para inputs que se re-renderizan en cada cambio).
+function costCapturarFoco(){
+  const el = document.activeElement;
+  if(!el || !el.closest || !el.closest("#costFilasBody")) return null;
+  const foco = { row: el.dataset.row, field: el.dataset.field };
+  if(typeof el.selectionStart === "number"){ foco.start = el.selectionStart; foco.end = el.selectionEnd; }
+  return foco;
+}
+function costRestaurarFoco(tbody, foco){
+  if(!foco) return;
+  const el = tbody.querySelector(`[data-row="${foco.row}"][data-field="${foco.field}"]`);
+  if(!el) return;
+  el.focus();
+  if(foco.start != null && typeof el.setSelectionRange === "function"){ try{ el.setSelectionRange(foco.start, foco.end); }catch(e){} }
+}
+
+function costRender(){
+  const tbody = document.getElementById("costFilasBody");
+  const foco = costCapturarFoco();
+  let sumCosto = 0, sumVenta = 0;
+
+  tbody.innerHTML = costFilas.map((r, i) => {
+    if(r.tipo === "nota"){
+      return `<tr>
+        <td colspan="5">
+          <div style="display:flex;gap:8px;align-items:center">
+            <input style="max-width:90px;font-weight:600;color:var(--azul)" data-row="${i}" data-field="fecha" value="${esc(r.fecha||"")}" oninput="costActualizar(${i},'fecha',this.value)" placeholder="dd/mm">
+            <input style="flex:1;font-style:italic" data-row="${i}" data-field="texto" value="${esc(r.texto||"")}" oninput="costActualizar(${i},'texto',this.value)" placeholder="Nota / comentario...">
+          </div>
+        </td>
+        <td><button type="button" class="cot-del" onclick="costEliminarFila(${i})">✕</button></td>
+      </tr>`;
+    }
+    if(r.tipo === "cat"){
+      return `<tr style="background:var(--fondo)">
+        <td><input style="font-weight:600" data-row="${i}" data-field="descripcion" value="${esc(r.descripcion||"")}" oninput="costActualizar(${i},'descripcion',this.value)" placeholder="Línea de categoría (sin precio)"></td>
+        <td></td><td></td><td></td><td></td>
+        <td><button type="button" class="cot-del" onclick="costEliminarFila(${i})">✕</button></td>
+      </tr>`;
+    }
+    const costo  = r.costo  != null && r.costo  !== "" ? parseFloat(r.costo)  : null;
+    const precio = r.precio != null && r.precio !== "" ? parseFloat(r.precio) : null;
+    const utilidad = (precio != null && costo != null) ? precio - costo : null;
+    if(costo  != null) sumCosto += costo;
+    if(precio != null) sumVenta += precio;
+
+    // Un renglón (item) solo puede ser destino de "combinar" si él mismo no está ya
+    // combinado ni oculto (combinarCon truthy cubre ambos casos). Las categorías
+    // siempre pueden ser destino — son la etiqueta bajo la que se agrupan sus items
+    // (ej. "Suministro e instalación de rodamientos" suma RODAMIENTO + RETENES).
+    const destinosItem = costFilas.filter(x => x.tipo === "item" && x.id !== r.id && !x.combinarCon);
+    const destinosCat  = costFilas.filter(x => x.tipo === "cat");
+    const opcionesItem = destinosItem.map(x => `<option value="${x.id}" ${r.combinarCon===x.id?"selected":""}>${esc(x.descripcion||"(sin descripción)")}</option>`).join("");
+    const opcionesCat  = destinosCat.map(x => `<option value="${x.id}" ${r.combinarCon===x.id?"selected":""}>${esc(x.descripcion||"(categoría sin nombre)")}</option>`).join("");
+    const utilEstilo = utilidad > 0 ? "color:var(--verde);font-weight:600" : (utilidad < 0 ? "color:var(--rojo);font-weight:600" : "");
+
+    return `<tr style="${r.combinarCon ? "opacity:0.6" : ""}">
+      <td>
+        <input data-row="${i}" data-field="descripcion" value="${esc(r.descripcion||"")}" oninput="costActualizar(${i},'descripcion',this.value)" placeholder="Descripción del servicio/material">
+        <select style="margin-top:3px;font-size:0.72rem;color:var(--gris-texto);border:1px dashed var(--gris);background:var(--blanco);width:100%;padding:2px 4px" onchange="costActualizar(${i},'combinarCon',this.value)">
+          <option value="" ${!r.combinarCon?"selected":""}>👁 Mostrar en cotización</option>
+          <option value="${COST_OCULTAR}" ${r.combinarCon===COST_OCULTAR?"selected":""}>🙈 Ocultar (repartir su precio entre los demás)</option>
+          <option disabled>──────────</option>
+          ${opcionesCat ? `<optgroup label="Sumar a categoría">${opcionesCat}</optgroup>` : ""}
+          ${opcionesItem ? `<optgroup label="Combinar con renglón">${opcionesItem}</optgroup>` : ""}
+        </select>
+      </td>
+      <td><input type="number" step="0.1" style="text-align:right" data-row="${i}" data-field="margen" value="${r.margen==null?'':r.margen}" onchange="costActualizar(${i},'margen',this.value)" placeholder="%"></td>
+      <td><input type="number" step="0.01" style="text-align:right" data-row="${i}" data-field="costo" value="${costo==null?'':costo}" onchange="costActualizar(${i},'costo',this.value)" placeholder="0.00"></td>
+      <td><input type="number" step="0.01" style="text-align:right" data-row="${i}" data-field="precio" value="${precio==null?'':precio}" onchange="costActualizar(${i},'precio',this.value)" placeholder="0.00"></td>
+      <td><input readonly style="text-align:right;${utilEstilo}" value="${utilidad==null?'':costFmt(utilidad)}"></td>
+      <td><button type="button" class="cot-del" onclick="costEliminarFila(${i})">✕</button></td>
+    </tr>`;
+  }).join("");
+
+  costRestaurarFoco(tbody, foco);
+
+  const sumUtilidad = sumVenta - sumCosto;
+  document.getElementById("costSumCosto").textContent    = costFmt(sumCosto)    || "$0.00";
+  document.getElementById("costSumVenta").textContent    = costFmt(sumVenta)    || "$0.00";
+  document.getElementById("costSumUtilidad").textContent = costFmt(sumUtilidad) || "$0.00";
+  document.getElementById("costStatCosto").textContent    = costFmt(sumCosto)    || "$0.00";
+  document.getElementById("costStatVenta").textContent    = costFmt(sumVenta)    || "$0.00";
+  document.getElementById("costStatUtilidad").textContent = costFmt(sumUtilidad) || "$0.00";
+  const margenPct = sumVenta > 0 ? (sumUtilidad / sumVenta * 100) : 0;
+  document.getElementById("costStatMargen").textContent = `(${margenPct.toFixed(1)}% de margen)`;
+
+  costRenderPreviewCliente();
+}
+
+function costResolverDestino(r, visitados){
+  visitados = visitados || new Set();
+  if(!r.combinarCon || r.combinarCon === COST_OCULTAR || visitados.has(r.id)) return r;
+  visitados.add(r.id);
+  const destino = costFilas.find(f => f.id === r.combinarCon);
+  if(!destino) return r;
+  return costResolverDestino(destino, visitados);
+}
+
+// Renglones que vería el cliente: "combinar" suma su precio al renglón destino;
+// "ocultar" reparte su precio EN PARTES IGUALES entre todos los renglones que sí
+// quedan visibles (ej. $100 entre 5 renglones = +$20 c/u). Si no quedara ningún
+// renglón visible en qué repartir, se muestran los ocultos tal cual para no perder
+// el monto silenciosamente (caso raro, pero evita que desaparezca dinero).
+//
+// Cuando 2+ renglones se combinan hacia otro ITEM (no una categoría), la descripción
+// final es la unión en viñetas de todos los renglones combinados — no solo la del
+// destino — para que el cliente vea qué conceptos componen ese precio único. Combinar
+// hacia una CATEGORÍA sigue mostrando solo la etiqueta de la categoría (ese es su
+// propósito: agrupar varios items bajo un solo nombre corto).
+function costConstruirRenglonesCliente(){
+  const items = costFilas.filter(f => f.tipo === "item" && f.precio != null && f.precio !== "");
+  const visibles = items.filter(r => r.combinarCon !== COST_OCULTAR);
+  const ocultos  = items.filter(r => r.combinarCon === COST_OCULTAR);
+
+  const acumulado = new Map();
+  const orden = [];
+  visibles.forEach(r => {
+    const precio = parseFloat(r.precio) || 0;
+    const destino = costResolverDestino(r);
+    if(!acumulado.has(destino.id)){
+      acumulado.set(destino.id, { descripciones:new Set(), total:0, esCategoria:destino.tipo === "cat", tituloCategoria:destino.descripcion });
+      orden.push(destino.id);
+    }
+    const entry = acumulado.get(destino.id);
+    entry.total += precio;
+    if((r.descripcion||"").trim()) entry.descripciones.add(r.descripcion.trim());
+  });
+
+  const montoOculto = ocultos.reduce((s,r) => s + (parseFloat(r.precio)||0), 0);
+  if(orden.length === 0 && ocultos.length){
+    ocultos.forEach(r => {
+      acumulado.set(r.id, { descripciones:new Set([(r.descripcion||"").trim()]), total:parseFloat(r.precio)||0, esCategoria:false, tituloCategoria:null });
+      orden.push(r.id);
+    });
+  } else if(montoOculto > 0 && orden.length > 0){
+    const porRenglon = montoOculto / orden.length;
+    orden.forEach(id => { acumulado.get(id).total += porRenglon; });
+  }
+
+  return orden.map(id => {
+    const d = acumulado.get(id);
+    const total = Math.round(d.total * 100) / 100;
+    const descArr = Array.from(d.descripciones).filter(Boolean);
+    const descripcion = d.esCategoria
+      ? d.tituloCategoria
+      : (descArr.length > 1 ? descArr.map(t => `• ${t}`).join("\n") : (descArr[0] || ""));
+    return { cant:1, unidad:"SERV", descripcion, precioUnitario:total, total };
+  });
+}
+
+function costRenderPreviewCliente(){
+  const renglones = costConstruirRenglonesCliente();
+  const cont = document.getElementById("costPreviewCliente");
+  if(!renglones.length){
+    cont.innerHTML = `<p style="color:var(--gris-texto)">Sin renglones con precio de venta todavía.</p>`;
+    return;
+  }
+  cont.innerHTML = `<table class="cot-tbl"><thead><tr><th style="width:50px">Cant</th><th style="width:60px">Unidad</th><th>Descripción</th><th style="width:100px">Total</th></tr></thead><tbody>
+    ${renglones.map(r => `<tr><td style="text-align:center">${r.cant}</td><td style="text-align:center">${esc(r.unidad)}</td><td style="white-space:pre-line">${esc(r.descripcion)}</td><td style="text-align:right">${costFmt(r.total)}</td></tr>`).join("")}
+  </tbody></table>`;
+}
+
+async function costGuardar(){
+  const statusEl = document.getElementById("costStatus");
+  const filasValidas = costFilas.filter(f => f.tipo !== "item" || (f.descripcion||"").trim());
+  let sumCosto = 0, sumVenta = 0;
+  filasValidas.forEach(f => {
+    if(f.tipo === "item"){
+      if(f.costo  != null && f.costo  !== "") sumCosto += parseFloat(f.costo)  || 0;
+      if(f.precio != null && f.precio !== "") sumVenta += parseFloat(f.precio) || 0;
+    }
+  });
+  const fields = {
+    [CI.identificador]:       costFolio,
+    [CI.filasJson]:           JSON.stringify(filasValidas),
+    [CI.costoTotal]:          Math.round(sumCosto * 100) / 100,
+    [CI.ventaTotal]:          Math.round(sumVenta * 100) / 100,
+    [CI.utilidadTotal]:       Math.round((sumVenta - sumCosto) * 100) / 100,
+    [CI.ultimaActualizacion]: new Date().toISOString(),
+  };
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando...";
+  try{
+    if(costRegistroId){
+      await fetch(`/.netlify/functions/airtable?table=${TABLA_COSTOS}&recordId=${costRegistroId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+    } else {
+      fields[CI.ordenServicio] = [costOrdenId];
+      const res = await fetch(`/.netlify/functions/airtable?table=${TABLA_COSTOS}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields }),
+      });
+      const data = await res.json();
+      costRegistroId = data.id;
+    }
+
+    // Sincroniza los renglones (solo precio de venta) con la cotización oficial
+    // (ORDENES.detalleServicios) para que "Cotizar" los muestre sin captura doble.
+    // Dos resguardos: (1) si el cliente ya autorizó la cotización, NUNCA se toca —
+    // debe quedar fiel registro de lo que aceptó, igual que ya protege el modal de
+    // Cotizar; (2) si la tabla de costos todavía no tiene ningún precio de venta
+    // capturado, no se sincroniza — evita borrar una cotización que el admin haya
+    // armado a mano directamente en "Cotizar" sin pasar por esta tabla.
+    const estadoCotRaw = costOrdenFields[COT.estadoCotizacion];
+    const estadoCot = (estadoCotRaw && estadoCotRaw.name) || estadoCotRaw || null;
+    const renglonesCliente = costConstruirRenglonesCliente();
+    let sincronizado = false;
+    if(estadoCot !== "Autorizada" && renglonesCliente.length){
+      const subtotalCli = renglonesCliente.reduce((s,r) => s + r.total, 0);
+      // El 16% SIEMPRE se suma al total, igual que en cotRecalcular() — "Sin IVA"
+      // solo controla si el renglón/concepto de IVA se muestra en el documento.
+      const ivaCli = subtotalCli * 0.16;
+      const totalCli = subtotalCli + ivaCli;
+      await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${costOrdenId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: {
+          [COT.detalleServicios]: JSON.stringify(renglonesCliente),
+          [COT.subtotal]:         Math.round(subtotalCli * 100) / 100,
+          [COT.iva]:               Math.round(ivaCli * 100) / 100,
+          [COT.precioTotal]:      Math.round(totalCli * 100) / 100,
+        }}),
+      });
+      sincronizado = true;
+    }
+
+    statusEl.style.color = "var(--verde)";
+    statusEl.textContent = sincronizado
+      ? "✓ Guardado y sincronizado con la cotización."
+      : (estadoCot === "Autorizada"
+          ? "✓ Guardado (la cotización ya fue autorizada por el cliente, no se modificó)."
+          : "✓ Guardado. Agrega precio de venta a algún renglón para sincronizar con la cotización.");
+  } catch(e){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Error al guardar: " + (e.message || "");
+  }
+}
+
+function cerrarCostos(){ document.getElementById("modalCostos").classList.add("hidden"); }
+function cerrarCostosSiFuera(e){ if(e.target.id === "modalCostos") cerrarCostos(); }
+
+/* ============================================================
+   CONTROL DE COSTOS (Admin/Dirección) — vista general de todas las
+   tablas de costos guardadas, para ver rentabilidad de un vistazo sin
+   tener que abrir orden por orden. Se carga solo al entrar a la pestaña
+   (no en cada refresh del dashboard) para no pegarle a Airtable de más.
+   ============================================================ */
+async function fetchCostosInternos(){
+  let all = [], offset = null;
+  const base = `/.netlify/functions/airtable?table=${TABLA_COSTOS}`;
+  do{
+    let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+    if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+    const res = await fetch(url, { headers:{} });
+    if(!res.ok) break;
+    const d = await res.json();
+    all = all.concat(d.records || []);
+    offset = d.offset || null;
+  } while(offset);
+  return all;
+}
+
+async function renderControlCostos(){
+  const tbody = document.getElementById("tbodyCostosControl");
+  const resumenEl = document.getElementById("costosControlResumen");
+  if(!tbody) return;
+  tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Cargando...</td></tr>`;
+  resumenEl.innerHTML = "";
+
+  const registros = await fetchCostosInternos();
+  if(!registros.length){
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="8">Sin tablas de costos guardadas todavía.</td></tr>`;
+    return;
+  }
+
+  const filas = registros.map(r => {
+    const f = r.fields || {};
+    const ordenLink = f[CI.ordenServicio] || [];
+    const ordenId = ordenLink[0] || null; // arreglo de IDs en texto plano, no objetos {id,name}
+    const orden = ordenId ? allOrdenes.find(o => o.id === ordenId) : null;
+    const identificador = f[CI.identificador] || (orden ? (orden.folio || orden.serie) : "—");
+    return {
+      ordenId,
+      identificador,
+      cliente:   orden ? orden.cliente : "—",
+      costo:     f[CI.costoTotal] || 0,
+      venta:     f[CI.ventaTotal] || 0,
+      utilidad:  f[CI.utilidadTotal] || 0,
+      fecha:     f[CI.ultimaActualizacion] || null,
+    };
+  }).sort((a, b) => new Date(b.fecha || 0) - new Date(a.fecha || 0));
+
+  const sumCosto = filas.reduce((s, x) => s + x.costo, 0);
+  const sumVenta = filas.reduce((s, x) => s + x.venta, 0);
+  const sumUtilidad = sumVenta - sumCosto;
+  const margenGlobal = sumVenta > 0 ? (sumUtilidad / sumVenta * 100) : 0;
+  resumenEl.innerHTML = `
+    <div>${filas.length} tabla(s) de costos</div>
+    <div>Costo total: <strong>${fmtMoneda(sumCosto)}</strong></div>
+    <div>Precio de venta total: <strong>${fmtMoneda(sumVenta)}</strong></div>
+    <div>Utilidad: <strong style="color:var(--verde)">${fmtMoneda(sumUtilidad)}</strong> (${margenGlobal.toFixed(1)}% margen)</div>
+  `;
+
+  tbody.innerHTML = filas.map(x => {
+    const margen = x.venta > 0 ? (x.utilidad / x.venta * 100) : 0;
+    const utilColor = x.utilidad > 0 ? "var(--verde)" : (x.utilidad < 0 ? "var(--rojo)" : "var(--gris-texto)");
+    return `<tr>
+      <td class="td-serie">${esc(x.identificador)}</td>
+      <td class="td-cliente" title="${esc(x.cliente)}">${esc(x.cliente) || "—"}</td>
+      <td style="text-align:right">${fmtMoneda(x.costo)}</td>
+      <td style="text-align:right">${fmtMoneda(x.venta)}</td>
+      <td style="text-align:right;color:${utilColor};font-weight:700">${fmtMoneda(x.utilidad)}</td>
+      <td style="text-align:right">${margen.toFixed(1)}%</td>
+      <td style="font-size:0.75rem;color:var(--gris-texto)">${x.fecha ? fmtFechaHoraCot(x.fecha) : "—"}</td>
+      <td>${x.ordenId ? `<button class="btn-ver" onclick="abrirCostos('${x.ordenId}','${esc(x.identificador)}')">Ver</button>` : ""}</td>
+    </tr>`;
+  }).join("");
+}
+
+/* ============================================================
    PRE-REGISTRO DE EQUIPO (Admin) — da de alta un equipo "Por llegar"
    ============================================================ */
 const PREFIJOS_PREREG = { Motor:"MOT", Reductor:"RED", Motobomba:"MTB", Motoreductor:"MTR", Cilindro:"CIL", Valvula:"VAL", Otro:"OTR" };
 
+// La dirección de recolección solo tiene sentido si nosotros vamos por el equipo —
+// si el cliente lo trae o viene por paquetería, el campo estorba.
+function togglePreDireccionRecoleccion(){
+  const modo = document.getElementById("preModoRecepcion").value;
+  document.getElementById("preDireccionWrap").classList.toggle("hidden", modo !== "Lo recogemos nosotros");
+}
+
+// Pintura/checklist planeados solo tienen sentido para Sulzer — General no usa el
+// checklist SI-ABB y decide lo de pintura después, dentro del propio formulario_general.html.
+function togglePreSulzerCampos(){
+  const esSulzer = document.getElementById("preTipoServicio").value === "Sulzer";
+  document.getElementById("preSulzerCamposWrap").classList.toggle("hidden", !esSulzer);
+  document.getElementById("preChecklistCamposWrap").classList.toggle("hidden", !esSulzer);
+}
+
 function abrirPreRegistro(){
   if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
-  ["preCliente","preDescripcionProblema","preNombreCorto","preMarca","preColor","preSpec","preSerie","preNumParte","prePotencia","preFrame","preVolts","preFolio"].forEach(id => document.getElementById(id).value = "");
+  ["preCliente","preDescripcionProblema","preNombreCorto","preMarca","preColor","preSpec","preSerie","preNumParte","prePotencia","preFrame","preVolts","preFolio","preFechaLlegada","preDireccionRecoleccion"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("preTipoEquipo").value = "";
+  document.getElementById("preTipoServicio").value = "";
+  document.getElementById("prePinturaPlaneada").value = "Aun no se sabe";
+  document.getElementById("preChecklistPlaneado").value = "Aun no se sabe";
+  togglePreSulzerCampos();
+  document.getElementById("preModoRecepcion").value = "";
+  togglePreDireccionRecoleccion();
   document.getElementById("preRegStatus").textContent = "";
   document.getElementById("btnGuardarPreReg").disabled = false; // el botón quedaba deshabilitado tras un guardado exitoso
+  document.getElementById("btnGuardarPreReg").textContent = "Guardar pre-registro";
   // Poblar técnicos (checkboxes, sin ninguno marcado — el pre-registro siempre arranca en blanco)
   document.getElementById("preTecnicoChecks").innerHTML =
     tecnicosList.map(n => `<label><input type="checkbox" value="${esc(n)}"> ${esc(n)}</label>`).join("");
   document.getElementById("modalPreRegistro").classList.remove("hidden");
 }
-function cerrarPreRegistro(){ document.getElementById("modalPreRegistro").classList.add("hidden"); }
+function cerrarPreRegistro(){
+  document.getElementById("modalPreRegistro").classList.add("hidden");
+}
 function cerrarPreRegistroSiFuera(e){ if(e.target.id === "modalPreRegistro") cerrarPreRegistro(); }
 
 // Genera el folio consultando los folios ya cargados (mismo esquema que el formulario)
@@ -3440,13 +5002,14 @@ async function preRegGenerarFolio(){
 }
 
 async function guardarPreRegistro(){
+  const tipoServicio = document.getElementById("preTipoServicio").value;
   const tipoEquipo = document.getElementById("preTipoEquipo").value;
   const cliente = document.getElementById("preCliente").value.trim();
   const folio = document.getElementById("preFolio").value.trim();
   const statusEl = document.getElementById("preRegStatus");
-  if(!tipoEquipo || !cliente || !folio){
+  if(!tipoServicio || !tipoEquipo || !cliente || !folio){
     statusEl.style.color = "var(--rojo)";
-    statusEl.textContent = "Tipo de equipo y cliente son obligatorios.";
+    statusEl.textContent = "Tipo de servicio, tipo de equipo y cliente son obligatorios.";
     return;
   }
   const gv = id => document.getElementById(id).value.trim();
@@ -3458,7 +5021,7 @@ async function guardarPreRegistro(){
   const fields = {
     [F.folio]:        folio,
     [F.cliente]:      cliente,
-    [F.tipoServicio]: "General",
+    [F.tipoServicio]: tipoServicio,
     [F.tipoEquipo]:   tipoEquipo,
     [F.estado]:       "Por llegar",
     [F.serie]:        gv("preSerie"),
@@ -3466,7 +5029,23 @@ async function guardarPreRegistro(){
     "fldSvMeOGe98aT2e0": gv("preFrame"),  // Frame
     "fldE3gDF6mRR71Vnk": gv("preDescripcionProblema"),  // Servicio solicitado
   };
-  const tecnicosMarcados = [...document.querySelectorAll('#preTecnicoChecks input:checked')].map(c => c.value);
+  // Planeación: se capturan aquí porque es el único momento en que alguien sabe
+  // cuándo y cómo va a llegar el equipo. Alimentan la pestaña Planeación.
+  const fechaLlegada = gv("preFechaLlegada");
+  if(fechaLlegada) fields[F.fechaLlegadaProgramada] = fechaLlegada;
+  const modoRecepcion = document.getElementById("preModoRecepcion").value;
+  if(modoRecepcion) fields[F.modoRecepcion] = modoRecepcion;
+  if(modoRecepcion === "Lo recogemos nosotros"){
+    const dir = gv("preDireccionRecoleccion");
+    if(dir) fields[F.direccionRecoleccion] = dir;
+  }
+  // Un Sulzer casi nunca trae serie/SPEC de antemano, pero sí suele saberse si
+  // llevará pintura y/o checklist SI-ABB — eso es lo que se pre-registra aquí.
+  if(tipoServicio === "Sulzer"){
+    fields[F.pinturaPlaneada] = document.getElementById("prePinturaPlaneada").value;
+    fields[F.checklistSulzerPlaneado] = document.getElementById("preChecklistPlaneado").value;
+  }
+  const tecnicosMarcados =[...document.querySelectorAll('#preTecnicoChecks input:checked')].map(c => c.value);
   if(tecnicosMarcados.length) fields[F.tecnicoAsignado] = tecnicosMarcados.join(", ");
   const hp = parseFloat(gv("prePotencia"));
   if(!isNaN(hp)) fields["fldjyFFAaL0dIFWIE"] = hp;
@@ -3477,7 +5056,7 @@ async function guardarPreRegistro(){
     // 1) Crear la ORDEN "Por llegar"
     const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}`, {
       method: "POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type": "application/json" },
       body: JSON.stringify({ records:[{ fields }] })
     });
     const data = await res.json();
@@ -3485,18 +5064,32 @@ async function guardarPreRegistro(){
 
     // 2) Guardar los datos adicionales (marca/color/nombre/n° parte) en BORRADORES,
     //    igual que hace el formulario, para que el técnico los recupere al buscar el folio.
+    //    tipoEquipo/cliente van incluidos a propósito: restaurarDesdeAirtableGeneral()
+    //    en formulario_general.html descarta cualquier borrador que no traiga al menos
+    //    uno de los dos (los trata como "insuficiente para reconstruir el formulario"),
+    //    así que sin esto el técnico veía todo en blanco al dar "Continuar" desde un
+    //    dispositivo distinto al que hizo el pre-registro — el caso normal, no la excepción.
+    //    spec/frame/potencia/volts también se incluyen aquí: aunque ya viven como columnas
+    //    directas en ORDENES, el relleno de huecos (completarDesdeOrden) solo lee
+    //    ORDENES.diagnosticoTexto, que el pre-registro nunca escribe.
     const datosJson = JSON.stringify({
+      tipoEquipo: tipoEquipo,
+      cliente: cliente,
       materiales: [],
       nombreCorto: gv("preNombreCorto"),
       modelo: gv("preSpec"),
+      spec: gv("preSpec"),
       marca: gv("preMarca"),
       color: gv("preColor"),
       numParte: gv("preNumParte"),
+      potencia: gv("prePotencia"),
+      frame: gv("preFrame"),
+      volts: gv("preVolts"),
       descripcionProblema: gv("preDescripcionProblema"),
     });
     await fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}`, {
       method: "POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ "Content-Type": "application/json" },
       body: JSON.stringify({ records:[{ fields: {
         [BF_SERIE]: folio,
         "fldzogHAx1BAkw4q2": cliente,
@@ -3505,9 +5098,10 @@ async function guardarPreRegistro(){
       }}]})
     }).catch(()=>{});
 
+    const nuevoId = data.records[0].id;
+
     statusEl.style.color = "var(--verde)";
     statusEl.textContent = `✓ Equipo ${folio} pre-registrado.`;
-    const nuevoId = data.records[0].id;
     cerrarPreRegistro();
     generarQROrden(nuevoId, folio);
     await cargarOrdenesYBorradores();
@@ -3550,7 +5144,9 @@ async function generarQROrden(id, identificadorFallback){
   document.getElementById("modalQR").classList.remove("hidden");
 
   try{
-    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, { headers:{} });
+    const res = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${id}&returnFieldsByFieldId=true`, {
+      headers:{}
+    });
     if(!res.ok) throw new Error("No se pudo cargar la orden.");
     const orden = await res.json();
     const of = orden.fields || {};
@@ -4064,6 +5660,60 @@ function renderTablaDireccion(ordenes){
 }
 
 let _valOrdenId = null, _valFolio = null, _valEstado = "";
+let _valMateriales = [];  // lista que se está mostrando en el modal, para poder releerla al guardar
+
+/* ------------------------------------------------------------
+   LOGÍSTICA DE MATERIALES
+   El técnico NUNCA sabe quién es el proveedor — solo arma la lista
+   (cantidad/unidad/descripción/nota). Admin/Dirección resuelve aquí de dónde
+   sale cada material. Eso se guarda en ORDENES.logisticaMateriales (JSON aparte)
+   y NO dentro de materialesJson de REPORTES_GENERAL: ese lo escribe el formulario
+   del técnico y sobrescribirlo desde aquí pisaría su trabajo.
+   ------------------------------------------------------------ */
+const ORIGENES_MATERIAL = ["Stock", "Hay que comprar", "Recoger con proveedor", "Lo trae el cliente"];
+
+// Un material solo genera evento de calendario si hay una acción logística nuestra
+// pendiente. Stock y "lo trae el cliente" no mueven a nadie.
+function origenRequiereLogistica(origen){
+  return origen === "Recoger con proveedor" || origen === "Hay que comprar";
+}
+
+function parseLogistica(txt){
+  try{ const a = JSON.parse(txt || "[]"); return Array.isArray(a) ? a : []; }
+  catch(e){ return []; }
+}
+
+// La lista de materiales puede cambiar entre validaciones (el técnico corrige y reenvía),
+// así que la posición sola no es confiable: se busca primero por descripción y solo se
+// cae al índice cuando el registro guardado no traía descripción.
+function logisticaDeMaterial(logArr, mat, idx){
+  const desc = (mat.descripcion || "").trim().toLowerCase();
+  if(desc){
+    const porDesc = logArr.find(l => (l.descripcion || "").trim().toLowerCase() === desc);
+    if(porDesc) return porDesc;
+  }
+  const porIdx = logArr[idx];
+  if(porIdx && !porIdx.descripcion) return porIdx;
+  return {};
+}
+
+// Materiales de una orden que ya tienen fecha de logística (recolección con proveedor
+// O compra) → eventos del calendario de Planeación. Antes solo se consideraba
+// "Recoger con proveedor"; "Hay que comprar" capturaba proveedor/fecha en el modal
+// de Validación pero nunca generaba evento ni aparecía como pendiente (bug real,
+// corregido 2026-08-28).
+function recoleccionesDeOrden(o){
+  return parseLogistica(o.logisticaMateriales)
+    .filter(l => origenRequiereLogistica(l.origen) && l.fecha)
+    .map(l => ({ ...l }));
+}
+
+// Materiales que necesitan que alguien salga a conseguirlos o comprarlos pero todavía
+// no tienen proveedor o fecha — se avisan aparte, NO como evento con fecha inventada.
+function materialesSinResolver(o){
+  return parseLogistica(o.logisticaMateriales)
+    .filter(l => origenRequiereLogistica(l.origen) && (!l.proveedor || !l.fecha));
+}
 
 async function abrirValidacion(id, folio){
   _valOrdenId = id; _valFolio = folio;
@@ -4148,28 +5798,153 @@ async function abrirValidacion(id, folio){
       ` : ""}
     `;
 
-    document.getElementById("valMaterialesBody").innerHTML = materiales.length
-      ? materiales.map(m => `<tr><td>${esc(m.cantidad||"—")}</td><td>${esc(m.unidad||"—")}</td><td>${esc(m.descripcion||"")}</td><td>${esc(m.nota||"")}</td></tr>`).join("")
-      : `<tr><td colspan="4" style="text-align:center;color:var(--gris-texto)">Sin materiales en la lista.</td></tr>`;
+    _valMateriales = materiales;
+    renderMaterialesValidacion(materiales, parseLogistica(of[F.logisticaMateriales]));
 
     // Solo Dirección puede validar/rechazar — Admin puede ver la lista pero no actuar sobre ella.
     // Y si no hay materiales, no hay nada que validar (cubre datos viejos que hayan quedado
     // en "Pendiente" de antes de este fix, aunque ya no debería volver a pasar).
     const esDireccion = _sesion && _sesion.rol === "Direccion";
+    const esAdminODir = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
     const hayMateriales = materiales.length > 0;
+    // La logística (proveedor/origen/fecha) la puede resolver Admin también — es trabajo
+    // de compras, no de autorización. Validar/rechazar sigue siendo exclusivo de Dirección.
+    const btnLogistica = (esAdminODir && hayMateriales)
+      ? `<button class="btn-corr" style="background:var(--azul-medio)" onclick="guardarLogisticaMateriales()">💾 Guardar logística</button>`
+      : "";
     document.getElementById("valFooter").innerHTML = (esDireccion && hayMateriales) ? `
       <button class="btn-cancelar" onclick="cerrarValidacion()">Cerrar</button>
+      ${btnLogistica}
       <button class="btn-corr" style="background:var(--rojo)" onclick="rechazarMateriales()">↩ Regresar al técnico</button>
       <button class="btn-imprimir" onclick="validarMateriales()">✅ Validar</button>
     ` : `
       <span style="font-size:0.8rem;color:var(--gris-texto);margin-right:auto;align-self:center">${!hayMateriales ? "Sin materiales — no hay nada que validar." : "Solo Dirección puede validar esta lista."}</span>
       <button class="btn-cancelar" onclick="cerrarValidacion()">Cerrar</button>
+      ${btnLogistica}
     `;
 
     document.getElementById("valCargando").classList.add("hidden");
     document.getElementById("valForm").classList.remove("hidden");
   } catch(e){
     document.getElementById("valCargando").innerHTML = `<p style="color:var(--rojo)">Error al cargar: ${esc(e.message||"")}</p>`;
+  }
+}
+
+function renderMaterialesValidacion(materiales, logArr){
+  const tbody = document.getElementById("valMaterialesBody");
+  const puedeEditar = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
+  const ayuda = document.getElementById("valLogisticaAyuda");
+  if(ayuda) ayuda.classList.toggle("hidden", !puedeEditar);
+  if(!materiales.length){
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--gris-texto)">Sin materiales en la lista.</td></tr>`;
+    actualizarAvisoSinResolver();
+    return;
+  }
+  tbody.innerHTML = materiales.map((m, i) => {
+    const log = logisticaDeMaterial(logArr, m, i);
+    const origen = log.origen || "";
+    const celdasLog = puedeEditar ? `
+      <td>
+        <select class="sel-fila" id="valOrigen_${i}" onchange="valToggleFila(${i})">
+          <option value="">— definir —</option>
+          ${ORIGENES_MATERIAL.map(op => `<option value="${op}"${origen===op?" selected":""}>${op}</option>`).join("")}
+        </select>
+      </td>
+      <td><input type="text" class="sel-fila" id="valProv_${i}" value="${esc(log.proveedor||"")}" placeholder="Proveedor" oninput="actualizarAvisoSinResolver()"></td>
+      <td><input type="date" class="sel-fila" id="valFecha_${i}" value="${esc(log.fecha||"")}" onchange="actualizarAvisoSinResolver()"></td>
+    ` : `
+      <td>${origen ? esc(origen) : "<span style='color:var(--gris-texto)'>—</span>"}</td>
+      <td>${esc(log.proveedor||"") || "<span style='color:var(--gris-texto)'>—</span>"}</td>
+      <td>${log.fecha ? formatoFechaCorta(log.fecha) : "<span style='color:var(--gris-texto)'>—</span>"}</td>
+    `;
+    return `<tr>
+      <td>${esc(String(m.cantidad ?? "")) || "—"}</td>
+      <td>${esc(String(m.unidad ?? "")) || "—"}</td>
+      <td>${esc(String(m.descripcion ?? ""))}</td>
+      <td>${esc(String(m.nota ?? ""))}</td>
+      ${celdasLog}
+    </tr>`;
+  }).join("");
+  materiales.forEach((m, i) => valToggleFila(i));
+}
+
+// Proveedor y fecha solo aplican cuando alguien tiene que ir a conseguir el material.
+function valToggleFila(i){
+  const sel = document.getElementById("valOrigen_"+i);
+  if(!sel) return;
+  const aplica = origenRequiereLogistica(sel.value);
+  ["valProv_"+i, "valFecha_"+i].forEach(id => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.disabled = !aplica;
+    el.style.opacity = aplica ? "" : "0.45";
+    if(!aplica) el.value = "";
+  });
+  actualizarAvisoSinResolver();
+}
+
+// Lee la tabla del modal y la convierte en el JSON que se guarda en la orden.
+function recolectarLogistica(){
+  return _valMateriales.map((m, i) => {
+    const sel = document.getElementById("valOrigen_"+i);
+    if(!sel) return null;
+    const origen = sel.value;
+    if(!origen) return null;
+    const prov  = document.getElementById("valProv_"+i);
+    const fecha = document.getElementById("valFecha_"+i);
+    return {
+      descripcion: m.descripcion || "",
+      cantidad: m.cantidad ?? "",
+      unidad: m.unidad ?? "",
+      origen,
+      proveedor: (prov && !prov.disabled) ? prov.value.trim() : "",
+      fecha: (fecha && !fecha.disabled) ? fecha.value : "",
+      recogido: false,
+    };
+  }).filter(Boolean);
+}
+
+function actualizarAvisoSinResolver(){
+  const box = document.getElementById("valSinResolver");
+  if(!box) return;
+  const pendientes = recolectarLogistica().filter(l =>
+    origenRequiereLogistica(l.origen) && (!l.proveedor || !l.fecha)
+  );
+  const sinOrigen = _valMateriales.length - recolectarLogistica().length;
+  const partes = [];
+  if(sinOrigen > 0) partes.push(`${sinOrigen} material(es) sin origen definido`);
+  if(pendientes.length) partes.push(`${pendientes.length} sin proveedor o sin fecha`);
+  box.classList.toggle("hidden", partes.length === 0);
+  box.textContent = partes.length ? `⚠ ${partes.join(" · ")} — se guardan igual, pero no salen en el calendario hasta que tengan fecha.` : "";
+}
+
+// Guarda SOLO la logística, sin tocar el estado de validación — para que compras
+// pueda ir resolviendo proveedores aunque Dirección todavía no valide.
+async function guardarLogisticaMateriales(){
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
+  const statusEl = document.getElementById("valStatus");
+  statusEl.style.color = "var(--gris-texto)";
+  statusEl.textContent = "Guardando logística...";
+  try{
+    await patchLogistica(recolectarLogistica());
+    statusEl.style.color = "var(--verde)";
+    statusEl.textContent = "✓ Logística guardada.";
+    cargarSoloOrdenes();
+  } catch(e){
+    statusEl.style.color = "var(--rojo)";
+    statusEl.textContent = "Error al guardar: " + (e.message||"");
+  }
+}
+
+async function patchLogistica(logArr){
+  const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_valOrdenId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fields: { [F.logisticaMateriales]: JSON.stringify(logArr) } })
+  });
+  if(!resp.ok){
+    const d = await resp.json().catch(()=>({}));
+    throw new Error((d.error && d.error.message) || `Error HTTP ${resp.status}`);
   }
 }
 
@@ -4181,11 +5956,14 @@ async function validarMateriales(){
   try{
     const resp = await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${_valOrdenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: {
         [F.estadoValidacionMateriales]: "Validado",
         [F.validadoPor]: (_sesion.nombre || _sesion.usuario || ""),
         [F.fechaValidacion]: new Date().toISOString(),
+        // Validar ya no es solo aprobar/rechazar: también deja resuelta la logística
+        // de cada material, que es lo que alimenta el calendario de Planeación.
+        [F.logisticaMateriales]: JSON.stringify(recolectarLogistica()),
       } })
     });
     if(!resp.ok){
@@ -4228,7 +6006,7 @@ async function rechazarMaterialesTemprano(ordenId, folio){
   try{
     await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${ordenId}`, {
       method: "PATCH",
-      headers: { "Content-Type":"application/json" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields: {
         [F.estadoValidacionMateriales]: "Rechazado",
         [F.notasCorreccion]: (motivo||"").trim(),
@@ -4658,6 +6436,71 @@ function imprimirKPIs(){
       }
     </style></head><body>
     ${paginas.join("")}
+    </body></html>`);
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(() => ventana.print(), 400);
+}
+
+// Hoja de logística de la semana (próximos 7 días) para dejar en el taller — mismo
+// patrón de ventana nueva + CSS propio que imprimirKPIs(), pero una sola hoja vertical.
+function imprimirPlaneacionSemanal(){
+  if(!puedeEditarPlan()) return;
+
+  const logoSrc  = document.getElementById("brandLogo").src;
+  let fechaTxt   = new Date().toLocaleDateString("es-MX", { day:"numeric", month:"long", year:"numeric" });
+  fechaTxt       = fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1);
+
+  const evs = eventosProximos(eventosPlaneacion(), 7).slice().sort((a,b) => (a.fecha||"9999").localeCompare(b.fecha||"9999"));
+  const grupos = [
+    { titulo: "🔵 Llegadas",               items: evs.filter(e => e.base === "llegada") },
+    { titulo: "🟤 Recolección de material", items: evs.filter(e => e.base === "recoleccion") },
+    { titulo: "🟣 Compra de material",      items: evs.filter(e => e.base === "compra") },
+    { titulo: "🟢 Envío / entrega",         items: evs.filter(e => e.base === "envio") },
+  ];
+
+  const filaHtml = e => `<div class="sem-fila${e.retrasado ? " retraso" : ""}">
+      <span class="sem-fecha">${e.retrasado ? "Atrasado" : formatoFechaCorta(e.fecha)}</span>
+      <span class="sem-tit">${esc(e.titulo)}</span>
+      <span class="sem-det">${esc(e.detalle||"")}</span>
+    </div>`;
+
+  const bloques = grupos.map(g => `
+    <div class="sem-bloque">
+      <div class="sem-bloque-tit">${g.titulo} <span class="sem-count">${g.items.length}</span></div>
+      ${g.items.length ? g.items.map(filaHtml).join("") : `<div class="sem-vacio">Nada programado.</div>`}
+    </div>
+  `).join("");
+
+  const ventana = window.open("", "_blank");
+  ventana.document.write(`<!DOCTYPE html><html lang="es"><head>
+    <meta charset="UTF-8"><title>Planeación de la semana — Centro de Servicio SI</title>
+    <style>
+      :root{ --navy:#0c1e35; --azul:#12325a; --gris-texto:#485568; --gris-oscuro:#3d4a5c; --fondo:#eef1f6; --gris:#dde3ec; --rojo:#991b1b; --rojo-bg:#fdecec; }
+      *{ box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+      body{ font-family: Arial, sans-serif; color:#1f2937; padding:0.6in; }
+      .sem-header{ display:flex; align-items:center; gap:14px; border-bottom:3px solid var(--navy); padding-bottom:10px; margin-bottom:18px; }
+      .sem-header img{ height:34px; }
+      .sem-header-tit b{ display:block; font-size:0.95rem; color:var(--navy); }
+      .sem-header-tit span{ font-size:0.76rem; color:var(--gris-texto); }
+      .sem-header-fecha{ margin-left:auto; font-size:0.85rem; color:var(--gris-texto); }
+      .sem-bloque{ margin-bottom:16px; }
+      .sem-bloque-tit{ font-size:0.95rem; font-weight:800; color:var(--navy); margin-bottom:6px; }
+      .sem-count{ font-weight:600; color:var(--gris-texto); font-size:0.8rem; }
+      .sem-fila{ display:grid; grid-template-columns:110px 1fr 1fr; gap:10px; font-size:0.85rem; padding:6px 8px; border-bottom:1px solid var(--gris); }
+      .sem-fila.retraso{ background:var(--rojo-bg); color:var(--rojo); font-weight:700; }
+      .sem-fecha{ font-weight:700; }
+      .sem-det{ color:var(--gris-texto); }
+      .sem-fila.retraso .sem-det{ color:var(--rojo); }
+      .sem-vacio{ font-size:0.82rem; color:var(--gris-texto); padding:4px 8px; }
+      @media print{ @page{ size: letter portrait; margin:0.5in; } body{ padding:0; } }
+    </style></head><body>
+    <div class="sem-header">
+      <img src="${logoSrc}" alt="SI">
+      <div class="sem-header-tit"><b>Suministros Industriales SI</b><span>Planeación de la semana — próximos 7 días</span></div>
+      <div class="sem-header-fecha">${fechaTxt}</div>
+    </div>
+    ${bloques}
     </body></html>`);
   ventana.document.close();
   ventana.focus();
@@ -5253,6 +7096,10 @@ function aplicarRestriccionesRol(){
     if(btnPre) btnPre.style.display = "none";
     const btnImprimirKPIs = document.getElementById("btnImprimirKPIs");
     if(btnImprimirKPIs) btnImprimirKPIs.style.display = "none";
+    const planBtnCompras = document.getElementById("planBtnCompras");
+    if(planBtnCompras) planBtnCompras.style.display = "none";
+    const btnImprimirSemanaPlan = document.getElementById("btnImprimirSemanaPlan");
+    if(btnImprimirSemanaPlan) btnImprimirSemanaPlan.style.display = "none";
     const btnMisAsignaciones = document.getElementById("btnMisAsignaciones");
     if(btnMisAsignaciones){
       btnMisAsignaciones.style.display = "";
