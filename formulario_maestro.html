@@ -1525,10 +1525,21 @@ function eliminarDeDB(serie){
   });
 }
 
+// Lista LIVIANA de borradores (serie/cliente/%/fecha). Antes usaba getAll(), que carga TODOS
+// los borradores con sus fotos en base64 a la vez en memoria — en tablets con poca RAM
+// eso tumbaba la pestaña ("¡Oh, no!") al abrir el formulario. Con cursor se lee un registro
+// a la vez y solo se conservan los campos chicos, así el resto se libera enseguida.
 function obtenerTodosDB(){
   return new Promise((resolve, reject) => {
-    const req = _dbStore("readonly").getAll();
-    req.onsuccess = e => resolve(e.target.result || []);
+    const out = [];
+    const req = _dbStore("readonly").openCursor();
+    req.onsuccess = e => {
+      const cur = e.target.result;
+      if(!cur){ resolve(out); return; }
+      const d = cur.value || {};
+      out.push({ serie: d.serie, cliente: d.cliente, _porcentaje: d._porcentaje, _ts: d._ts });
+      cur.continue();
+    };
     req.onerror   = e => reject(e.target.error);
   });
 }
@@ -2821,6 +2832,13 @@ async function guardarRegistroUnico(tabla, campoLink, ordenId, fields, idConocid
   return d.records[0].id;
 }
 
+/* Contenido base64 de una foto. Las fotos restauradas de un borrador ("Continuar") traen
+   base64:null y solo dataUrl; mandar null a uploadAttachment hace que Airtable rechace la
+   subida y la foto se pierde en silencio. */
+function base64DeFoto(f){
+  return f.base64 || (f.dataUrl ? f.dataUrl.split(",")[1] : null);
+}
+
 /* Nombres de archivo que YA están en un campo de adjuntos — para no volver a subir
    una foto que ya se había subido cuando el registro se actualiza en vez de crearse. */
 async function adjuntosExistentes(tabla, recId, fieldId){
@@ -4038,7 +4056,7 @@ async function enviarRecepcion(){
         if(yaPlaca.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${ordenRecordId}&fieldId=${ORDENES_FIELDS.fotosPlaca}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) }).catch(()=>{});
       }
     }
 
@@ -4081,7 +4099,7 @@ async function enviarRecepcion(){
         if(yaRecibido.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) }).catch(()=>{});
       }
 
       // Fotos de daños (si hay), mismo criterio
@@ -4091,7 +4109,7 @@ async function enviarRecepcion(){
         if(yaDanos.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${FIELDS_EVIDENCIA.fotosDanos}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) }).catch(()=>{});
       }
     }
 
@@ -4249,12 +4267,20 @@ async function enviarChecklist(){
       if(r?.fotos?.length) r.fotos.forEach(foto => fotosCK.push({ num: item.num, ...foto }));
     });
     const yaEnCK = await adjuntosExistentes(TABLA_CHECKLIST, ckRecordIdGlobal, FIELDS_CHECKLIST.fotos);
+    const fotosCKFallidas = [];
     for(let i = 0; i < fotosCK.length; i++){
       setP(`Subiendo fotos checklist (${i+1}/${fotosCK.length})...`, 14 + (i/Math.max(fotosCK.length,1))*20);
       if(yaEnCK.has(fotosCK[i].filename)) continue;
-      await fetch(`/.netlify/functions/airtable-upload?recordId=${ckRecordIdGlobal}&fieldId=${FIELDS_CHECKLIST.fotos}`,
-        { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: fotosCK[i].contentType, filename: fotosCK[i].filename, file: fotosCK[i].base64 }) });
+      try{
+        const respFoto = await fetch(`/.netlify/functions/airtable-upload?recordId=${ckRecordIdGlobal}&fieldId=${FIELDS_CHECKLIST.fotos}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ contentType: fotosCK[i].contentType, filename: fotosCK[i].filename, file: base64DeFoto(fotosCK[i]) }) });
+        if(!respFoto.ok) fotosCKFallidas.push(fotosCK[i].filename);
+      } catch(e){ fotosCKFallidas.push(fotosCK[i].filename); }
+    }
+    if(fotosCKFallidas.length){
+      alert("ATENCIÓN: " + fotosCKFallidas.length + " foto(s) del checklist NO se pudieron subir:\n\n" +
+        fotosCKFallidas.join("\n") + "\n\nEl checklist quedó guardado, pero esas fotos NO están en el reporte. No borres el borrador ni cierres el equipo: avisa a administración para subirlas.");
     }
 
     setP("Actualizando estado...", 36);
@@ -4282,7 +4308,7 @@ async function enviarChecklist(){
           if(yaEnEv.has(foto.filename)) continue;
           await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${fieldIdRecibido}`,
             { method:"POST", headers:{ "Content-Type":"application/json" },
-              body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }).catch(()=>{});
+              body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: base64DeFoto(foto) }) }).catch(()=>{});
         }
       }
     }
@@ -4379,7 +4405,7 @@ async function guardarCorrecciones(){
       setP(`Subiendo foto corrección (${i+1}/${todasFotos.length})...`, Math.round((i/Math.max(todasFotos.length,1))*70));
       await fetch(`/.netlify/functions/airtable-upload?recordId=${ckRecordIdGlobal}&fieldId=${FIELDS_CHECKLIST.fotos}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+          body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) }).catch(()=>{});
     }
 
     // Actualizar checklistJson con accionRealizada + marcar correcciones completadas
@@ -4473,7 +4499,7 @@ async function enviarPintura(){
       if(yaAdh.has(f.filename)) continue;
       await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
+          body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) });
     }
 
     await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}`,
@@ -4597,7 +4623,7 @@ async function enviarFinal(){
         if(yaAdhF.has(f.filename)) continue;
         await fetch(`/.netlify/functions/airtable-upload?recordId=${pinturaRecordId}&fieldId=${FIELDS_PINTURA.fotosAdherencia}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) });
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) });
       }
 
       // 3) Marcar checkbox pintura
@@ -4617,14 +4643,14 @@ async function enviarFinal(){
         setP(`Subiendo Trabajo Terminado (${i+1}/${fotosTrabajoTerminado.length})...`, 42 + (i/Math.max(fotosTrabajoTerminado.length,1))*14);
         await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${FEV_TRAB}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) }).catch(()=>{});
       }
       for(let i = 0; i < fotosEmbalajeFinal.length; i++){
         const f = fotosEmbalajeFinal[i];
         setP(`Subiendo Embalaje Final (${i+1}/${fotosEmbalajeFinal.length})...`, 58 + (i/Math.max(fotosEmbalajeFinal.length,1))*14);
         await fetch(`/.netlify/functions/airtable-upload?recordId=${evidenciaRecordIdGlobal}&fieldId=${FEV_EMB}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: f.base64 }) }).catch(()=>{});
+            body: JSON.stringify({ contentType: f.contentType, filename: f.filename, file: base64DeFoto(f) }) }).catch(()=>{});
       }
     }
 
@@ -4762,7 +4788,7 @@ async function enviarTodo(){
       const uploadResp = await fetch(
         `/.netlify/functions/airtable-upload?recordId=${recordIdCK}&fieldId=${FIELDS_CHECKLIST.fotos}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }
+          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: base64DeFoto(foto) }) }
       );
       if(!uploadResp.ok){
         const ud = await uploadResp.json();
@@ -4782,7 +4808,7 @@ async function enviarTodo(){
       await fetch(
         `/.netlify/functions/airtable-upload?recordId=${recordIdCK}&fieldId=${FIELDS_CHECKLIST.fotos}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }
+          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: base64DeFoto(foto) }) }
       );
     }
 
@@ -4815,7 +4841,7 @@ async function enviarTodo(){
       const uploadResp = await fetch(
         `/.netlify/functions/airtable-upload?recordId=${recordIdEv}&fieldId=${fieldIdRecibido}`,
         { method:"POST", headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: foto.base64 }) }
+          body: JSON.stringify({ contentType: foto.contentType, filename: foto.filename, file: base64DeFoto(foto) }) }
       );
       if(!uploadResp.ok){
         const ud = await uploadResp.json();
@@ -4981,7 +5007,9 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   } else {
     // Mostrar todos los borradores activos (puede haber varios motores en progreso)
-    await mostrarSelectorBorradores();
+    // Escape hatch: ?sinborradores=1 abre el formulario sin leer los borradores locales
+    if(new URLSearchParams(window.location.search).get("sinborradores") !== "1")
+      await mostrarSelectorBorradores();
   }
 
   // Autosave cada 15 segundos
