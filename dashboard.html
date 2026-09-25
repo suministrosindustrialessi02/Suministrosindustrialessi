@@ -415,6 +415,7 @@ main{ max-width: 1380px; margin: 0 auto; padding: 22px 24px 56px; }
   background: #fff;
   box-shadow: 0 0 0 3px rgba(37,99,168,0.1);
 }
+.filtro-fecha{ font-size:0.75rem; color:var(--gris-texto); font-weight:600; display:inline-flex; align-items:center; gap:5px; }
 .btn-limpiar{
   padding: 7px 13px;
   background: var(--fondo);
@@ -1600,6 +1601,8 @@ footer strong{ color: var(--azul); }
       <input type="text" id="filtroCliente" placeholder="Cliente..." oninput="aplicarFiltros()">
       <select id="filtroEstado" onchange="aplicarFiltros()">
         <option value="">Todos los estados</option>
+        <option value="__sinEntregados">Todos menos entregados</option>
+        <option value="__activos">Todos menos terminados y entregados</option>
         <option value="recibido">Recibido</option>
         <option value="proceso">En Proceso</option>
         <option value="terminado">Terminado</option>
@@ -1613,6 +1616,17 @@ footer strong{ color: var(--azul); }
       <select id="filtroHP" onchange="aplicarFiltros()">
         <option value="">Todos los HP</option>
       </select>
+      <select id="filtroPeriodo" onchange="aplicarPeriodoRapido(this.value)" title="Atajo de fechas (según fecha de ingreso al sistema)">
+        <option value="">Todas las fechas</option>
+        <option value="hoy">Hoy</option>
+        <option value="semana">Esta semana</option>
+        <option value="mes">Este mes</option>
+        <option value="mesPasado">Mes pasado</option>
+        <option value="30">Últimos 30 días</option>
+        <option value="personalizado" hidden>Rango personalizado</option>
+      </select>
+      <label class="filtro-fecha">Desde <input type="date" id="filtroDesde" onchange="fechaManual()"></label>
+      <label class="filtro-fecha">Hasta <input type="date" id="filtroHasta" onchange="fechaManual()"></label>
       <button class="btn-mis-asignaciones" id="btnMisAsignaciones" style="display:none" onclick="toggleMisAsignaciones()">Mis asignaciones</button>
       <button class="btn-limpiar" onclick="limpiarFiltros()">Limpiar</button>
       <span class="filtro-resultado" id="filtroResultado"></span>
@@ -2640,13 +2654,33 @@ function aplicarFiltros(){
   const fEstado   = (document.getElementById("filtroEstado")?.value   || "");
   const fServicio = (document.getElementById("filtroServicio")?.value || "");
   const fHP       = (document.getElementById("filtroHP")?.value       || "");
+  const fDesde    = (document.getElementById("filtroDesde")?.value    || "");
+  const fHasta    = (document.getElementById("filtroHasta")?.value    || "");
+
+  // Fecha local (YYYY-MM-DD) en que la orden entró al sistema
+  const fechaLocal = o => {
+    if(!o.createdAt) return "";
+    const d = new Date(o.createdAt);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  };
 
   filtradas = allOrdenes.filter(o => {
+    if(fDesde || fHasta){
+      const fo = fechaLocal(o);
+      if(!fo || (fDesde && fo < fDesde) || (fHasta && fo > fHasta)) return false;
+    }
+
     const serieTxt = (o.serie || "").toLowerCase();
     const folioTxt = (o.folio || "").toLowerCase();
     if(fSerie    && !serieTxt.includes(fSerie) && !folioTxt.includes(fSerie)) return false;
     if(fCliente  && !o.cliente.toLowerCase().includes(fCliente)) return false;
-    if(fEstado   && normEstado(o.estado) !== fEstado)            return false;
+    if(fEstado){
+      const ne = normEstado(o.estado);
+      if(fEstado === "__sinEntregados"){ if(ne === "entregado") return false; }
+      else if(fEstado === "__activos"){ if(ne === "entregado" || ne === "terminado") return false; }
+      else if(ne !== fEstado) return false;
+    }
+
     if(fServicio && o.tipoServicio !== fServicio)                return false;
     if(fHP       && String(o.hp ?? "") !== fHP)                  return false;
     if(misAsignacionesActivo && !esMiAsignacionOSinAsignar(o))   return false;
@@ -2656,7 +2690,7 @@ function aplicarFiltros(){
   const totalFiltradas = filtradas.length;
   const totales        = allOrdenes.length;
   document.getElementById("filtroResultado").textContent =
-    (fSerie || fCliente || fEstado || fServicio || fHP || misAsignacionesActivo)
+    (fSerie || fCliente || fEstado || fServicio || fHP || fDesde || fHasta || misAsignacionesActivo)
       ? `${totalFiltradas} de ${totales} resultados`
       : "";
 
@@ -2672,6 +2706,36 @@ function limpiarFiltros(){
   document.getElementById("filtroEstado").value   = "";
   document.getElementById("filtroServicio").value = "";
   document.getElementById("filtroHP").value       = "";
+  document.getElementById("filtroPeriodo").value  = "";
+  document.getElementById("filtroDesde").value    = "";
+  document.getElementById("filtroHasta").value    = "";
+  aplicarFiltros();
+}
+
+function aplicarPeriodoRapido(p){
+  const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const hoy = new Date();
+  let desde = "", hasta = "";
+  if(p === "hoy"){ desde = hasta = iso(hoy); }
+  else if(p === "semana"){
+    const lunes = new Date(hoy); lunes.setDate(hoy.getDate() - ((hoy.getDay() + 6) % 7));
+    desde = iso(lunes); hasta = iso(hoy);
+  }
+  else if(p === "mes"){ desde = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)); hasta = iso(hoy); }
+  else if(p === "mesPasado"){
+    desde = iso(new Date(hoy.getFullYear(), hoy.getMonth()-1, 1));
+    hasta = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 0));
+  }
+  else if(p === "30"){ const d = new Date(hoy); d.setDate(hoy.getDate()-30); desde = iso(d); hasta = iso(hoy); }
+  document.getElementById("filtroDesde").value = desde;
+  document.getElementById("filtroHasta").value = hasta;
+  aplicarFiltros();
+}
+
+// Al escribir fechas a mano, el atajo pasa a "Rango personalizado" (o vuelve a "Todas" si se vacían)
+function fechaManual(){
+  const hay = document.getElementById("filtroDesde").value || document.getElementById("filtroHasta").value;
+  document.getElementById("filtroPeriodo").value = hay ? "personalizado" : "";
   aplicarFiltros();
 }
 
