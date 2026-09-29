@@ -804,7 +804,8 @@ async function cargarDatos(){
 
   if(!ordenId){ throw new Error("URL inválida — falta parámetro 'id'"); }
 
-  if(_sesion && _sesion.rol === "Cliente"){
+  const _esPublico = p.get("auto") === "publico"; // QR del equipo: sin login, sin restricción por rol
+  if(!_esPublico && _sesion && _sesion.rol === "Cliente"){
     const propios = Array.isArray(_sesion.equiposAsociados) ? _sesion.equiposAsociados : [];
     if(!propios.includes(ordenId)){ throw new Error("No tienes acceso a este equipo."); }
   }
@@ -3679,7 +3680,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     // auto-genera: abrir la ventana necesita un clic real del usuario, si no el
     // navegador bloquea el popup (no hay "gesto de usuario" al cargar la página).
     const _autoParam = new URLSearchParams(location.search).get("auto");
-    if(_autoParam === "diagnostico" || _autoParam === "cotizacion"){
+    if(_autoParam === "publico"){
+      // Vista del QR: solo Diagnóstico y Reporte de Servicio, sin edición, cotización,
+      // materiales, remisión ni nada interno — aunque haya una sesión abierta en el celular.
+      document.querySelectorAll(".editor-only,.admin-only,.rep-edit-btn").forEach(el => el.style.setProperty("display","none","important"));
+      document.querySelectorAll(".rep-title").forEach(el => el.style.display = "none");
+      document.getElementById("repGridComun").style.display = "none";
+      document.getElementById("reporteConsolidadoWrap").style.display = "none";
+      const permitidos = new Set(["btn-diagnostico-gen","btn-servicio-gen","btn-diagnostico-sulzer","btn-servicio"]);
+      document.querySelectorAll("#repGridGeneral .rep-btn, #repGridSulzer .rep-btn").forEach(b => {
+        if(!permitidos.has(b.id)) (b.closest(".rep-card-wrap") || b).style.display = "none";
+      });
+    } else if(_autoParam === "diagnostico" || _autoParam === "cotizacion"){
       document.querySelectorAll(".rep-title").forEach(el => el.style.display = "none");
       document.getElementById("repGridGeneral").style.display = "none";
       document.getElementById("repGridSulzer").style.display = "none";
