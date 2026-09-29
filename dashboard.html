@@ -1324,13 +1324,28 @@ footer strong{ color: var(--azul); }
 #qrModalDatos b{ color:var(--azul); }
 #qrModalLink{ font-size:0.7rem; color:var(--gris-texto); word-break:break-all; margin-top:8px; max-width:280px; }
 #etiquetaImprimirDash{ display:none; }
+/* Etiqueta imprimible: tarjeta 95mm con logo, QR, datos del equipo y leyenda */
+#etiquetaImprimirDash .etq-card{ width:95mm; border:0.4mm solid #0c1e35; border-radius:3mm; overflow:hidden; background:#fff; font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#0c1e35; text-align:left; }
+#etiquetaImprimirDash .etq-head{ background:#0c1e35; color:#fff; padding:2.5mm 4mm; display:flex; align-items:center; gap:3mm; border-bottom:1.2mm solid #1d5496; }
+#etiquetaImprimirDash .etq-head img{ height:9mm; width:auto; border-radius:1mm; background:#fff; padding:0.5mm; }
+#etiquetaImprimirDash .etq-marca{ font-size:9pt; font-weight:800; letter-spacing:0.4pt; text-transform:uppercase; line-height:1.15; }
+#etiquetaImprimirDash .etq-marca small{ display:block; font-size:6.5pt; font-weight:400; letter-spacing:0; opacity:0.75; text-transform:none; }
+#etiquetaImprimirDash .etq-body{ display:flex; gap:4mm; padding:4mm; align-items:center; }
+#etiquetaImprimirDash .etq-qr{ flex:0 0 34mm; text-align:center; }
+#etiquetaImprimirDash .etq-qr img{ width:34mm; height:34mm; display:block; }
+#etiquetaImprimirDash .etq-datos{ flex:1; min-width:0; }
+#etiquetaImprimirDash .etq-serie-lbl{ font-size:6pt; font-weight:700; color:#485568; text-transform:uppercase; letter-spacing:0.5pt; }
+#etiquetaImprimirDash .etq-serie{ font-size:14pt; font-weight:800; line-height:1.15; word-break:break-word; margin-bottom:1.5mm; }
+#etiquetaImprimirDash .etq-cliente{ font-size:9pt; font-weight:600; margin-bottom:2mm; }
+#etiquetaImprimirDash .etq-grid{ display:grid; grid-template-columns:1fr 1fr; gap:1.2mm 3mm; }
+#etiquetaImprimirDash .etq-grid div{ font-size:8pt; font-weight:600; line-height:1.2; word-break:break-word; }
+#etiquetaImprimirDash .etq-grid span{ display:block; font-size:5.5pt; font-weight:700; color:#485568; text-transform:uppercase; letter-spacing:0.4pt; }
+#etiquetaImprimirDash .etq-foot{ background:#e8f0fb; text-align:center; font-size:7pt; font-weight:700; color:#1d5496; padding:2mm 3mm; }
 @media print{
   body *{ visibility:hidden; }
   #etiquetaImprimirDash, #etiquetaImprimirDash *{ visibility:visible; }
-  #etiquetaImprimirDash{ display:block; position:absolute; top:0; left:0; width:100%; text-align:center; padding:20px; }
-  #etiquetaImprimirDash img{ width:180px; height:180px; }
-  #etiquetaImprimirDash .etq-serie{ font-size:16px; font-weight:700; margin-top:8px; }
-  #etiquetaImprimirDash .etq-info{ font-size:12px; margin-top:4px; }
+  #etiquetaImprimirDash{ display:block; position:absolute; top:0; left:0; width:100%; padding:10mm; }
+  #etiquetaImprimirDash, #etiquetaImprimirDash *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 
 </style>
@@ -2099,9 +2114,22 @@ footer strong{ color: var(--azul); }
 </div>
 
 <div id="etiquetaImprimirDash">
-  <img id="etqImgDash" src="">
-  <div class="etq-serie" id="etqSerieDash"></div>
-  <div class="etq-info" id="etqInfoDash"></div>
+  <div class="etq-card">
+    <div class="etq-head">
+      <img src="logo_SI.jpg" alt="SI">
+      <div class="etq-marca">Suministros Industriales SI<small>Centro de servicio</small></div>
+    </div>
+    <div class="etq-body">
+      <div class="etq-qr"><img id="etqImgDash" src=""></div>
+      <div class="etq-datos">
+        <div class="etq-serie-lbl">N° de serie / folio</div>
+        <div class="etq-serie" id="etqSerieDash"></div>
+        <div class="etq-cliente" id="etqClienteDash"></div>
+        <div class="etq-grid" id="etqGridDash"></div>
+      </div>
+    </div>
+    <div class="etq-foot">📱 Escanea para ver el diagnóstico y el reporte de servicio</div>
+  </div>
 </div>
 
 <!-- MODAL ASIGNAR TÉCNICOS A UNA ORDEN (solo Admin) -->
@@ -5239,7 +5267,9 @@ async function generarQROrden(id, identificadorFallback){
     document.getElementById("qrModalLink").textContent = url;
 
     document.getElementById("etqSerieDash").textContent = serie;
-    document.getElementById("etqInfoDash").textContent = [cliente, modelo].filter(Boolean).join(" · ");
+    document.getElementById("etqClienteDash").textContent = cliente;
+    const etqDatos = [["Tipo", tipo], ["Usuario", usuario], ["Modelo / SPEC", modelo], ["HP", hp], ["Volts", volts], ["Frame", frame]].filter(x => x[1] !== "" && x[1] != null);
+    document.getElementById("etqGridDash").innerHTML = etqDatos.map(x => `<div><span>${esc(x[0])}</span>${esc(String(x[1]))}</div>`).join("");
 
     document.getElementById("btnImprimirQRModal").classList.remove("hidden");
   } catch(e){
