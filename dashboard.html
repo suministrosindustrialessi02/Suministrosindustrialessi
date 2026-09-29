@@ -1328,28 +1328,28 @@ footer strong{ color: var(--azul); }
 #qrModalDatos b{ color:var(--azul); }
 #qrModalLink{ font-size:0.7rem; color:var(--gris-texto); word-break:break-all; margin-top:8px; max-width:280px; }
 #etiquetaImprimirDash{ display:none; }
-/* Etiqueta imprimible: tarjeta 95mm con logo, QR, datos del equipo y leyenda */
-#etiquetaImprimirDash .etq-card{ width:95mm; border:0.4mm solid #0c1e35; border-radius:3mm; overflow:hidden; background:#fff; font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#0c1e35; text-align:left; }
-#etiquetaImprimirDash .etq-head{ background:#0c1e35; color:#fff; padding:2.5mm 4mm; display:flex; align-items:center; gap:3mm; border-bottom:1.2mm solid #1d5496; }
-#etiquetaImprimirDash .etq-head img{ height:9mm; width:auto; border-radius:1mm; background:#fff; padding:0.5mm; }
-#etiquetaImprimirDash .etq-marca{ font-size:9pt; font-weight:800; letter-spacing:0.4pt; text-transform:uppercase; line-height:1.15; }
+/* Etiqueta imprimible 95x75 mm (Zebra ZT411): logo, QR, datos del equipo y leyenda */
+#etiquetaImprimirDash .etq-card{ width:95mm; height:75mm; box-sizing:border-box; display:flex; flex-direction:column; border:0.4mm solid #0c1e35; border-radius:2mm; overflow:hidden; background:#fff; font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif; color:#0c1e35; text-align:left; }
+#etiquetaImprimirDash .etq-head{ background:#0c1e35; color:#fff; padding:2.5mm 4mm; display:flex; align-items:center; gap:3mm; border-bottom:1.2mm solid #1d5496; flex:0 0 auto; }
+#etiquetaImprimirDash .etq-head img{ height:10mm; width:auto; border-radius:1mm; background:#fff; padding:0.5mm; }
+#etiquetaImprimirDash .etq-marca{ font-size:8.5pt; font-weight:800; letter-spacing:0.4pt; text-transform:uppercase; line-height:1.15; }
 #etiquetaImprimirDash .etq-marca small{ display:block; font-size:6.5pt; font-weight:400; letter-spacing:0; opacity:0.75; text-transform:none; }
-#etiquetaImprimirDash .etq-body{ display:flex; gap:4mm; padding:4mm; align-items:center; }
-#etiquetaImprimirDash .etq-qr{ flex:0 0 34mm; text-align:center; }
-#etiquetaImprimirDash .etq-qr img{ width:34mm; height:34mm; display:block; }
+#etiquetaImprimirDash .etq-body{ display:flex; gap:4mm; padding:3mm 4mm; align-items:center; flex:1 1 auto; min-height:0; }
+#etiquetaImprimirDash .etq-qr{ flex:0 0 40mm; text-align:center; }
+#etiquetaImprimirDash .etq-qr img{ width:40mm; height:40mm; display:block; }
 #etiquetaImprimirDash .etq-datos{ flex:1; min-width:0; }
 #etiquetaImprimirDash .etq-serie-lbl{ font-size:6pt; font-weight:700; color:#485568; text-transform:uppercase; letter-spacing:0.5pt; }
-#etiquetaImprimirDash .etq-serie{ font-size:14pt; font-weight:800; line-height:1.15; word-break:break-word; margin-bottom:1.5mm; }
-#etiquetaImprimirDash .etq-cliente{ font-size:9pt; font-weight:600; margin-bottom:2mm; }
+#etiquetaImprimirDash .etq-serie{ font-size:15pt; font-weight:800; line-height:1.15; word-break:break-word; margin-bottom:1.5mm; }
+#etiquetaImprimirDash .etq-cliente{ font-size:10pt; font-weight:600; margin-bottom:2mm; }
 #etiquetaImprimirDash .etq-grid{ display:grid; grid-template-columns:1fr 1fr; gap:1.2mm 3mm; }
-#etiquetaImprimirDash .etq-grid div{ font-size:8pt; font-weight:600; line-height:1.2; word-break:break-word; }
+#etiquetaImprimirDash .etq-grid div{ font-size:8.5pt; font-weight:600; line-height:1.2; word-break:break-word; }
 #etiquetaImprimirDash .etq-grid span{ display:block; font-size:5.5pt; font-weight:700; color:#485568; text-transform:uppercase; letter-spacing:0.4pt; }
-#etiquetaImprimirDash .etq-foot{ background:#e8f0fb; text-align:center; font-size:7pt; font-weight:700; color:#1d5496; padding:2mm 3mm; }
+#etiquetaImprimirDash .etq-foot{ flex:0 0 auto; background:#e8f0fb; text-align:center; font-size:7.5pt; font-weight:700; color:#1d5496; padding:2mm 3mm; }
 @media print{
-  @page{ margin:0; }
+  @page{ size:95mm 75mm; margin:0; }
   html, body{ height:auto !important; margin:0 !important; padding:0 !important; overflow:visible !important; background:#fff !important; }
   body > *:not(#etiquetaImprimirDash){ display:none !important; }
-  #etiquetaImprimirDash{ display:block; width:100%; padding:10mm; page-break-inside:avoid; break-inside:avoid; }
+  #etiquetaImprimirDash{ display:block; width:95mm; height:75mm; padding:0; overflow:hidden; page-break-inside:avoid; break-inside:avoid; }
   #etiquetaImprimirDash, #etiquetaImprimirDash *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 
