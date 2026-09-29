@@ -1,6 +1,10 @@
 ﻿<!DOCTYPE html>
 <html lang="es">
 <head>
+<script>
+/* QR mal generado antes: apuntaba al dashboard con ?tipo=orden&id=... — se manda a la ficha publica */
+(function(){ var q = new URLSearchParams(location.search); if(q.get("tipo") === "orden" && q.get("id")){ location.replace("equipo.html" + location.search); } })();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Suministros Industriales SI</title>
@@ -5244,7 +5248,8 @@ async function generarQROrden(id, identificadorFallback){
     const usuario = of[F.usuario] || "";
     const estado  = of[F.estado] || "";
 
-    const base = `${location.origin}${location.pathname.replace(/dashboard\.html$/, "equipo.html")}`;
+    // Siempre apunta a equipo.html en la misma carpeta, aunque el dashboard se abra como /dashboard (sin .html)
+    const base = `${location.origin}${location.pathname.replace(/[^\/]*$/, "")}equipo.html`;
     const url = `${base}?tipo=orden&id=${id}`;
 
     document.getElementById("qrModalBody").innerHTML = `
