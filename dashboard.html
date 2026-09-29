@@ -1342,9 +1342,10 @@ footer strong{ color: var(--azul); }
 #etiquetaImprimirDash .etq-grid span{ display:block; font-size:5.5pt; font-weight:700; color:#485568; text-transform:uppercase; letter-spacing:0.4pt; }
 #etiquetaImprimirDash .etq-foot{ background:#e8f0fb; text-align:center; font-size:7pt; font-weight:700; color:#1d5496; padding:2mm 3mm; }
 @media print{
-  body *{ visibility:hidden; }
-  #etiquetaImprimirDash, #etiquetaImprimirDash *{ visibility:visible; }
-  #etiquetaImprimirDash{ display:block; position:absolute; top:0; left:0; width:100%; padding:10mm; }
+  @page{ margin:0; }
+  html, body{ height:auto !important; margin:0 !important; padding:0 !important; overflow:visible !important; background:#fff !important; }
+  body > *:not(#etiquetaImprimirDash){ display:none !important; }
+  #etiquetaImprimirDash{ display:block; width:100%; padding:10mm; page-break-inside:avoid; break-inside:avoid; }
   #etiquetaImprimirDash, #etiquetaImprimirDash *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
 }
 
