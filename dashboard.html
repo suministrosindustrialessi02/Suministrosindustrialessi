@@ -2483,7 +2483,8 @@ async function fetchAll(){
     all = all.concat(d.records || []);
     offset = d.offset || null;
   } while(offset);
-  return all;
+  // Ocultar equipos ya respaldados (siguen en Airtable)
+  return all.filter(r => !(r.fields && r.fields["fldDvyOQxdyBxDmwG"]));
 }
 
 async function fetchTecnicos(){
