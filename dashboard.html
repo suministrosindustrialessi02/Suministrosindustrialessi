@@ -4633,9 +4633,25 @@ async function abrirCostos(id, identificador){
     } else {
       costFilas = costFilasPorDefecto(diagnosticoRaw);
     }
+    // Recupera la copia local si es más reciente que lo guardado en Airtable (cambios que
+    // no alcanzaron a subirse: se cerró la ventana, falló la red, etc.).
+    let recuperado = false;
+    try{
+      const loc = JSON.parse(localStorage.getItem(costClaveLocal(id)) || "null");
+      const tsAirtable = registro ? new Date(registro.fields[CI.ultimaActualizacion] || 0).getTime() : 0;
+      if(loc && Array.isArray(loc.filas) && loc.ts > tsAirtable && JSON.stringify(loc.filas) !== JSON.stringify(costFilas)){
+        costFilas = loc.filas;
+        recuperado = true;
+      }
+    }catch(e){}
+    costSucio = false;
     costNextId = costFilas.reduce((max,f) => Math.max(max, f.id||0), 0) + 1;
 
     costRender();
+    if(recuperado){
+      costMarcarSucio();
+      costEstado("↩ Se recuperaron cambios que no se habían guardado; guardando…", "gris");
+    }
     document.getElementById("costFooter").innerHTML = `
       <button class="btn-cancelar" onclick="cerrarCostos()">Cerrar</button>
       <button class="btn-imprimir" onclick="costGuardar()">Guardar tabla de costos</button>
@@ -4677,16 +4693,18 @@ function costActualizar(i, campo, valor){
   } else {
     r[campo] = valor;
   }
+  costMarcarSucio();
   costRender();
 }
 
-function costAgregarItem(){ costFilas.push({ id:costNextId++, tipo:"item", descripcion:"", margen:null, costo:null, precio:null, combinarCon:null }); costRender(); }
-function costAgregarCategoria(){ costFilas.push({ id:costNextId++, tipo:"cat", descripcion:"" }); costRender(); }
-function costAgregarNota(){ costFilas.push({ id:costNextId++, tipo:"nota", fecha:"", texto:"" }); costRender(); }
+function costAgregarItem(){ costFilas.push({ id:costNextId++, tipo:"item", descripcion:"", margen:null, costo:null, precio:null, combinarCon:null }); costMarcarSucio(); costRender(); }
+function costAgregarCategoria(){ costFilas.push({ id:costNextId++, tipo:"cat", descripcion:"" }); costMarcarSucio(); costRender(); }
+function costAgregarNota(){ costFilas.push({ id:costNextId++, tipo:"nota", fecha:"", texto:"" }); costMarcarSucio(); costRender(); }
 function costEliminarFila(i){
   const idEliminado = costFilas[i].id;
   costFilas.forEach(f => { if(f.combinarCon === idEliminado) f.combinarCon = null; });
   costFilas.splice(i, 1);
+  costMarcarSucio();
   costRender();
 }
 
@@ -4855,88 +4873,132 @@ function costRenderPreviewCliente(){
   </tbody></table>`;
 }
 
-async function costGuardar(){
-  const statusEl = document.getElementById("costStatus");
-  const filasValidas = costFilas.filter(f => f.tipo !== "item" || (f.descripcion||"").trim());
+// ---- Guardado de la tabla de costos: autoguardado + copia local + sin duplicados ----
+// Cada cambio: (1) copia inmediata en localStorage, (2) guardado automático a Airtable
+// 2 s después de dejar de escribir. "Guardar tabla de costos" además sincroniza con la
+// cotización. Los guardados se serializan para no crear registros duplicados.
+function costFetch(tabla, recordId, metodo, body){
+  return fetch(`/.netlify/functions/airtable?table=${tabla}${recordId ? "&recordId=" + recordId : ""}`, {
+    method: metodo,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+let costSucio = false, costTimer = null, costGuardando = null, costPendiente = false, costPendienteSync = false;
+function costClaveLocal(id){ return "costos_borrador_" + (id || costOrdenId); }
+function costEstado(txt, color){
+  const el = document.getElementById("costStatus");
+  if(!el) return;
+  el.style.color = color === "rojo" ? "var(--rojo)" : (color === "verde" ? "var(--verde)" : "var(--gris-texto)");
+  el.textContent = txt;
+}
+function costMarcarSucio(){
+  if(!costOrdenId) return;
+  costSucio = true;
+  try{ localStorage.setItem(costClaveLocal(), JSON.stringify({ filas:costFilas, ts:Date.now() })); }catch(e){}
+  costEstado("Cambios sin guardar…", "gris");
+  clearTimeout(costTimer);
+  costTimer = setTimeout(() => costPersistir(false), 2000);
+}
+async function costPersistir(sincronizar){
+  clearTimeout(costTimer);
+  if(costGuardando){ costPendiente = true; costPendienteSync = costPendienteSync || !!sincronizar; return costGuardando; }
+  costGuardando = costPersistirUno(!!sincronizar);
+  let ok = false;
+  try{ ok = await costGuardando; }
+  finally{
+    costGuardando = null;
+    if(costPendiente){ const s = costPendienteSync; costPendiente = false; costPendienteSync = false; costPersistir(s); }
+  }
+  return ok;
+}
+async function costPersistirUno(sincronizar){
+  const ordenId = costOrdenId, folio = costFolio;
+  const snapshot = JSON.stringify(costFilas);
+  const filas = JSON.parse(snapshot);
   let sumCosto = 0, sumVenta = 0;
-  filasValidas.forEach(f => {
+  filas.forEach(f => {
     if(f.tipo === "item"){
       if(f.costo  != null && f.costo  !== "") sumCosto += parseFloat(f.costo)  || 0;
       if(f.precio != null && f.precio !== "") sumVenta += parseFloat(f.precio) || 0;
     }
   });
   const fields = {
-    [CI.identificador]:       costFolio,
-    [CI.filasJson]:           JSON.stringify(filasValidas),
+    [CI.identificador]:       folio,
+    [CI.filasJson]:           snapshot,
     [CI.costoTotal]:          Math.round(sumCosto * 100) / 100,
     [CI.ventaTotal]:          Math.round(sumVenta * 100) / 100,
     [CI.utilidadTotal]:       Math.round((sumVenta - sumCosto) * 100) / 100,
     [CI.ultimaActualizacion]: new Date().toISOString(),
   };
-  statusEl.style.color = "var(--gris-texto)";
-  statusEl.textContent = "Guardando...";
+  costEstado("Guardando…", "gris");
   try{
     if(costRegistroId){
-      await fetch(`/.netlify/functions/airtable?table=${TABLA_COSTOS}&recordId=${costRegistroId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields }),
-      });
+      const res = await costFetch(TABLA_COSTOS, costRegistroId, "PATCH", { fields });
+      if(!res.ok) throw new Error("Airtable rechazó el guardado de costos (" + res.status + ").");
     } else {
-      fields[CI.ordenServicio] = [costOrdenId];
-      const res = await fetch(`/.netlify/functions/airtable?table=${TABLA_COSTOS}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields }),
-      });
+      fields[CI.ordenServicio] = [ordenId];
+      const res = await costFetch(TABLA_COSTOS, null, "POST", { fields });
       const data = await res.json();
+      if(!res.ok || !data.id) throw new Error("Airtable rechazó el guardado de costos (" + res.status + ").");
       costRegistroId = data.id;
     }
 
-    // Sincroniza los renglones (solo precio de venta) con la cotización oficial
-    // (ORDENES.detalleServicios) para que "Cotizar" los muestre sin captura doble.
-    // Dos resguardos: (1) si el cliente ya autorizó la cotización, NUNCA se toca —
-    // debe quedar fiel registro de lo que aceptó, igual que ya protege el modal de
-    // Cotizar; (2) si la tabla de costos todavía no tiene ningún precio de venta
-    // capturado, no se sincroniza — evita borrar una cotización que el admin haya
-    // armado a mano directamente en "Cotizar" sin pasar por esta tabla.
+    // Sincroniza con la cotización oficial SOLO cuando se pulsa "Guardar tabla de costos".
+    // Resguardos: nunca toca una cotización Autorizada; no sincroniza si no hay ningún
+    // precio de venta capturado (evita borrar una cotización armada a mano en "Cotizar").
+    let sincronizado = false;
     const estadoCotRaw = costOrdenFields[COT.estadoCotizacion];
     const estadoCot = (estadoCotRaw && estadoCotRaw.name) || estadoCotRaw || null;
-    const renglonesCliente = costConstruirRenglonesCliente();
-    let sincronizado = false;
-    if(estadoCot !== "Autorizada" && renglonesCliente.length){
-      const subtotalCli = renglonesCliente.reduce((s,r) => s + r.total, 0);
-      // El 16% SIEMPRE se suma al total, igual que en cotRecalcular() — "Sin IVA"
-      // solo controla si el renglón/concepto de IVA se muestra en el documento.
-      const ivaCli = subtotalCli * 0.16;
-      const totalCli = subtotalCli + ivaCli;
-      await fetch(`/.netlify/functions/airtable?table=${TABLE_ID}&recordId=${costOrdenId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields: {
+    if(sincronizar && estadoCot !== "Autorizada"){
+      const renglonesCliente = costConstruirRenglonesCliente();
+      if(renglonesCliente.length){
+        const subtotalCli = renglonesCliente.reduce((s,r) => s + r.total, 0);
+        // El 16% SIEMPRE se suma al total, igual que en cotRecalcular().
+        const ivaCli = subtotalCli * 0.16;
+        const totalCli = subtotalCli + ivaCli;
+        const resO = await costFetch(TABLE_ID, ordenId, "PATCH", { fields: {
           [COT.detalleServicios]: JSON.stringify(renglonesCliente),
           [COT.subtotal]:         Math.round(subtotalCli * 100) / 100,
-          [COT.iva]:               Math.round(ivaCli * 100) / 100,
+          [COT.iva]:              Math.round(ivaCli * 100) / 100,
           [COT.precioTotal]:      Math.round(totalCli * 100) / 100,
-        }}),
-      });
-      sincronizado = true;
+          // Sin estado, reportes.html dice "todavía no se ha generado una cotización".
+          ...(estadoCot ? {} : { [COT.estadoCotizacion]: "Borrador" }),
+        }});
+        if(!resO.ok) throw new Error("No se pudo actualizar la cotización de la orden (" + resO.status + ").");
+        if(!estadoCot) costOrdenFields[COT.estadoCotizacion] = "Borrador";
+        sincronizado = true;
+      }
     }
 
-    statusEl.style.color = "var(--verde)";
-    statusEl.textContent = sincronizado
-      ? "✓ Guardado y sincronizado con la cotización."
-      : (estadoCot === "Autorizada"
-          ? "✓ Guardado (la cotización ya fue autorizada por el cliente, no se modificó)."
-          : "✓ Guardado. Agrega precio de venta a algún renglón para sincronizar con la cotización.");
+    // Si no hubo cambios mientras guardaba, ya no hay nada pendiente (ni copia local).
+    if(JSON.stringify(costFilas) === snapshot){
+      costSucio = false;
+      try{ localStorage.removeItem(costClaveLocal(ordenId)); }catch(e){}
+    }
+    const hora = new Date().toLocaleTimeString("es-MX", { hour:"2-digit", minute:"2-digit" });
+    if(!sincronizar) costEstado("✓ Guardado automático " + hora, "verde");
+    else if(sincronizado) costEstado("✓ Guardado y sincronizado con la cotización (" + hora + ").", "verde");
+    else if(estadoCot === "Autorizada") costEstado("✓ Guardado (la cotización ya fue autorizada por el cliente, no se modificó).", "verde");
+    else costEstado("✓ Guardado. Agrega precio de venta a algún renglón para sincronizar con la cotización.", "verde");
+    return true;
   } catch(e){
-    statusEl.style.color = "var(--rojo)";
-    statusEl.textContent = "Error al guardar: " + (e.message || "");
+    costEstado("⚠ No se pudo guardar: " + (e.message || "error de red") + " Tus cambios siguen en este navegador; reintenta con \"Guardar tabla de costos\".", "rojo");
+    return false;
   }
 }
+function costGuardar(){ return costPersistir(true); }
 
-function cerrarCostos(){ document.getElementById("modalCostos").classList.add("hidden"); }
+async function cerrarCostos(){
+  if(costSucio){
+    const ok = await costPersistir(false);
+    if(!ok && !confirm("No se pudieron guardar los últimos cambios en Airtable.\n\nQuedan guardados en este navegador y se recuperan al reabrir esta tabla.\n\n¿Cerrar de todos modos?")) return;
+  }
+  document.getElementById("modalCostos").classList.add("hidden");
+}
 function cerrarCostosSiFuera(e){ if(e.target.id === "modalCostos") cerrarCostos(); }
+window.addEventListener("beforeunload", e => { if(costSucio){ e.preventDefault(); e.returnValue = ""; } });
+
 
 /* ============================================================
    CONTROL DE COSTOS (Admin/Dirección) — vista general de todas las
