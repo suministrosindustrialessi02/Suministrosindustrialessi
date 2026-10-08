@@ -929,6 +929,11 @@ const LOGO_SI_B64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgG
 function esc(s){ const d = document.createElement("div"); d.textContent = String(s || ""); return d.innerHTML; }
 
 
+/* Sesión del login — se usa para registrar quién interviene en cada etapa (PARTICIPACIONES).
+   Se llega aquí desde dashboard/plan diario, que ya exigen sesión; si falta, a login. */
+const _sesion = (() => { try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; } })();
+if(!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion"))){ window.location.href = "login.html"; }
+
 const TABLA_ORDENES   = "tblcyGwDeOORxELJg";
 const TABLA_CHECKLIST = "tbl1yAx029Em12QDG";
 const TABLA_PINTURA   = "tbl6fY01T6q69BVN0";
@@ -2851,6 +2856,63 @@ async function adjuntosExistentes(tabla, recId, fieldId){
   } catch(e){ return new Set(); }
 }
 
+/* ============================================================
+   PARTICIPACIONES — quién intervino en cada etapa del equipo
+   Una fila por (orden, etapa, usuario) en la tabla PARTICIPACIONES. El nombre sale de la
+   sesión del login (si_session). Es "mejor esfuerzo": nunca bloquea ni rompe el guardado
+   del reporte. Si no hay red, la fila queda en una cola local y se reintenta al reconectar.
+   ============================================================ */
+const TABLA_PARTICIPACIONES = "tblbEh6YAOQSTyvbl";
+const PART_F = { clave:"fldWpKtfc9dfrCZ3T", ordenId:"fldeR6WOrAjzU3BoU", folio:"fld7wADOcupk0qhMj",
+  servicio:"fldl3DMnfQfErACWJ", etapa:"fldkwUSnBCdVvYqMH", usuario:"fldQkfYlVzbvIqBQr",
+  rol:"fldzhuTTJi4R9EHHW", fecha:"fldje8ocFPA0uQdac" };
+const PART_COLA = "si_part_cola";
+let _partVaciando = false;
+
+function registrarParticipacion(ordenId, folio, servicio, etapa){
+  try{
+    const usuario = ((_sesion && (_sesion.nombre || _sesion.usuario)) || "").trim();
+    if(!ordenId || !usuario) return;
+    const cola = JSON.parse(localStorage.getItem(PART_COLA) || "[]");
+    cola.push({ ordenId, folio: folio || "", servicio, etapa, usuario, rol: _sesion.rol || "", fecha: new Date().toISOString() });
+    localStorage.setItem(PART_COLA, JSON.stringify(cola));
+  }catch(e){}
+  vaciarColaParticipaciones();
+}
+
+async function vaciarColaParticipaciones(){
+  if(_partVaciando) return;
+  _partVaciando = true;
+  try{
+    let cola = JSON.parse(localStorage.getItem(PART_COLA) || "[]");
+    while(cola.length){
+      const p = cola[0];
+      const clave = `${p.ordenId}|${p.etapa}|${p.usuario}`;
+      const f = encodeURIComponent(`{${PART_F.clave}}="${clave.replace(/"/g, "")}"`);
+      const rq = await fetch(`/.netlify/functions/airtable?table=${TABLA_PARTICIPACIONES}&returnFieldsByFieldId=true&filterByFormula=${f}&maxRecords=1`,
+        { headers:{} });
+      if(!rq.ok) break;
+      const existe = ((await rq.json()).records || []).length > 0;
+      if(!existe){
+        const fields = { [PART_F.clave]: clave, [PART_F.ordenId]: p.ordenId, [PART_F.folio]: p.folio,
+          [PART_F.servicio]: p.servicio, [PART_F.etapa]: p.etapa, [PART_F.usuario]: p.usuario, [PART_F.fecha]: p.fecha };
+        if(p.rol) fields[PART_F.rol] = p.rol;
+        const rp = await fetch(`/.netlify/functions/airtable?table=${TABLA_PARTICIPACIONES}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ records:[{ fields }], typecast: true }) });
+        if(!rp.ok) break;
+      }
+      // Releer la cola por si se agregaron filas mientras se enviaba esta
+      cola = JSON.parse(localStorage.getItem(PART_COLA) || "[]");
+      cola.shift();
+      localStorage.setItem(PART_COLA, JSON.stringify(cola));
+    }
+  }catch(e){}
+  _partVaciando = false;
+}
+window.addEventListener("online", vaciarColaParticipaciones);
+setTimeout(vaciarColaParticipaciones, 3000);
+
 async function traerOrdenPorId(recId){
   try{
     const r = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${recId}&returnFieldsByFieldId=true`,
@@ -4114,6 +4176,7 @@ async function enviarRecepcion(){
     }
 
     recepcionEnviada = true;
+    registrarParticipacion(ordenRecordId, serie, "Sulzer", "Recepción");
     guardarBorrador();
     return true;
   } catch(err){
@@ -4321,6 +4384,7 @@ async function enviarChecklist(){
     }
 
     checklistYaEnviado = true;
+    registrarParticipacion(ordenRecordId, serie, "Sulzer", "Checklist");
     setP("Checklist guardado.", 100);
 
     // Decidir siguiente pantalla
@@ -4433,6 +4497,7 @@ async function guardarCorrecciones(){
       { method:"PATCH", headers:{ "Content-Type":"application/json" },
         body: JSON.stringify({ fields:{ "fldnQ6DxpfYANoE8p": true } }) }).catch(()=>{});
 
+    registrarParticipacion(ordenRecordId, document.getElementById("numSerie").value.trim(), "Sulzer", "Correcciones");
     document.getElementById("sendingScreen").classList.add("hidden");
     irAPinturaOEvidenciaTrasChecklist();
 
@@ -4507,6 +4572,7 @@ async function enviarPintura(){
         body: JSON.stringify({ fields:{ [CHECKBOX_FIELDS.pintura]: true, "fld0rhBYkk5nAnXcT": "Sulzer" } }) }).catch(()=>{});
 
     pinturaEnviada = true;
+    registrarParticipacion(ordenRecordId, serie, "Sulzer", "Pintura");
     guardarBorrador();
     return true;
   } catch(err){
@@ -4666,6 +4732,7 @@ async function enviarFinal(){
     // 6) Limpiar borrador
     setP("¡Todo listo!", 100);
     const serie2 = document.getElementById("numSerie").value.trim();
+    registrarParticipacion(ordenRecordId, serie2, "Sulzer", "Cierre");
     if(serie2) await eliminarDeDB(serie2).catch(()=>{});
     if(_bfRecordId){
       fetch(`/.netlify/functions/airtable?table=${TABLA_BORRADORES}&recordId=${_bfRecordId}`,

@@ -652,6 +652,69 @@ function esc(s){ const d = document.createElement("div"); d.textContent = String
 /* ============================================================
    AIRTABLE CONFIG
    ============================================================ */
+
+/* Sesión del login — se usa para registrar quién interviene en cada etapa (PARTICIPACIONES).
+   Se llega aquí desde dashboard/plan diario, que ya exigen sesión; si falta, a login. */
+const _sesion = (() => { try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; } })();
+if(!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion"))){ window.location.href = "login.html"; }
+
+/* ============================================================
+   PARTICIPACIONES — quién intervino en cada etapa del equipo
+   Una fila por (orden, etapa, usuario) en la tabla PARTICIPACIONES. Es "mejor esfuerzo":
+   nunca bloquea ni rompe el guardado del reporte. Si no hay red, la fila queda en una cola
+   local y se reintenta al reconectar.
+   ============================================================ */
+const TABLA_PARTICIPACIONES = "tblbEh6YAOQSTyvbl";
+const PART_F = { clave:"fldWpKtfc9dfrCZ3T", ordenId:"fldeR6WOrAjzU3BoU", folio:"fld7wADOcupk0qhMj",
+  servicio:"fldl3DMnfQfErACWJ", etapa:"fldkwUSnBCdVvYqMH", usuario:"fldQkfYlVzbvIqBQr",
+  rol:"fldzhuTTJi4R9EHHW", fecha:"fldje8ocFPA0uQdac" };
+const PART_COLA = "si_part_cola";
+let _partVaciando = false;
+
+function registrarParticipacion(ordenId, folio, servicio, etapa){
+  try{
+    const usuario = ((_sesion && (_sesion.nombre || _sesion.usuario)) || "").trim();
+    if(!ordenId || !usuario) return;
+    const cola = JSON.parse(localStorage.getItem(PART_COLA) || "[]");
+    cola.push({ ordenId, folio: folio || "", servicio, etapa, usuario, rol: _sesion.rol || "", fecha: new Date().toISOString() });
+    localStorage.setItem(PART_COLA, JSON.stringify(cola));
+  }catch(e){}
+  vaciarColaParticipaciones();
+}
+
+async function vaciarColaParticipaciones(){
+  if(_partVaciando) return;
+  _partVaciando = true;
+  try{
+    let cola = JSON.parse(localStorage.getItem(PART_COLA) || "[]");
+    while(cola.length){
+      const p = cola[0];
+      const clave = `${p.ordenId}|${p.etapa}|${p.usuario}`;
+      const f = encodeURIComponent(`{${PART_F.clave}}="${clave.replace(/"/g, "")}"`);
+      const rq = await fetch(`/.netlify/functions/airtable?table=${TABLA_PARTICIPACIONES}&returnFieldsByFieldId=true&filterByFormula=${f}&maxRecords=1`,
+        { headers:{} });
+      if(!rq.ok) break;
+      const existe = ((await rq.json()).records || []).length > 0;
+      if(!existe){
+        const fields = { [PART_F.clave]: clave, [PART_F.ordenId]: p.ordenId, [PART_F.folio]: p.folio,
+          [PART_F.servicio]: p.servicio, [PART_F.etapa]: p.etapa, [PART_F.usuario]: p.usuario, [PART_F.fecha]: p.fecha };
+        if(p.rol) fields[PART_F.rol] = p.rol;
+        const rp = await fetch(`/.netlify/functions/airtable?table=${TABLA_PARTICIPACIONES}`,
+          { method:"POST", headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({ records:[{ fields }], typecast: true }) });
+        if(!rp.ok) break;
+      }
+      // Releer la cola por si se agregaron filas mientras se enviaba esta
+      cola = JSON.parse(localStorage.getItem(PART_COLA) || "[]");
+      cola.shift();
+      localStorage.setItem(PART_COLA, JSON.stringify(cola));
+    }
+  }catch(e){}
+  _partVaciando = false;
+}
+window.addEventListener("online", vaciarColaParticipaciones);
+setTimeout(vaciarColaParticipaciones, 3000);
+
 const TABLA_ORDENES = "tblcyGwDeOORxELJg";
 const TABLA_REPORTES_GENERAL = "tbluHVpYNulSFFvnw";
 const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
@@ -946,6 +1009,7 @@ async function generarDiagnostico(){
   } catch(e){}
 
   const folio = document.getElementById("folio").value || "";
+  registrarParticipacion(ordenRecordId, folio, "General", "Diagnóstico");
   if(w) w.location.href = `reportes.html?id=${encodeURIComponent(ordenRecordId)}&serie=${encodeURIComponent(folio)}&auto=diagnostico`;
   else alert("El navegador bloqueó la ventana del diagnóstico. Permite ventanas emergentes para este sitio; puedes reimprimirlo después desde el dashboard.");
 
@@ -1039,6 +1103,8 @@ async function confirmarDatosGenerales(){
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: patchFields })
       }).catch(()=>{});
+      // Solo cuenta como Recepción quien recibe el equipo; reabrir una orden no acredita nada.
+      if(estadoActual === "Por llegar") registrarParticipacion(ordenRecordId, folio, "General", "Recepción");
       statusEl.classList.add("success");
       statusEl.textContent = estadoActual === "Por llegar"
         ? `Equipo ${folio} recibido — continuando con el servicio.`
@@ -1066,6 +1132,7 @@ async function confirmarDatosGenerales(){
     if(!createResp.ok) throw new Error(createData?.error?.message || "Error al crear la orden");
 
     ordenRecordId = createData.records[0].id;
+    registrarParticipacion(ordenRecordId, folio, "General", "Recepción");
     statusEl.classList.add("success");
     statusEl.textContent = `Orden ${folio} creada — estado Recibido.`;
     return true;
@@ -2413,6 +2480,16 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
       bitacoraPuntos: datos.bitacoraPuntos || [],
       aplicaPintura: !!datos.aplicaPintura,
       videoNota: datos.videoNota || "",
+
+      // Descripciones de fotos: las fotos viven en adjuntos de BORRADORES pero el texto de
+      // la descripción no cabe ahí. Sin esto, al continuar el formulario desde otro
+      // dispositivo (o con el borrador local borrado) las fotos volvían sin descripción
+      // y el reporte final salía sin ellas. restaurarFotosBorradorGeneral() las empareja
+      // por filename leyendo estas mismas llaves.
+      ...Object.fromEntries(Object.values(BD_KEY_POR_PREFIX_GENERAL).map(k => [
+        k, (datos[k] || []).filter(f => f && f.descripcion && f.descripcion.trim())
+                           .map(f => ({ filename: f.filename, descripcion: f.descripcion.trim() }))
+      ])),
     }),
   };
 
@@ -3031,6 +3108,7 @@ async function enviarReporteGeneral(){
 
     _recIdEnvioActual = null; // reporte completo, ya no hace falta recordar el registro para un reintento
     reporteEnviado = true;
+    registrarParticipacion(ordenRecordId, folio, "General", esCorreccion ? "Correcciones" : "Servicio");
     statusEl.classList.add("success");
     statusEl.textContent = esCorreccion
       ? "✓ Corrección guardada. Genera una nueva remisión desde Reportes cuando el equipo esté listo para reentregarse."

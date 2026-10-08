@@ -1236,6 +1236,16 @@ footer strong{ color: var(--azul); }
 .cal-divbar{ position:absolute; top:2px; bottom:2px; border-radius:3px; }
 .cal-divval{ text-align:right; font-weight:700; }
 .cal-empty{ font-size:0.76rem; color:var(--gris-texto); padding:10px 0; }
+.part-wrap{ overflow-x:auto; margin-top:6px; }
+.part-tabla{ width:100%; border-collapse:collapse; font-size:0.78rem; min-width:620px; }
+.part-tabla th{ text-align:center; font-size:0.62rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; color:var(--gris-texto); padding:6px 4px; border-bottom:1px solid var(--gris); }
+.part-tabla th:first-child, .part-tabla td:first-child{ text-align:left; }
+.part-tabla td{ text-align:center; padding:7px 4px; border-bottom:1px solid var(--gris); color:var(--gris-oscuro); }
+.part-tabla td.cero{ color:#c3c9d3; }
+.part-tabla .nom{ font-weight:700; }
+.part-tabla .barra{ display:inline-block; height:7px; border-radius:4px; background:#6d28d9; vertical-align:middle; margin-left:6px; }
+.part-grupo{ font-size:0.7rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px; color:var(--gris-texto); margin:14px 0 2px; }
+.part-chip{ display:inline-block; font-size:0.68rem; font-weight:600; padding:2px 8px; border-radius:20px; background:#ede9fe; color:#5b21b6; margin:2px 4px 2px 0; }
 
 /* ===== PLANEACIÓN — calendario mensual + Gantt ===== */
 .plan-toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
@@ -1391,6 +1401,7 @@ footer strong{ color: var(--azul); }
       ⚠ NO OK<span id="badgeNoOk" style="display:none; background:#dc2626; color:#fff; border-radius:10px; padding:1px 6px; font-size:0.68rem; font-weight:700; margin-left:5px;">0</span>
     </button>
     <button class="btn-header btn-refresh" id="btnImprimirKPIs" onclick="imprimirKPIs()">🖨️ Imprimir KPIs</button>
+    <button class="btn-header btn-refresh" id="btnKpiSemanales" onclick="kpiSemModalAbrir()">📅 KPIs semanales</button>
 
     <span class="header-divider"></span>
 
@@ -1404,6 +1415,7 @@ footer strong{ color: var(--azul); }
   <div class="topbar-item"        id="tab-ordenes"    onclick="cambiarTab('ordenes')">Órdenes</div>
   <div class="topbar-item"        id="tab-planeacion" onclick="cambiarTab('planeacion')">📅 Planeación</div>
   <div class="topbar-item"        id="tab-validacion" onclick="cambiarTab('validacion')">Validación Materiales <span class="badge" id="badgeDireccionPend" style="margin-left:4px">0</span></div>
+  <div class="topbar-item"        id="tab-desempeno"   onclick="cambiarTab('desempeno')">📈 Desempeño</div>
   <div class="topbar-item"        id="tab-costos"      onclick="cambiarTab('costos')">🧮 Control de Costos</div>
 </div>
 
@@ -1609,6 +1621,25 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
+    <!-- PARTICIPACIÓN POR PERSONA (solo Admin / Dirección) -->
+    <div id="panelParticipacion" style="display:none">
+      <div class="section-label" style="margin-top:4px">Participación por persona</div>
+      <div class="cal-panel" style="--cal-accent:#6d28d9;margin-bottom:18px">
+        <div class="cal-head" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <div class="cal-title">👥 Quién trabaja cada equipo</div>
+          <select id="partPeriodo" onchange="renderParticipacion()" style="font-size:0.78rem;padding:4px 8px;border:1px solid var(--gris);border-radius:6px">
+            <option value="todo">Todo el historial</option>
+            <option value="mes" selected>Este mes</option>
+            <option value="mesPasado">Mes pasado</option>
+            <option value="30">Últimos 30 días</option>
+          </select>
+        </div>
+        <div class="cal-sub">Cada etapa que se guarda en los formularios queda a nombre de quien la guardó. Un equipo cuenta para todas las personas que intervinieron. Solo hay datos desde que se activó el registro.</div>
+        <div class="cal-stat-pair" id="partResumen" style="margin-bottom:12px"></div>
+        <div id="partTablas"></div>
+      </div>
+    </div>
+
     </div><!-- /secGeneral -->
 
     <!-- SECCIÓN ÓRDENES -->
@@ -1635,6 +1666,9 @@ footer strong{ color: var(--azul); }
       </select>
       <select id="filtroHP" onchange="aplicarFiltros()">
         <option value="">Todos los HP</option>
+      </select>
+      <select id="filtroPersona" onchange="aplicarFiltros()" title="Equipos en los que participó esta persona">
+        <option value="">Todas las personas</option>
       </select>
       <select id="filtroPeriodo" onchange="aplicarPeriodoRapido(this.value)" title="Atajo de fechas (según fecha de ingreso al sistema)">
         <option value="">Todas las fechas</option>
@@ -1831,6 +1865,25 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
+
+    <!-- ===== DESEMPEÑO (Admin + Dirección): KPIs por técnico y grupales en vivo ===== -->
+    <div id="secDesempeno" style="display:none">
+      <div class="section-label">Desempeño por técnico y grupal <span style="background:var(--rojo-bg);color:var(--rojo);border:1px solid var(--rojo-borde);font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.3px;margin-left:6px;vertical-align:middle">SOLO INTERNO</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;margin-bottom:12px">
+        <button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="desRapido('esta')">Esta semana</button>
+        <button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="desRapido('pasada')">Semana pasada</button>
+        <button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="desRapido('mes')">Este mes</button>
+        <button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="desRapido('mespasado')">Mes pasado</button>
+        <label style="font-size:.75rem;font-weight:700;color:#334155">Desde <input type="date" id="desDesde" onchange="renderDesempenoTab()" style="padding:6px;border:1px solid #cbd5e1;border-radius:8px"></label>
+        <label style="font-size:.75rem;font-weight:700;color:#334155">Hasta <input type="date" id="desHasta" onchange="renderDesempenoTab()" style="padding:6px;border:1px solid #cbd5e1;border-radius:8px"></label>
+        <select id="desVista" onchange="renderDesempenoTab()" style="padding:7px;border:1px solid #cbd5e1;border-radius:8px;font-size:.85rem">
+          <option value="tecnicos">Por técnico y grupal</option>
+          <option value="general">Indicadores generales</option>
+        </select>
+        <button type="button" class="btn-header btn-refresh" style="background:#1a3a5c;color:#fff" onclick="desImprimir()">🖨️ Imprimir / PDF</button>
+      </div>
+      <iframe id="desFrame" style="width:100%;border:1px solid #d5dde8;border-radius:10px;background:#fff;min-height:600px" title="Desempeño"></iframe>
+    </div>
 
     <!-- ===== CONTROL DE COSTOS (Admin + Dirección, uso interno) ===== -->
     <div id="secCostos" style="display:none">
@@ -2376,11 +2429,19 @@ const UF = {
   rol:    "fldrYhMpiJDQnfyTQ",
   activo: "fldhRUxF61z3p5voa",
 };
+// PARTICIPACIONES: quién intervino en cada etapa de cada equipo (la escriben los formularios)
+const TABLA_PARTICIPACIONES = "tblbEh6YAOQSTyvbl";
+const PF = {
+  ordenId: "fldeR6WOrAjzU3BoU", folio: "fld7wADOcupk0qhMj", servicio: "fldl3DMnfQfErACWJ",
+  etapa:   "fldkwUSnBCdVvYqMH", usuario: "fldQkfYlVzbvIqBQr", rol: "fldzhuTTJi4R9EHHW",
+  fecha:   "fldje8ocFPA0uQdac",
+};
 const TABLA_PLAN = "tblJRotpG8YV8wpvv";
 const PD = {
   fecha:           "fldHoHWaTzjhu8fVC",
   completado:      "fld8aLJSb0zU2b9tY",
   fechaCompletado: "fld9UmPtpBjtFv9OY",
+  tecnico:         "fldojnLKHG0wRd42A",
 };
 // Auto-refresh desactivado — actualización manual
 
@@ -2464,6 +2525,8 @@ let borradorLookup  = {}; // serie.toUpperCase() → porcentaje en progreso
 let tecnicosList    = []; // nombres de técnicos activos (para el selector)
 let allTareasPlan   = []; // tareas de PLAN_DIARIO, para el KPI de cumplimiento
 let misAsignacionesActivo = false; // filtro "Mis asignaciones" (solo rol Tecnico)
+let allPart         = []; // filas de PARTICIPACIONES {ordenId, folio, servicio, etapa, usuario, rol, fecha}
+let partPorOrden    = {}; // ordenId → filas de esa orden
 
 /* ============================================================
    FETCH CON PAGINACIÓN
@@ -2538,8 +2601,42 @@ async function fetchPlanDiario(){
       fecha: r.fields[PD.fecha] || "",
       completado: !!r.fields[PD.completado],
       fechaCompletado: r.fields[PD.fechaCompletado] || "",
+      tecnico: (r.fields[PD.tecnico] || "").trim(),
     }));
   } catch(e){ return []; }
+}
+
+async function fetchParticipaciones(){
+  try{
+    let all = [], offset = null;
+    const base = `/.netlify/functions/airtable?table=${TABLA_PARTICIPACIONES}`;
+    do{
+      let url = `${base}&returnFieldsByFieldId=true&pageSize=100`;
+      if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+      const res = await fetch(url, { headers:{} });
+      if(!res.ok) break;
+      const d = await res.json();
+      all = all.concat(d.records || []);
+      offset = d.offset || null;
+    } while(offset);
+    const nom = v => (v && typeof v === "object") ? v.name : (v || "");
+    return all.map(r => ({
+      ordenId:  r.fields[PF.ordenId] || "",
+      folio:    r.fields[PF.folio] || "",
+      servicio: nom(r.fields[PF.servicio]),
+      etapa:    nom(r.fields[PF.etapa]),
+      usuario:  (r.fields[PF.usuario] || "").trim(),
+      rol:      nom(r.fields[PF.rol]),
+      fecha:    r.fields[PF.fecha] || r.createdTime || "",
+    })).filter(p => p.ordenId && p.usuario);
+  } catch(e){ return []; }
+}
+
+function indexarParticipaciones(filas){
+  allPart = filas;
+  partPorOrden = {};
+  filas.forEach(p => { (partPorOrden[p.ordenId] = partPorOrden[p.ordenId] || []).push(p); });
+  poblarFiltroPersona();
 }
 
 /* ============================================================
@@ -2635,7 +2732,8 @@ async function cargarDatos(){
   document.getElementById("content").classList.add("hidden");
 
   try{
-    const [recs, borradores, tecnicos, tareasPlan] = await Promise.all([fetchAll(), fetchBorradores(), fetchTecnicos(), fetchPlanDiario()]);
+    const [recs, borradores, tecnicos, tareasPlan, participaciones] = await Promise.all([fetchAll(), fetchBorradores(), fetchTecnicos(), fetchPlanDiario(), fetchParticipaciones()]);
+    indexarParticipaciones(participaciones);
     allOrdenes = recs.map(parsear);
     borradorLookup = borradores;
     tecnicosList = tecnicos;
@@ -2688,6 +2786,7 @@ function aplicarFiltros(){
   const fEstado   = (document.getElementById("filtroEstado")?.value   || "");
   const fServicio = (document.getElementById("filtroServicio")?.value || "");
   const fHP       = (document.getElementById("filtroHP")?.value       || "");
+  const fPersona  = (document.getElementById("filtroPersona")?.value  || "");
   const fDesde    = (document.getElementById("filtroDesde")?.value    || "");
   const fHasta    = (document.getElementById("filtroHasta")?.value    || "");
 
@@ -2717,6 +2816,7 @@ function aplicarFiltros(){
 
     if(fServicio && o.tipoServicio !== fServicio)                return false;
     if(fHP       && String(o.hp ?? "") !== fHP)                  return false;
+    if(fPersona  && !(partPorOrden[o.id] || []).some(p => p.usuario === fPersona)) return false;
     if(misAsignacionesActivo && !esMiAsignacionOSinAsignar(o))   return false;
     return true;
   });
@@ -2724,7 +2824,7 @@ function aplicarFiltros(){
   const totalFiltradas = filtradas.length;
   const totales        = allOrdenes.length;
   document.getElementById("filtroResultado").textContent =
-    (fSerie || fCliente || fEstado || fServicio || fHP || fDesde || fHasta || misAsignacionesActivo)
+    (fSerie || fCliente || fEstado || fServicio || fHP || fPersona || fDesde || fHasta || misAsignacionesActivo)
       ? `${totalFiltradas} de ${totales} resultados`
       : "";
 
@@ -2732,6 +2832,7 @@ function aplicarFiltros(){
   // La Planeación no usa los filtros de la tabla (es una vista de calendario, no una
   // lista), pero sí depende de allOrdenes — se repinta cuando llegan datos nuevos.
   if(document.getElementById("tab-planeacion")?.classList.contains("active")) renderPlaneacion();
+  if(document.getElementById("tab-desempeno")?.classList.contains("active")) renderDesempenoTab();
 }
 
 function limpiarFiltros(){
@@ -2740,6 +2841,7 @@ function limpiarFiltros(){
   document.getElementById("filtroEstado").value   = "";
   document.getElementById("filtroServicio").value = "";
   document.getElementById("filtroHP").value       = "";
+  document.getElementById("filtroPersona").value  = "";
   document.getElementById("filtroPeriodo").value  = "";
   document.getElementById("filtroDesde").value    = "";
   document.getElementById("filtroHasta").value    = "";
@@ -2784,6 +2886,17 @@ function poblarFiltroHP(){
   sel.innerHTML = `<option value="">Todos los HP</option>` +
     valores.map(v => `<option value="${esc(String(v))}">${esc(String(v))} HP</option>`).join("");
   if(valores.map(String).includes(valorActual)) sel.value = valorActual;
+}
+
+// Opciones del filtro "persona" con quienes tienen al menos una participación registrada
+function poblarFiltroPersona(){
+  const sel = document.getElementById("filtroPersona");
+  if(!sel) return;
+  const actual = sel.value;
+  const nombres = [...new Set(allPart.map(p => p.usuario))].sort((a,b) => a.localeCompare(b));
+  sel.innerHTML = `<option value="">Todas las personas</option>` +
+    nombres.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join("");
+  if(nombres.includes(actual)) sel.value = actual;
 }
 
 function esMiAsignacionOSinAsignar(o){
@@ -2966,7 +3079,7 @@ function byPrioridadYDias(a, b){
    ============================================================ */
 function cambiarTab(tab){
   // Tabs
-  ["general","ordenes","planeacion","validacion","costos"].forEach(t => {
+  ["general","ordenes","planeacion","validacion","desempeno","costos"].forEach(t => {
     document.getElementById("tab-"+t).classList.toggle("active", t === tab);
   });
   // Secciones
@@ -2975,6 +3088,10 @@ function cambiarTab(tab){
   document.getElementById("secPlaneacion").style.display = tab === "planeacion" ? "" : "none";
   document.getElementById("secValidacion").style.display = tab === "validacion" ? "" : "none";
   document.getElementById("secCostos").style.display     = tab === "costos"     ? "" : "none";
+  document.getElementById("secDesempeno").style.display  = tab === "desempeno"  ? "" : "none";
+  if(tab === "desempeno"){
+    if(!document.getElementById("desDesde").value) desRapido("esta"); else renderDesempenoTab();
+  }
   if(tab === "costos") renderControlCostos();
   if(tab === "planeacion") renderPlaneacion();
 }
@@ -3953,6 +4070,8 @@ async function verDetalleGeneral(id, identificador){
     const item = (lbl, val) => `<div class="detalle-item"><div class="lbl">${esc(lbl)}</div><div class="val">${(val || val === 0) ? esc(String(val)) : "—"}</div></div>`;
 
     document.getElementById("detalleGeneralBody").innerHTML = `
+      <div class="detalle-seccion">Realizado por</div>
+      <div style="margin-bottom:8px">${htmlParticipantes(id)}</div>
       <div class="detalle-seccion">Datos generales</div>
       <div class="detalle-grid">
         ${item("Folio", folio)}
@@ -6235,6 +6354,8 @@ async function verChecklist(ordenId, serie){
 
     const ck = JSON.parse(jsonRaw);
     renderChecklist(ck);
+    document.getElementById("ckMeta").insertAdjacentHTML("beforeend",
+      `<div class="ck-meta-item" style="flex-basis:100%"><strong>Realizado por:</strong> ${htmlParticipantes(ordenId)}</div>`);
 
   } catch(e){
     document.getElementById("ckBody").innerHTML =
@@ -6350,6 +6471,404 @@ function imprimirCk(){
   ventana.document.close();
   ventana.focus();
   setTimeout(() => ventana.print(), 400);
+}
+
+/* ============================================================
+   KPIs SEMANALES (reporte por rango de fechas, para Dirección/Administración)
+   Movimiento = lo ocurrido dentro del rango (ingresos, entregas, correcciones, plan diario).
+   Situación del taller = foto de HOY (no se puede reconstruir hacia atrás).
+   ============================================================ */
+function desRapido(tipo){
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var lun = new Date(hoy); lun.setDate(hoy.getDate() - ((hoy.getDay()+6)%7));
+  var d, h;
+  if(tipo === "pasada"){ d = new Date(lun); d.setDate(lun.getDate()-7); h = new Date(lun); h.setDate(lun.getDate()-1); }
+  else if(tipo === "mes"){ d = new Date(hoy.getFullYear(), hoy.getMonth(), 1); h = hoy; }
+  else if(tipo === "mespasado"){ d = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1); h = new Date(hoy.getFullYear(), hoy.getMonth(), 0); }
+  else { d = lun; h = hoy; }
+  document.getElementById("desDesde").value = isoLocal(d);
+  document.getElementById("desHasta").value = isoLocal(h);
+  renderDesempenoTab();
+}
+
+/* Pestaña "Desempeño": mismo reporte del PDF, pero en vivo dentro del dashboard
+   (se repinta al cambiar el periodo y cada vez que se actualizan los datos). */
+function renderDesempenoTab(){
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
+  var frame = document.getElementById("desFrame");
+  var d = document.getElementById("desDesde").value, h = document.getElementById("desHasta").value;
+  if(!frame || !d || !h || d > h || !allOrdenes.length) return;
+  var vista = document.getElementById("desVista").value;
+  frame.onload = function(){
+    try{ frame.style.height = (frame.contentDocument.documentElement.scrollHeight + 20) + "px"; }catch(e){}
+  };
+  frame.srcdoc = vista === "general" ? kpiSemHtml(d, h) : kpiDesempenoHtml(d, h);
+}
+
+function desImprimir(){
+  var frame = document.getElementById("desFrame");
+  if(frame && frame.contentWindow){ frame.contentWindow.focus(); frame.contentWindow.print(); }
+}
+
+function kpiSemModalAbrir(){
+  if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
+  if(!allOrdenes.length){ alert("Aún no cargan los datos. Espera a que termine de cargar e intenta de nuevo."); return; }
+  var m = document.getElementById("modalKpiSem");
+  if(!m){
+    m = document.createElement("div");
+    m.id = "modalKpiSem";
+    m.style.cssText = "position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px";
+    m.innerHTML =
+      '<div style="background:#fff;border-radius:14px;padding:24px;width:100%;max-width:420px;box-shadow:0 20px 50px rgba(0,0,0,.3);font-family:inherit">'
+      + '<div style="font-size:1.1rem;font-weight:800;color:#1a3a5c;margin-bottom:4px">📅 KPIs semanales</div>'
+      + '<div style="font-size:.82rem;color:#64748b;margin-bottom:14px">Elige el periodo y genera el reporte en PDF para Dirección y Administración.</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">'
+      + '<button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="kpiSemRapido(\'esta\')">Esta semana</button>'
+      + '<button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="kpiSemRapido(\'pasada\')">Semana pasada</button>'
+      + '<button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="kpiSemRapido(\'7d\')">Últimos 7 días</button>'
+      + '<button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="kpiSemRapido(\'mes\')">Este mes</button>'
+      + '<button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="kpiSemRapido(\'mespasado\')">Mes pasado</button>'
+      + '</div>'
+      + '<div style="display:flex;gap:10px;margin-bottom:16px">'
+      + '<label style="flex:1;font-size:.78rem;font-weight:700;color:#334155">Desde<input type="date" id="kpiSemDesde" style="width:100%;margin-top:4px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem"></label>'
+      + '<label style="flex:1;font-size:.78rem;font-weight:700;color:#334155">Hasta<input type="date" id="kpiSemHasta" style="width:100%;margin-top:4px;padding:8px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem"></label>'
+      + '</div>'
+      + '<div id="kpiSemErr" style="color:#991b1b;font-size:.8rem;margin-bottom:10px;display:none"></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end">'
+      + '<button type="button" class="btn-header btn-refresh" style="color:#1a3a5c;border:1px solid #cbd5e1" onclick="document.getElementById(\'modalKpiSem\').style.display=\'none\'">Cancelar</button>'
+      + '<button type="button" class="btn-header btn-refresh" style="background:#1a3a5c;color:#fff" onclick="kpiSemGenerar()">🖨️ Indicadores generales</button>'
+      + '<button type="button" class="btn-header btn-refresh" style="background:#2563a8;color:#fff" onclick="kpiSemGenerar(\'tecnicos\')">👥 Desempeño por técnico</button>'
+      + '</div></div>';
+    m.addEventListener("click", function(e){ if(e.target === m) m.style.display = "none"; });
+    document.body.appendChild(m);
+  }
+  m.style.display = "flex";
+  kpiSemRapido("esta");
+}
+
+function kpiSemRapido(tipo){
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var lun = new Date(hoy); lun.setDate(hoy.getDate() - ((hoy.getDay()+6)%7));
+  var d, h;
+  if(tipo === "esta"){ d = lun; h = hoy; }
+  else if(tipo === "pasada"){ d = new Date(lun); d.setDate(lun.getDate()-7); h = new Date(lun); h.setDate(lun.getDate()-1); }
+  else if(tipo === "mes"){ d = new Date(hoy.getFullYear(), hoy.getMonth(), 1); h = hoy; }
+  else if(tipo === "mespasado"){ d = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1); h = new Date(hoy.getFullYear(), hoy.getMonth(), 0); }
+  else { d = new Date(hoy); d.setDate(hoy.getDate()-7); h = hoy; }
+  document.getElementById("kpiSemDesde").value = isoLocal(d);
+  document.getElementById("kpiSemHasta").value = isoLocal(h);
+}
+
+function kpiSemGenerar(modo){
+  var desdeS = document.getElementById("kpiSemDesde").value;
+  var hastaS = document.getElementById("kpiSemHasta").value;
+  var errEl = document.getElementById("kpiSemErr");
+  if(!desdeS || !hastaS || desdeS > hastaS){
+    errEl.textContent = "Elige un periodo válido (la fecha 'Desde' no puede ser posterior a 'Hasta').";
+    errEl.style.display = "block"; return;
+  }
+  errEl.style.display = "none";
+  var ventana = window.open("", "_blank");
+  if(!ventana){ errEl.textContent = "El navegador bloqueó la ventana. Permite ventanas emergentes para este sitio."; errEl.style.display = "block"; return; }
+  ventana.document.write(modo === "tecnicos" ? kpiDesempenoHtml(desdeS, hastaS) : kpiSemHtml(desdeS, hastaS));
+  ventana.document.close();
+  ventana.focus();
+  setTimeout(function(){ ventana.print(); }, 500);
+  document.getElementById("modalKpiSem").style.display = "none";
+}
+
+function kpiSemHtml(desdeS, hastaS){
+  var desde = fechaSoloDia(desdeS), hasta = fechaSoloDia(hastaS);
+  var finExcl = new Date(hasta); finExcl.setDate(hasta.getDate()+1);
+  var enRango = function(s){ if(!s) return false; var d = new Date(s); return d >= desde && d < finExcl; };
+  var MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  var DIA = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  var corto = function(d){ return d.getDate()+" "+MES[d.getMonth()]; };
+  var largo = function(d){ return DIA[d.getDay()]+" "+d.getDate()+" de "+["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][d.getMonth()]+" de "+d.getFullYear(); };
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var avg = function(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; };
+  var pctTxt = function(n,t){ return t ? Math.round(n/t*100)+"%" : "—"; };
+
+  // ---- Movimiento del periodo ----
+  var ingresadas = allOrdenes.filter(function(o){ return enRango(o.createdAt); }).sort(function(a,b){ return new Date(a.createdAt)-new Date(b.createdAt); });
+  var entregadas = allOrdenes.filter(function(o){ return enRango(o.fechaEntregaReal); }).sort(function(a,b){ return new Date(a.fechaEntregaReal)-new Date(b.fechaEntregaReal); });
+  var entATiempo = 0, entTarde = 0, entSinFecha = 0;
+  var entFilas = entregadas.map(function(o){
+    var real = fechaSoloDia(o.fechaEntregaReal), prog = fechaSoloDia(o.fechaEntregaProgramada), est;
+    if(!prog){ entSinFecha++; est = "Sin fecha programada"; }
+    else { var df = Math.round((real-prog)/86400000); if(df>0){ entTarde++; est = "Tarde (+"+df+" d)"; } else { entATiempo++; est = "A tiempo"; } }
+    return [idOrden(o), o.cliente||"—", corto(real), est];
+  });
+  var correcciones = [];
+  allOrdenes.forEach(function(o){
+    var h = []; try{ h = JSON.parse(o.historialCorreccion || "[]"); }catch(e){}
+    h.forEach(function(x){ if(enRango(x.fecha)) correcciones.push({ folio:idOrden(o), motivo:x.motivo||"—", fecha:new Date(x.fecha) }); });
+  });
+  // Plan diario: solo días hábiles del rango (hasta hoy)
+  var dias = [], c = new Date(desde);
+  while(c <= hasta && c <= hoy){ if(c.getDay()!==0 && c.getDay()!==6) dias.push({ d:new Date(c), iso:isoLocal(c), t:0, c:0 }); c.setDate(c.getDate()+1); }
+  var porIso = {}; dias.forEach(function(x){ porIso[x.iso] = x; });
+  allTareasPlan.forEach(function(t){ var b = t.fecha && porIso[t.fecha]; if(b){ b.t++; if(t.completado) b.c++; } });
+  var planT = dias.reduce(function(s,x){return s+x.t;},0), planC = dias.reduce(function(s,x){return s+x.c;},0);
+
+  // ---- Situación del taller (hoy) ----
+  var N = function(k){ return allOrdenes.filter(function(o){ return normEstado(o.estado)===k; }); };
+  var activas = allOrdenes.filter(function(o){ return ["terminado","entregado","porllegar","noautorizado"].indexOf(normEstado(o.estado))<0; });
+  var terminadas = N("terminado"), entregadasTot = N("entregado"), recibidas = N("recibido");
+  var vencidas = activas.filter(function(o){ return o.dias!==null && o.dias>4; }).sort(function(a,b){ return b.dias-a.dias; });
+  var promDias = avg(activas.filter(function(o){return o.dias!==null;}).map(function(o){return o.dias;}));
+  var finalizadas = terminadas.concat(entregadasTot);
+  var docsInc = terminadas.filter(function(o){ return !o.checklist || !o.pintura || !o.evidencia; });
+  var docsOk = finalizadas.filter(function(o){ return o.checklist && o.pintura && o.evidencia; });
+  var leadTime = avg(entregadasTot.filter(function(o){return o.dias!==null;}).map(function(o){return o.dias;}));
+  var estados = [["En diagnóstico",N("endiagnostico").length],["En proceso",N("proceso").length],["Recibido",recibidas.length],["En corrección",N("encorreccion").length],["Terminado (sin entregar)",terminadas.length],["Entregado",entregadasTot.length]];
+  var maxEst = Math.max.apply(null, estados.map(function(e){return e[1];}).concat([1]));
+
+  // ---- Calidad acumulada ----
+  var aT=0, tard=0, sinF=0, difT=[];
+  allOrdenes.forEach(function(o){
+    if(!o.fechaEntregaReal) return;
+    if(!o.fechaEntregaProgramada){ sinF++; return; }
+    var df = Math.round((fechaSoloDia(o.fechaEntregaReal)-fechaSoloDia(o.fechaEntregaProgramada))/86400000);
+    if(df>0){ tard++; difT.push(df); } else aT++;
+  });
+  var totEnt = aT+tard+sinF, retProm = avg(difT);
+  var totCorr = 0, ordCorr = 0;
+  allOrdenes.forEach(function(o){ if(o.vecesCorregido>0){ totCorr += o.vecesCorregido; ordCorr++; } });
+  var genT = allOrdenes.filter(function(o){ return o.tipoServicio==="General" && (o.reporteGeneralCompletado || ["terminado","entregado"].indexOf(normEstado(o.estado))>=0); });
+  var matOk = genT.filter(function(o){ return !o.edicionesMateriales; });
+
+  // ---- HTML helpers ----
+  var card = function(v, lab, sub, col){ return '<div class="card"><div class="v" style="color:'+(col||"#1a3a5c")+'">'+v+'</div><div class="l">'+lab+'</div><div class="s">'+(sub||"")+'</div></div>'; };
+  var tabla = function(head, filas, vacio){
+    if(!filas.length) return '<div class="vacio">'+vacio+'</div>';
+    var MAX = 14, extra = filas.length > MAX ? filas.length-MAX : 0;
+    return '<table><tr>'+head.map(function(h){return '<th>'+h+'</th>';}).join("")+'</tr>'
+      + filas.slice(0,MAX).map(function(f){ return '<tr>'+f.map(function(x){return '<td>'+esc(String(x))+'</td>';}).join("")+'</tr>'; }).join("")
+      + '</table>' + (extra ? '<div class="nota">+'+extra+' más no mostrados</div>' : '');
+  };
+  var barras = function(items, mx, color){
+    return items.map(function(it){ var w = mx ? Math.round(it[1]/mx*100) : 0;
+      return '<div class="br"><span class="bl">'+it[0]+'</span><span class="bt"><i style="width:'+Math.max(w,it[1]>0?2:0)+'%;background:'+(it[3]||color)+'"></i></span><b>'+(it[2]!==undefined?it[2]:it[1])+'</b></div>'; }).join("");
+  };
+
+  var rangoTxt = (desdeS===hastaS) ? largo(desde) : (largo(desde)+" al "+largo(hasta));
+  var hoyTxt = largo(hoy);
+  var resumen = 'En el periodo ingresaron <b>'+ingresadas.length+' equipo'+(ingresadas.length!==1?'s':'')+'</b> y se entregaron <b>'+entregadas.length+'</b>'
+    + (entregadas.length ? ' ('+entATiempo+' a tiempo, '+entTarde+' tarde, '+entSinFecha+' sin fecha programada)' : '')
+    + '. '+(planT ? 'El Plan Diario se cumplió al <b>'+pctTxt(planC,planT)+'</b> ('+planC+' de '+planT+' tareas)' : 'No hubo tareas registradas en el Plan Diario')
+    + ' y '+(correcciones.length ? 'hubo <b>'+correcciones.length+' corrección'+(correcciones.length!==1?'es':'')+'</b> nueva'+(correcciones.length!==1?'s':'') : 'no hubo correcciones nuevas')+'. '
+    + 'Al día de hoy hay <b>'+activas.length+'</b> órdenes activas en el taller, <b>'+vencidas.length+'</b> con más de 4 días, y <b>'+docsInc.length+' de '+terminadas.length+'</b> terminadas sin documentación completa.';
+
+  var logo = document.getElementById("brandLogo").src;
+  var colorPlan = function(p){ return p>=80 ? "#0e7a3c" : p>=50 ? "#f59e0b" : "#991b1b"; };
+  var planBarras = dias.length ? barras(dias.map(function(x){ var p = x.t ? Math.round(x.c/x.t*100) : 0; return [DIA[x.d.getDay()]+" "+corto(x.d), p, x.t ? p+"% ("+x.c+"/"+x.t+")" : "sin tareas", colorPlan(p)]; }), 100, "#0e7a3c") : '<div class="vacio">El periodo no incluye días hábiles.</div>';
+
+  var observ = [];
+  if(entSinFecha) observ.push("Hubo "+entSinFecha+" entrega"+(entSinFecha!==1?"s":"")+" sin fecha programada, por lo que no se puede medir si fueron a tiempo. Registrar la fecha desde el pre-registro lo haría medible.");
+  if(vencidas.length) observ.push("De "+activas.length+" órdenes activas, "+vencidas.length+" llevan más de 4 días en el taller; la más antigua es "+idOrden(vencidas[0])+" ("+vencidas[0].dias+" días).");
+  if(docsInc.length) observ.push("Pendiente administrativo: "+docsInc.length+" de "+terminadas.length+" terminadas no tienen checklist, pintura o evidencia completos.");
+
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>KPIs '+desdeS+' a '+hastaS+'</title><style>'
+   + '@page{size:letter;margin:0.5in}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+   + 'body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:11px;margin:0}'
+   + '.hd{display:flex;align-items:center;gap:16px;border-bottom:2px solid #1a3a5c;padding-bottom:10px;margin-bottom:6px}.hd img{height:70px}'
+   + '.hd h1{margin:0;font-size:22px;color:#1a3a5c}.hd p{margin:2px 0 0;font-size:11px;color:#64748b;line-height:1.4}'
+   + 'h2{font-size:14px;color:#1a3a5c;margin:14px 0 6px}p.t{line-height:1.5;margin:0;font-size:11.5px}'
+   + '.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.card{background:#eef2f7;border:1px solid #d5dde8;border-radius:6px;text-align:center;padding:8px 4px;break-inside:avoid}'
+   + '.v{font-size:24px;font-weight:800}.l{font-size:10px;font-weight:700;margin-top:2px}.s{font-size:8.5px;color:#64748b;margin-top:2px}'
+   + 'table{width:100%;border-collapse:collapse;margin-top:4px}th{background:#1a3a5c;color:#fff;text-align:left;padding:4px 6px;font-size:10px}'
+   + 'td{padding:3px 6px;border:1px solid #cbd5e1;font-size:10px}tr:nth-child(even) td{background:#eef2f7}'
+   + '.sub{font-weight:700;margin:10px 0 2px;font-size:11px}.nota,.vacio{font-size:9.5px;color:#64748b;margin-top:3px}'
+   + '.br{display:flex;align-items:center;gap:8px;margin:3px 0}.bl{width:140px;font-size:10px}.bt{flex:1;height:11px;background:#eef2f7;border-radius:3px;overflow:hidden}.bt i{display:block;height:100%}.br b{min-width:80px;font-size:10px}'
+   + 'ul{margin:4px 0 0;padding-left:16px}li{margin:3px 0;line-height:1.45;font-size:11px}.fuente{font-size:9px;color:#64748b;margin-top:10px}'
+   + '.pg{page-break-before:always}'
+   + '</style></head><body>'
+   + '<div class="hd"><img src="'+logo+'"><div><h1>Indicadores del Centro de Servicio</h1><p>Reporte para Dirección y Administración<br>Periodo: '+rangoTxt+'<br>Situación del taller y acumulados al '+hoyTxt+'</p></div></div>'
+   + '<h2>Resumen</h2><p class="t">'+resumen+'</p>'
+   + '<h2>Movimiento del periodo ('+corto(desde)+' – '+corto(hasta)+')</h2>'
+   + '<div class="grid">'+card(ingresadas.length,"Equipos ingresados","por fecha de registro")
+   + card(entregadas.length,"Equipos entregados",entregadas.length?(entATiempo+" a tiempo · "+entTarde+" tarde"):"","#0e7a3c")
+   + card(correcciones.length,"Correcciones nuevas",correcciones.length?"equipos regresados":"sin retrabajos",correcciones.length?"#c2410c":"#0e7a3c")
+   + card(planT?pctTxt(planC,planT):"—","Plan Diario",planT?(planC+" de "+planT+" tareas"):"sin tareas","#0e7a3c")+'</div>'
+   + '<div class="sub">Equipos ingresados</div>'+tabla(["Folio / serie","Cliente","Tipo","Equipo","Estado actual","Ingreso"], ingresadas.map(function(o){ return [idOrden(o), o.cliente||"—", o.tipoServicio, o.tipoEquipo||"—", o.estado||"—", corto(fechaSoloDia(o.createdAt))]; }), "No ingresaron equipos en el periodo.")
+   + '<div class="sub">Equipos entregados</div>'+tabla(["Folio / serie","Cliente","Fecha de entrega","Cumplimiento"], entFilas, "No hubo entregas registradas en el periodo.")
+   + (correcciones.length ? '<div class="sub">Correcciones del periodo</div>'+tabla(["Folio / serie","Motivo","Fecha"], correcciones.map(function(x){ return [x.folio,x.motivo,corto(x.fecha)]; }), "") : '')
+   + '<h2>Cumplimiento del Plan Diario por día hábil</h2>'+planBarras
+   + '<div class="pg"></div>'
+   + '<h2>Situación del taller al '+corto(hoy)+'</h2>'
+   + '<div class="grid">'+card(activas.length,"Órdenes en C.S","activas en el taller")+card(promDias!==null?promDias.toFixed(1):"—","Prom. días en C.S","por orden activa")
+   + card(pctTxt(finalizadas.length,allOrdenes.length),"Tasa de finalización",finalizadas.length+" de "+allOrdenes.length+" servicios","#0e7a3c")+card(allOrdenes.length,"Total de servicios","histórico")+'</div>'
+   + '<div class="sub">Distribución por estado</div>'+barras(estados.map(function(e){return [e[0],e[1]];}), maxEst, "#2563a8")
+   + '<h2>Alertas y puntos de atención</h2>'
+   + '<div class="grid">'+card(vencidas.length,"Activas &gt; 4 días","de "+activas.length+" en el taller","#991b1b")+card(recibidas.length,"Sin iniciar","esperando intervención","#c2410c")
+   + card(docsInc.length,"Sin documentar","de "+terminadas.length+" terminadas","#991b1b")+card(pctTxt(docsOk.length,finalizadas.length),"Docs. completos","terminadas + entregadas","#991b1b")+'</div>'
+   + '<div class="sub">Las 5 órdenes con más días en el taller</div>'+tabla(["Folio / serie","Cliente","Días en C.S"], vencidas.slice(0,5).map(function(o){ return [idOrden(o), o.cliente||"—", o.dias]; }), "Sin órdenes con más de 4 días.")
+   + '<h2>Calidad y cumplimiento (acumulado)</h2>'
+   + tabla(["Indicador","Valor","Lectura"], [
+       ["Cumplimiento de entrega", totEnt ? pctTxt(aT,totEnt)+" a tiempo" : "—", aT+" a tiempo, "+tard+" tarde y "+sinF+" sin fecha programada"+(retProm!==null?". Retraso promedio de las tardías: +"+retProm.toFixed(1)+" días":"")],
+       ["Tiempo promedio de entrega", leadTime!==null ? Math.round(leadTime)+" días" : "—", "contra "+(promDias!==null?Math.round(promDias):"—")+" días promedio de las órdenes activas"],
+       ["Retrabajos (correcciones)", totCorr+" en "+ordCorr+" órdenes", "desde que se registran (julio 2026)"],
+       ["Precisión de lista de materiales", genT.length ? pctTxt(matOk.length,genT.length) : "—", genT.length+" reportes General terminados"]
+     ], "")
+   + (observ.length ? '<h2>Observaciones</h2><ul>'+observ.map(function(t){return '<li>'+esc(t)+'</li>';}).join("")+'</ul>' : '')
+   + '<div class="fuente">Fuente: sistema de órdenes del Centro de Servicio. Generado el '+hoyTxt+'. Los datos de "Situación del taller" y "Calidad" son los de la fecha de generación; el "Movimiento" corresponde al periodo elegido.</div>'
+   + '</body></html>';
+}
+
+/* ---- Desempeño por técnico + grupal (semanal / mensual / rango) ----
+   Atribución: la orden cuenta para quien(es) estén en tecnicoAsignado; las tareas del Plan Diario,
+   para quien(es) estén en su campo técnico. Los nombres se unifican por primer nombre
+   ("Egor" = "Egor Eli", "Martín" = "Martin"). Las órdenes sin técnico caen en "Sin asignar". */
+function kpiDesempenoHtml(desdeS, hastaS){
+  var desde = fechaSoloDia(desdeS), hasta = fechaSoloDia(hastaS);
+  var finExcl = new Date(hasta); finExcl.setDate(hasta.getDate()+1);
+  var enRango = function(s){ if(!s) return false; var d = new Date(s); return d >= desde && d < finExcl; };
+  var MES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  var MESL = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var corto = function(d){ return d.getDate()+" "+MES[d.getMonth()]; };
+  var largo = function(d){ return d.getDate()+" de "+MESL[d.getMonth()]+" de "+d.getFullYear(); };
+  var hoy = new Date(); hoy.setHours(0,0,0,0);
+  var avg = function(a){ return a.length ? a.reduce(function(x,y){return x+y;},0)/a.length : null; };
+  var f1 = function(n){ return n===null ? "—" : (Math.round(n*10)/10).toString(); };
+  var pct = function(n,t){ return t ? Math.round(n/t*100) : null; };
+  var pctT = function(n,t){ return t ? Math.round(n/t*100)+"%" : "—"; };
+
+  // --- unificación de nombres ---
+  var norm = function(s){ return (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z ]/g," ").replace(/\s+/g," ").trim(); };
+  var titulo = function(s){ return s.split(" ").filter(Boolean).slice(0,2).map(function(w){ return w.charAt(0).toUpperCase()+w.slice(1); }).join(" "); };
+  var canon = {}; // primer nombre normalizado -> nombre mostrado
+  (tecnicosList||[]).forEach(function(n){ var k = norm(n).split(" ")[0]; if(k) canon[k] = n; });
+  function nombresDe(texto){
+    var partes = (texto||"").split(/,|;|\+|\s+y\s+|\s+e\s+|con apoyo de|se apoya con/i).map(function(p){ return norm(p); }).filter(Boolean);
+    var res = [];
+    partes.forEach(function(p){
+      if(p.indexOf("proveedor") >= 0) return;
+      var k = p.split(" ")[0];
+      if(!canon[k]) canon[k] = titulo(p);
+      else if(canon[k].split(" ").length < p.split(" ").length && (tecnicosList||[]).indexOf(canon[k]) < 0) canon[k] = titulo(p);
+      if(res.indexOf(k) < 0) res.push(k);
+    });
+    return res; // claves; el nombre se resuelve con canon[k] al final
+  }
+  var SIN = "__sin__";
+  var ordTec = {}; allOrdenes.forEach(function(o){ var n = nombresDe(o.tecnicoAsignado); ordTec[o.id] = n.length ? n : [SIN]; });
+  var tarTec = allTareasPlan.map(function(t){ return nombresDe(t.tecnico); });
+
+  // --- días hábiles del periodo (hasta hoy) ---
+  var diasH = {}, c = new Date(desde);
+  while(c <= hasta && c <= hoy){ if(c.getDay()!==0 && c.getDay()!==6) diasH[isoLocal(c)] = true; c.setDate(c.getDate()+1); }
+
+  var activasF = function(o){ return ["terminado","entregado","porllegar","noautorizado"].indexOf(normEstado(o.estado)) < 0; };
+  var finalF = function(o){ var e = normEstado(o.estado); return e==="terminado" || e==="entregado"; };
+  var eventosCorr = function(o){ var h = []; try{ h = JSON.parse(o.historialCorreccion || "[]"); }catch(e){} return h.filter(function(x){ return enRango(x.fecha); }); };
+
+  function calcular(ordenes, tareas){
+    var act = ordenes.filter(activasF), ent = ordenes.filter(function(o){ return enRango(o.fechaEntregaReal); });
+    var fin = ordenes.filter(finalF);
+    var tT = 0, tC = 0; tareas.forEach(function(t){ if(t.fecha && diasH[t.fecha]){ tT++; if(t.completado) tC++; } });
+    var retP = 0; ordenes.forEach(function(o){ retP += eventosCorr(o).length; });
+    return {
+      entregados: ent.length,
+      activos: act.length,
+      venc: act.filter(function(o){ return o.dias>4; }).length,
+      diasAct: avg(act.map(function(o){ return o.dias; })),
+      diasEnt: avg(ent.map(function(o){ return o.dias; })),
+      retP: retP,
+      conRet: pct(fin.filter(function(o){ return o.vecesCorregido>0; }).length, fin.length),
+      docs: pct(fin.filter(function(o){ return o.checklist && o.pintura && o.evidencia; }).length, fin.length),
+      finN: fin.length,
+      plan: pct(tC, tT), planT: tT, planC: tC
+    };
+  }
+
+  // claves de técnicos con presencia
+  var claves = [];
+  allOrdenes.forEach(function(o){ ordTec[o.id].forEach(function(k){ if(k!==SIN && claves.indexOf(k)<0) claves.push(k); }); });
+  tarTec.forEach(function(l){ l.forEach(function(k){ if(claves.indexOf(k)<0) claves.push(k); }); });
+  (tecnicosList||[]).forEach(function(n){ var k = norm(n).split(" ")[0]; if(k && claves.indexOf(k)<0) claves.push(k); });
+  var filas = claves.map(function(k){
+    var ords = allOrdenes.filter(function(o){ return ordTec[o.id].indexOf(k) >= 0; });
+    var tars = allTareasPlan.filter(function(t, i){ return tarTec[i].indexOf(k) >= 0; });
+    var r = calcular(ords, tars); r.nombre = canon[k] || k; r.k = k; return r;
+  }).filter(function(r){ return r.activos || r.entregados || r.planT || r.finN; })
+    .sort(function(a,b){ return (b.entregados - a.entregados) || (b.planT - a.planT); });
+  var ordSin = allOrdenes.filter(function(o){ return ordTec[o.id].indexOf(SIN) >= 0; });
+  var sinR = calcular(ordSin, []); sinR.nombre = "Sin técnico asignado";
+  var grupo = calcular(allOrdenes, allTareasPlan.filter(function(t,i){ return true; })); grupo.nombre = "GRUPO (todo el taller)";
+
+  // --- áreas de oportunidad (automáticas) ---
+  var areas = [];
+  var activasTot = allOrdenes.filter(activasF).length;
+  if(sinR.activos) areas.push("<b>"+sinR.activos+" de "+activasTot+" equipos activos no tienen técnico asignado.</b> Sin asignación no se puede medir el desempeño individual ni dar seguimiento; conviene asignar técnico a cada equipo desde el registro.");
+  if(grupo.diasAct !== null && grupo.diasAct > 4) areas.push("El tiempo promedio de los equipos activos en el C.S es de <b>"+f1(grupo.diasAct)+" días</b> (referencia: 4 días). "+grupo.venc+" de "+grupo.activos+" equipos activos la superan.");
+  var maxV = filas.filter(function(r){ return r.venc>0; }).sort(function(a,b){ return b.venc-a.venc; })[0];
+  if(maxV) areas.push("<b>"+esc(maxV.nombre)+"</b> concentra más equipos activos con más de 4 días ("+maxV.venc+" de "+maxV.activos+"); revisar carga y obstáculos (material, aprobaciones).");
+  filas.forEach(function(r){
+    if(r.plan !== null && r.planT >= 5 && r.plan < 80) areas.push("<b>"+esc(r.nombre)+"</b>: cumplimiento del Plan Diario de "+r.plan+"% ("+r.planC+" de "+r.planT+" tareas) en el periodo.");
+    if(r.retP > 0) areas.push("<b>"+esc(r.nombre)+"</b>: "+r.retP+" retrabajo"+(r.retP>1?"s":"")+" en el periodo — revisar causa y reforzar el proceso.");
+    if(r.docs !== null && r.finN >= 3 && r.docs < 50) areas.push("<b>"+esc(r.nombre)+"</b>: solo "+r.docs+"% de sus equipos terminados tiene la documentación completa (checklist, pintura, evidencia).");
+  });
+  if(grupo.docs !== null && grupo.docs < 60) areas.push("A nivel grupo, solo <b>"+grupo.docs+"%</b> de los equipos terminados/entregados tiene documentación completa.");
+  if(!areas.length) areas.push("Sin alertas relevantes en este periodo.");
+
+  // --- tendencia semanal del grupo dentro del rango ---
+  var sem = [], lun = new Date(desde); lun.setDate(desde.getDate() - ((desde.getDay()+6)%7));
+  while(lun <= hasta){
+    var a = new Date(Math.max(lun, desde)), fin2 = new Date(lun); fin2.setDate(lun.getDate()+6); var b = new Date(Math.min(fin2, hasta));
+    var bx = new Date(b); bx.setDate(b.getDate()+1);
+    var inW = function(s){ if(!s) return false; var d = new Date(s); return d >= a && d < bx; };
+    var tt = 0, cc = 0; allTareasPlan.forEach(function(t){ if(t.fecha && t.fecha >= isoLocal(a) && t.fecha <= isoLocal(b)){ var dd = fechaSoloDia(t.fecha); if(dd.getDay()!==0 && dd.getDay()!==6){ tt++; if(t.completado) cc++; } } });
+    var rt = 0; allOrdenes.forEach(function(o){ var h=[]; try{ h = JSON.parse(o.historialCorreccion||"[]"); }catch(e){} h.forEach(function(x){ if(inW(x.fecha)) rt++; }); });
+    sem.push({ r: corto(a)+" – "+corto(b), ing: allOrdenes.filter(function(o){ return inW(o.createdAt); }).length, ent: allOrdenes.filter(function(o){ return inW(o.fechaEntregaReal); }).length, ret: rt, plan: tt ? Math.round(cc/tt*100)+"% ("+cc+"/"+tt+")" : "—" });
+    lun.setDate(lun.getDate()+7);
+  }
+
+  // --- HTML ---
+  var semaforo = function(v, bueno, malo, invertir){ if(v===null||v===undefined) return ""; var ok = invertir ? v<=bueno : v>=bueno; var mal = invertir ? v>malo : v<malo; return ok ? "background:#dcfce7" : mal ? "background:#fee2e2" : "background:#fef3c7"; };
+  var td = function(txt, st){ return '<td style="text-align:center;'+(st||"")+'">'+txt+'</td>'; };
+  var filaHtml = function(r, negrita){
+    return '<tr'+(negrita?' class="tot"':'')+'><td style="text-align:left"><b>'+esc(r.nombre)+'</b></td>'
+      + td(r.entregados) + td(r.activos)
+      + td(r.venc, semaforo(r.venc,0,2,true)) + td(f1(r.diasAct), semaforo(r.diasAct,4,10,true)) + td(f1(r.diasEnt))
+      + td(r.retP, semaforo(r.retP,0,1,true)) + td(r.conRet===null?"—":r.conRet+"%", semaforo(r.conRet,0,15,true))
+      + td(r.docs===null?"—":r.docs+"%", semaforo(r.docs,80,50,false))
+      + td(r.plan===null?"—":r.plan+"% <span class='m'>("+r.planC+"/"+r.planT+")</span>", semaforo(r.plan,80,50,false)) + '</tr>';
+  };
+  var logo = document.getElementById("brandLogo").src;
+  var rangoTxt = desdeS===hastaS ? largo(desde) : "del "+largo(desde)+" al "+largo(hasta);
+  var cardH = function(v, l, s){ return '<div class="card"><div class="v">'+v+'</div><div class="l">'+l+'</div><div class="s">'+s+'</div></div>'; };
+
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>Desempeño '+desdeS+' a '+hastaS+'</title><style>'
+   + '@page{size:letter landscape;margin:0.45in}*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}'
+   + 'body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;font-size:11px;margin:0}'
+   + '.hd{display:flex;align-items:center;gap:16px;border-bottom:2px solid #1a3a5c;padding-bottom:8px;margin-bottom:4px}.hd img{height:58px}'
+   + '.hd h1{margin:0;font-size:20px;color:#1a3a5c}.hd p{margin:2px 0 0;font-size:10.5px;color:#64748b;line-height:1.4}'
+   + 'h2{font-size:13px;color:#1a3a5c;margin:12px 0 5px}.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}'
+   + '.card{background:#eef2f7;border:1px solid #d5dde8;border-radius:6px;text-align:center;padding:6px 3px}.v{font-size:21px;font-weight:800;color:#1a3a5c}.l{font-size:9.5px;font-weight:700}.s{font-size:8px;color:#64748b;margin-top:1px}'
+   + 'table{width:100%;border-collapse:collapse}th{background:#1a3a5c;color:#fff;padding:4px 5px;font-size:9px;text-align:center}th:first-child{text-align:left}'
+   + 'td{padding:4px 5px;border:1px solid #cbd5e1;font-size:10px}.tot td{background:#e2e8f0;font-weight:700}.m{color:#64748b;font-size:8.5px}'
+   + 'ul{margin:3px 0 0;padding-left:16px}li{margin:3px 0;line-height:1.4;font-size:10.5px}.nota{font-size:9px;color:#64748b;line-height:1.45;margin-top:8px}'
+   + '.pg{page-break-before:always}.leg{font-size:9px;color:#64748b;margin-top:4px}'
+   + '</style></head><body>'
+   + '<div class="hd"><img src="'+logo+'"><div><h1>Desempeño del Centro de Servicio — por técnico y grupal</h1><p>Periodo: '+rangoTxt+' · Situación de equipos activos al '+largo(hoy)+'<br>Uso interno · Dirección y Administración</p></div></div>'
+   + '<h2>Resumen grupal</h2><div class="grid">'
+   + cardH(grupo.entregados,"Equipos entregados","en el periodo")+cardH(grupo.activos,"Equipos activos","hoy en el C.S")
+   + cardH(f1(grupo.diasAct),"Días prom. en C.S","equipos activos (ref. 4)")+cardH(grupo.venc,"Activos &gt; 4 días","de "+grupo.activos)
+   + cardH(grupo.retP,"Retrabajos","en el periodo")+cardH(grupo.plan===null?"—":grupo.plan+"%","Plan Diario",grupo.planC+" de "+grupo.planT+" tareas")+'</div>'
+   + '<h2>Desempeño individual</h2><table><tr><th>Técnico</th><th>Entregados<br>(periodo)</th><th>Activos<br>hoy</th><th>Activos<br>&gt; 4 días</th><th>Días prom.<br>activos</th><th>Días prom.<br>entregados</th><th>Retrabajos<br>(periodo)</th><th>% con<br>retrabajo*</th><th>Docs.<br>completos*</th><th>Plan Diario<br>(cumplimiento)</th></tr>'
+   + filas.map(function(r){ return filaHtml(r); }).join("") + filaHtml(sinR) + filaHtml(grupo, true) + '</table>'
+   + '<div class="leg">Verde = en meta · Amarillo = atención · Rojo = área de mejora. *Acumulado de los equipos terminados/entregados del técnico (no solo del periodo). Un equipo con varios técnicos cuenta para cada uno.</div>'
+   + '<h2>Áreas de oportunidad</h2><ul>'+areas.map(function(t){ return '<li>'+t+'</li>'; }).join("")+'</ul>'
+   + '<div class="pg"></div>'
+   + '<h2>Tendencia grupal por semana</h2><table><tr><th>Semana</th><th>Equipos ingresados</th><th>Equipos entregados</th><th>Retrabajos</th><th>Plan Diario</th></tr>'
+   + sem.map(function(s){ return '<tr><td style="text-align:left">'+s.r+'</td>'+td(s.ing)+td(s.ent)+td(s.ret)+td(s.plan)+'</tr>'; }).join("") + '</table>'
+   + '<h2>Cómo leer este reporte</h2><ul>'
+   + '<li><b>Productividad:</b> equipos entregados en el periodo (por fecha de entrega registrada) y cumplimiento del Plan Diario.</li>'
+   + '<li><b>Tiempo en el C.S:</b> días promedio de los equipos activos hoy y de los entregados; "Activos &gt; 4 días" cuenta los que superan la referencia.</li>'
+   + '<li><b>Calidad:</b> retrabajos (equipos que regresaron a corrección), porcentaje de equipos con retrabajo y documentación completa (checklist, pintura y evidencia).</li>'
+   + '<li><b>Limitación actual:</b> la atribución depende de que cada equipo tenga técnico asignado y de que el Plan Diario registre al técnico. Los equipos sin técnico aparecen en "Sin técnico asignado" y no cuentan para ninguna persona. Aún no se registra la fecha en que un equipo queda "Terminado", por eso la productividad se mide con las entregas.</li></ul>'
+   + '</body></html>';
 }
 
 function imprimirKPIs(){
@@ -6798,6 +7317,7 @@ function renderKPIsCalidad(ordenes, tareas){
   renderCalRetrabajos(ordenes);
   renderCalMateriales(ordenes);
   renderCalPlanDiario(tareas || []);
+  renderParticipacion();
 }
 
 /* ---- Panel 1: Cumplimiento de entrega (fechaEntregaReal vs fechaEntregaProgramada) ---- */
@@ -6978,6 +7498,112 @@ function renderCalPlanDiario(tareas){
     return '<div class="cal-trend-bar" style="height:'+Math.max(pct,6)+'%;background:'+color+'" title="'+pct+'% ('+d.completadas+'/'+d.total+')"></div>';
   }).join("");
   document.getElementById("trendPlanDiarioLabels").innerHTML = dias.map(function(d){ return '<span>'+d.fecha.getDate()+'</span>'; }).join("");
+}
+
+/* Chips "Nombre · etapas" de quienes intervinieron en una orden (para los modales de detalle) */
+function htmlParticipantes(ordenId){
+  var filas = partPorOrden[ordenId] || [];
+  if(!filas.length) return '<span style="color:var(--gris-texto);font-size:0.8rem">Sin registro (equipo anterior al registro de participación)</span>';
+  var porPersona = {};
+  filas.forEach(function(p){
+    var x = porPersona[p.usuario] = porPersona[p.usuario] || { rol:p.rol, etapas:[] };
+    if(x.etapas.indexOf(p.etapa) < 0) x.etapas.push(p.etapa);
+  });
+  return Object.keys(porPersona).map(function(n){
+    var x = porPersona[n];
+    x.etapas.sort(function(a,b){ return PART_ETAPAS.indexOf(a) - PART_ETAPAS.indexOf(b); });
+    var rol = x.rol && x.rol !== "Tecnico" ? ' (' + (x.rol === "Direccion" ? "Dirección" : x.rol) + ')' : '';
+    return '<span class="part-chip"><b>'+esc(n)+'</b>'+rol+' · '+x.etapas.map(esc).join(', ')+'</span>';
+  }).join("");
+}
+
+/* ---- Panel 5: Participación por persona (PARTICIPACIONES) ----
+   Un equipo cuenta una vez por persona, sin importar en cuántas etapas participó. Técnicos
+   por un lado y Admin/Dirección como apoyo por otro, para no mezclar las cargas. */
+var PART_ETAPAS = ["Recepción","Diagnóstico","Checklist","Correcciones","Pintura","Servicio","Cierre"];
+var PART_CORTO = {"Recepción":"Recep.","Diagnóstico":"Diag.","Checklist":"Check.","Correcciones":"Corr.","Pintura":"Pint.","Servicio":"Serv.","Cierre":"Cierre"};
+// Etapas "de trabajo": si el equipo regresó por corrección, se le atribuye a quien las hizo
+var PART_ETAPAS_TRABAJO = ["Diagnóstico","Checklist","Pintura","Servicio"];
+
+function renderParticipacion(){
+  var panel = document.getElementById("panelParticipacion");
+  if(!panel) return;
+  var esAdmin = _sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion");
+  panel.style.display = esAdmin ? "" : "none";
+  if(!esAdmin) return;
+
+  // Periodo (según la fecha en que se guardó la etapa)
+  var per = document.getElementById("partPeriodo").value;
+  var hoy = new Date(), desde = null, hasta = null;
+  if(per === "mes"){ desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  else if(per === "mesPasado"){ desde = new Date(hoy.getFullYear(), hoy.getMonth()-1, 1); hasta = new Date(hoy.getFullYear(), hoy.getMonth(), 1); }
+  else if(per === "30"){ desde = new Date(hoy.getTime() - 30*86400000); }
+  var filas = allPart.filter(function(p){
+    var f = new Date(p.fecha);
+    if(isNaN(f)) return per === "todo";
+    return (!desde || f >= desde) && (!hasta || f < hasta);
+  });
+
+  var ordPorId = {};
+  allOrdenes.forEach(function(o){ ordPorId[o.id] = o; });
+  filas = filas.filter(function(p){ return ordPorId[p.ordenId]; }); // ignora órdenes borradas/respaldadas
+
+  // Agrupar por persona
+  var personas = {};
+  filas.forEach(function(p){
+    var x = personas[p.usuario] = personas[p.usuario] || { nombre:p.usuario, rol:p.rol, equipos:{}, etapas:{}, trabajo:{}, ultima:null };
+    if(p.rol) x.rol = p.rol;
+    x.equipos[p.ordenId] = true;
+    (x.etapas[p.etapa] = x.etapas[p.etapa] || {})[p.ordenId] = true;
+    if(PART_ETAPAS_TRABAJO.indexOf(p.etapa) >= 0) x.trabajo[p.ordenId] = true;
+    var f = new Date(p.fecha); if(!isNaN(f) && (!x.ultima || f > x.ultima)) x.ultima = f;
+  });
+  var lista = Object.keys(personas).map(function(k){
+    var x = personas[k];
+    x.nEquipos = Object.keys(x.equipos).length;
+    x.nTrabajo = Object.keys(x.trabajo).length;
+    x.nRetrabajo = Object.keys(x.trabajo).filter(function(id){ return ordPorId[id].vecesCorregido > 0; }).length;
+    return x;
+  });
+
+  // Resumen
+  var porOrden = {};
+  filas.forEach(function(p){ (porOrden[p.ordenId] = porOrden[p.ordenId] || {})[p.usuario] = true; });
+  var ids = Object.keys(porOrden);
+  var conVarios = ids.filter(function(id){ return Object.keys(porOrden[id]).length > 1; }).length;
+  var tecnicos = lista.filter(function(x){ return x.rol === "Tecnico"; }).sort(function(a,b){ return b.nEquipos - a.nEquipos; });
+  var apoyo = lista.filter(function(x){ return x.rol !== "Tecnico"; }).sort(function(a,b){ return b.nEquipos - a.nEquipos; });
+  var sinRegistro = allOrdenes.filter(function(o){
+    return ["terminado","entregado"].indexOf(normEstado(o.estado)) >= 0 && !(partPorOrden[o.id] || []).length;
+  }).length;
+  var tile = function(n, l, p){ return '<div class="cal-stat-tile"><div class="n" style="color:#6d28d9">'+n+'</div><div class="l">'+l+'</div><div class="p">'+p+'</div></div>'; };
+  document.getElementById("partResumen").innerHTML =
+    tile(ids.length, "Equipos con participación", "en el periodo") +
+    tile(conVarios, "Con 2+ personas", ids.length ? Math.round(conVarios/ids.length*100)+"% de esos equipos" : "") +
+    tile(sinRegistro, "Terminados sin registro", "anteriores al registro de participación");
+
+  var maxEq = Math.max.apply(null, lista.map(function(x){ return x.nEquipos; }).concat([1]));
+  function tabla(grupo){
+    var th = PART_ETAPAS.map(function(e){ return '<th title="Equipos en que guardó la etapa '+e+'">'+PART_CORTO[e]+'</th>'; }).join("");
+    var rows = grupo.map(function(x){
+      var celdas = PART_ETAPAS.map(function(e){
+        var n = x.etapas[e] ? Object.keys(x.etapas[e]).length : 0;
+        return '<td class="'+(n?'':'cero')+'">'+(n||'·')+'</td>';
+      }).join("");
+      var ret = x.nTrabajo ? x.nRetrabajo+' <span style="color:var(--gris-texto)">('+Math.round(x.nRetrabajo/x.nTrabajo*100)+'%)</span>' : '—';
+      var w = Math.round(x.nEquipos/maxEq*60);
+      return '<tr><td><span class="nom">'+esc(x.nombre)+'</span></td>'
+        + '<td style="white-space:nowrap"><b>'+x.nEquipos+'</b><span class="barra" style="width:'+w+'px"></span></td>'
+        + celdas + '<td>'+ret+'</td></tr>';
+    }).join("");
+    return '<div class="part-wrap"><table class="part-tabla"><thead><tr><th>Persona</th><th>Equipos</th>'+th
+      + '<th title="Equipos donde participó en diagnóstico, checklist, pintura o servicio y el equipo regresó por corrección">Con retrabajo</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }
+  var html = "";
+  html += '<div class="part-grupo" style="margin-top:4px">Técnicos</div>' + (tecnicos.length ? tabla(tecnicos) : '<div class="cal-empty">Sin participaciones de técnicos en este periodo.</div>');
+  if(apoyo.length) html += '<div class="part-grupo">Apoyo de Admin / Dirección</div>' + tabla(apoyo);
+  html += '<div class="cal-sub" style="margin-top:10px">“Con retrabajo” = equipos en los que la persona hizo diagnóstico, checklist, pintura o servicio y que después regresaron por corrección. Es un indicador para revisar el proceso, no una calificación personal.</div>';
+  document.getElementById("partTablas").innerHTML = html;
 }
 
 /* Barras horizontales con umbral de 4 dias */
@@ -7245,10 +7871,14 @@ function aplicarRestriccionesRol(){
     if(tabValidacion) tabValidacion.style.display = "none";
     const tabCostos = document.getElementById("tab-costos");
     if(tabCostos) tabCostos.style.display = "none";
+    const tabDesempeno = document.getElementById("tab-desempeno");
+    if(tabDesempeno) tabDesempeno.style.display = "none";
     const btnPre = document.getElementById("btnPreRegistro");
     if(btnPre) btnPre.style.display = "none";
     const btnImprimirKPIs = document.getElementById("btnImprimirKPIs");
     if(btnImprimirKPIs) btnImprimirKPIs.style.display = "none";
+    const btnKpiSemanales = document.getElementById("btnKpiSemanales");
+    if(btnKpiSemanales) btnKpiSemanales.style.display = "none";
     const planBtnCompras = document.getElementById("planBtnCompras");
     if(planBtnCompras) planBtnCompras.style.display = "none";
     const btnImprimirSemanaPlan = document.getElementById("btnImprimirSemanaPlan");

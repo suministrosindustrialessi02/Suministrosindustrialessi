@@ -818,6 +818,16 @@ async function cargarDatos(){
   if(!ordenRec.ok) throw new Error("No se encontró la orden");
   G.orden = await ordenRec.json();
 
+  // Quién intervino en cada etapa (tabla PARTICIPACIONES). Si falla o no hay, el reporte sale igual.
+  try{
+    const pf = encodeURIComponent(`{fldeR6WOrAjzU3BoU}="${ordenId}"`);
+    G.part = (await at("tblbEh6YAOQSTyvbl", `filterByFormula=${pf}`)).map(r => ({
+      usuario: (r.fields["fldQkfYlVzbvIqBQr"] || "").trim(),
+      etapa:   (r.fields["fldkwUSnBCdVvYqMH"] && r.fields["fldkwUSnBCdVvYqMH"].name) || r.fields["fldkwUSnBCdVvYqMH"] || "",
+      rol:     (r.fields["fldzhuTTJi4R9EHHW"] && r.fields["fldzhuTTJi4R9EHHW"].name) || r.fields["fldzhuTTJi4R9EHHW"] || "",
+    })).filter(p => p.usuario);
+  }catch(e){ G.part = []; }
+
   const tipoServicioRaw = fv(G.orden, FO.tipoServicio);
   G.esGeneral = (tipoServicioRaw && (tipoServicioRaw.name || tipoServicioRaw)) === "General";
 
@@ -1019,6 +1029,28 @@ function logoCotizacionHtml(){
   return `<div class="rep-logo"><img src="${LOGO_COTIZACION_B64}" alt="Suministros Industriales SI" class="rep-logo-img"><span>Centro de Servicio</span></div>`;
 }
 
+/* "Luis (Recepción, Checklist) · Marco (Pintura)" — vacío si el equipo es anterior al registro.
+   Admin y Dirección llevan su rol entre paréntesis para distinguirlos del personal técnico. */
+function realizadoPorTexto(){
+  const ORDEN = ["Recepción","Diagnóstico","Checklist","Correcciones","Pintura","Servicio","Cierre"];
+  const porPersona = {};
+  (G.part || []).forEach(p => {
+    const x = porPersona[p.usuario] = porPersona[p.usuario] || { rol:p.rol, etapas:[] };
+    if(!x.etapas.includes(p.etapa)) x.etapas.push(p.etapa);
+  });
+  return Object.keys(porPersona).map(n => {
+    const x = porPersona[n];
+    x.etapas.sort((a,b) => ORDEN.indexOf(a) - ORDEN.indexOf(b));
+    const rol = x.rol && x.rol !== "Tecnico" ? ` — ${x.rol === "Direccion" ? "Dirección" : x.rol}` : "";
+    return `${n}${rol} (${x.etapas.join(", ")})`;
+  }).join(" · ");
+}
+
+function filaRealizadoPor(){
+  const t = realizadoPorTexto();
+  return t ? `<tr><td class="lbl">REALIZADO POR:</td><td colspan="5">${esc(t)}</td></tr>` : "";
+}
+
 function headerTablaHtml(d, titulo){
   return `
   <table class="info-tbl">
@@ -1053,6 +1085,7 @@ function headerTablaHtml(d, titulo){
       <td class="lbl">SERVICIO SOLICITADO:</td>
       <td colspan="5">${esc(d.servicio)}</td>
     </tr>` : ""}
+    ${filaRealizadoPor()}
   </table>`;
 }
 
@@ -1901,6 +1934,7 @@ function headerTablaGeneral(titulo, datos){
       <td class="lbl">AMPERAJE:</td><td>${esc(amperaje)}</td>
       <td class="lbl"></td><td></td>
     </tr>
+    ${filaRealizadoPor()}
   </table>`;
 }
 
