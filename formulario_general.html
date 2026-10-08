@@ -654,9 +654,8 @@ function esc(s){ const d = document.createElement("div"); d.textContent = String
    ============================================================ */
 
 /* Sesión del login — se usa para registrar quién interviene en cada etapa (PARTICIPACIONES).
-   Se llega aquí desde dashboard/plan diario, que ya exigen sesión; si falta, a login. */
+   Si no hay sesión, el formulario funciona igual (nadie queda bloqueado); solo no se registra quién participó. */
 const _sesion = (() => { try{ return JSON.parse(localStorage.getItem("si_session")); }catch(e){ return null; } })();
-if(!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Tecnico" || _sesion.rol === "Direccion"))){ window.location.href = "login.html"; }
 
 /* ============================================================
    PARTICIPACIONES — quién intervino en cada etapa del equipo
