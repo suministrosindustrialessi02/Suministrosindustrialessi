@@ -963,6 +963,21 @@ async function generarDiagnostico(){
     alert("No se encontró la orden. Regresa a la pantalla 1 y vuelve a intentar.");
     return;
   }
+  // Red de seguridad: si la orden ya fue autorizada, regenerar el diagnóstico la regresa
+  // a "En diagnóstico" y vuelve a pedir autorización. Que sea decisión consciente.
+  try{
+    const r = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`, {
+      headers:{}
+    });
+    const d = await r.json();
+    const eRaw = d.fields ? d.fields[OF.estado] : null;
+    const eActual = (eRaw && eRaw.name) || eRaw || "";
+    if(eActual === "En proceso" &&
+              !confirm("Este equipo YA fue autorizado por el cliente.\n\nSi generas el diagnóstico otra vez, la orden regresará a \"En diagnóstico\" y tendrá que autorizarse de nuevo.\n\n¿Generar de todos modos?")){
+      return;
+    }
+  } catch(e){}
+
   const btn = document.getElementById("btnGenerarDiagnostico");
   btn.disabled = true;
   btn.textContent = "Generando diagnóstico...";
@@ -1201,6 +1216,17 @@ async function buscarEquipoRegistrado(){
     }
 
     ordenRecordId = rec.id;
+
+    // Orden ya autorizada (En proceso / En corrección) o con diagnóstico guardado: antes
+    // esta búsqueda solo pre-llenaba la Pantalla 0 y mandaba al técnico a recorrer el
+    // formulario desde cero, llegando otra vez a "Generar diagnóstico" — que regresaba la
+    // orden a "En diagnóstico" (MOT-080 / F2601271911). Se manda por la misma ruta que
+    // "Continuar formulario" (?folio=), que restaura borrador/diagnóstico y aterriza en
+    // la Bitácora.
+    if((estado === "En proceso" || estado === "En corrección" || f[OF.diagnosticoTexto]) && f[OF.folio]){
+      window.location.href = `formulario_general.html?folio=${encodeURIComponent(f[OF.folio])}`;
+      return;
+    }
 
     if(estado === "En diagnóstico" || estado === "No autorizado"){
       document.getElementById("folio").value = f[OF.folio] || q;
@@ -2393,6 +2419,13 @@ async function restaurarDesdeAirtableGeneral(folioUrl, ordenRecordIdConocido, or
     // autorizado — se le rellenan los huecos desde ORDENES antes de pintarlo.
     await completarDesdeOrden(datos, ordenRec);
 
+    // Orden ya autorizada: nunca se retoma antes de la Bitácora (ver init, mismo criterio).
+    const estadoOrdenRaw = ordenRec && ordenRec.fields[OF.estado];
+    const estadoOrdenAT = (estadoOrdenRaw && estadoOrdenRaw.name) || estadoOrdenRaw || "";
+    if((estadoOrdenAT === "En proceso" || estadoOrdenAT === "En corrección") && (datos.pantallaActual || 0) < 4){
+      datos.pantallaActual = 4;
+    }
+
     restaurarBorradorGeneral(datos);
     alert("Se recuperaron los datos guardados de este equipo (no estaban en este dispositivo, pero sí en el sistema), incluyendo las fotos que ya se habían subido.\n\nOJO: si tomaste alguna foto justo antes de cambiar de dispositivo y todavía no alcanzó a subirse, esa sí hay que volver a agregarla.");
     return true;
@@ -3200,6 +3233,13 @@ mostrarPantalla(0);
       // vacías aunque el diagnóstico SÍ estuviera guardado en ORDENES. Ahora se le
       // rellenan los huecos desde la fuente de verdad antes de pintarlo.
       await completarDesdeOrden(datos, ordenRec);
+      // Orden YA autorizada: el borrador local puede haber quedado guardado antes de
+      // generar el diagnóstico (pantalla 1-3, p. ej. si se cerró/crasheó el navegador del
+      // celular en ese momento). Restaurarlo tal cual regresaba al técnico al diagnóstico.
+      // Si ya se autorizó, el punto de retoma mínimo es la Bitácora (pantalla 4).
+      if((estadoOrden === "En proceso" || estadoOrden === "En corrección") && (datos.pantallaActual || 0) < 4){
+        datos.pantallaActual = 4;
+      }
       restaurarBorradorGeneral(datos);
     } else {
       document.getElementById("folio").value = folioUrl;
