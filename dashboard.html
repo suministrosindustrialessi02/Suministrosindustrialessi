@@ -4940,23 +4940,27 @@ function costResolverDestino(r, visitados){
 // hacia una CATEGORÍA sigue mostrando solo la etiqueta de la categoría (ese es su
 // propósito: agrupar varios items bajo un solo nombre corto).
 function costConstruirRenglonesCliente(){
-  const items = costFilas.filter(f => f.tipo === "item" && f.precio != null && f.precio !== "");
-  const visibles = items.filter(r => r.combinarCon !== COST_OCULTAR);
-  const ocultos  = items.filter(r => r.combinarCon === COST_OCULTAR);
+  const tienePrecio = f => f.precio != null && f.precio !== "";
+  const itemsTodos = costFilas.filter(f => f.tipo === "item");
+  const visiblesTodos = itemsTodos.filter(r => r.combinarCon !== COST_OCULTAR);
+  const ocultos  = itemsTodos.filter(r => r.combinarCon === COST_OCULTAR && tienePrecio(r));
 
+  // Se agrupan TODOS los renglones visibles (con o sin precio propio) bajo su destino:
+  // un concepto combinado sin precio, o un destino sin precio, igual debe aparecer en la
+  // descripción. Un grupo solo se muestra si algún miembro tiene precio (así la tabla
+  // recién autollenada, sin precios, no genera una cotización vacía).
   const acumulado = new Map();
   const orden = [];
-  visibles.forEach(r => {
-    const precio = parseFloat(r.precio) || 0;
+  visiblesTodos.forEach(r => {
     const destino = costResolverDestino(r);
     if(!acumulado.has(destino.id)){
-      acumulado.set(destino.id, { descripciones:new Set(), total:0, esCategoria:destino.tipo === "cat", tituloCategoria:destino.descripcion });
-      orden.push(destino.id);
+      acumulado.set(destino.id, { descripciones:new Set(), total:0, hayPrecio:false, esCategoria:destino.tipo === "cat", tituloCategoria:destino.descripcion });
     }
     const entry = acumulado.get(destino.id);
-    entry.total += precio;
+    if(tienePrecio(r)){ entry.total += parseFloat(r.precio) || 0; entry.hayPrecio = true; }
     if((r.descripcion||"").trim()) entry.descripciones.add(r.descripcion.trim());
   });
+  acumulado.forEach((d, id) => { if(d.hayPrecio) orden.push(id); else acumulado.delete(id); });
 
   const montoOculto = ocultos.reduce((s,r) => s + (parseFloat(r.precio)||0), 0);
   if(orden.length === 0 && ocultos.length){

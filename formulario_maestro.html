@@ -2839,6 +2839,52 @@ async function guardarRegistroUnico(tabla, campoLink, ordenId, fields, idConocid
 /* Contenido base64 de una foto. Las fotos restauradas de un borrador ("Continuar") traen
    base64:null y solo dataUrl; mandar null a uploadAttachment hace que Airtable rechace la
    subida y la foto se pierde en silencio. */
+/* Compresión de fotos. Las fotos de celular pesan 3-5 MB: dos copias en memoria por foto
+   (base64 + dataUrl) tronaban la pestaña ("¡Oh, no!") y las que pasaban de 5 MB las
+   rechazaba Airtable en uploadAttachment (la foto 6.3 de A2604242072/74). Se reduce el lado
+   largo a FOTO_MAX_DIM antes de guardarla. Si algo falla o no mejora, se usa el original:
+   comprimir nunca debe bloquear ni perder la foto del técnico. */
+const FOTO_MAX_DIM = 1600;
+const FOTO_CALIDAD = 0.8;
+
+function comprimirFotoDataUrl(file){
+  return new Promise(resolve => {
+    const tipo = (file.type || "").toLowerCase();
+    if(tipo && tipo !== "image/jpeg" && tipo !== "image/jpg" && tipo !== "image/png") return resolve(null);
+    let url;
+    try{ url = URL.createObjectURL(file); }catch(e){ return resolve(null); }
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      try{
+        let w = img.naturalWidth, h = img.naturalHeight;
+        if(!w || !h) return resolve(null);
+        if(w > FOTO_MAX_DIM || h > FOTO_MAX_DIM){
+          const esc = FOTO_MAX_DIM / Math.max(w, h);
+          w = Math.round(w * esc); h = Math.round(h * esc);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const out = tipo === "image/png" ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", FOTO_CALIDAD);
+        const bytes = (out.length - out.indexOf(",") - 1) * 0.75;
+        resolve(bytes < file.size ? out : null); // si no pesa menos, se queda el original
+      }catch(e){ resolve(null); }
+    };
+    img.onerror = () => { try{ URL.revokeObjectURL(url); }catch(e){} resolve(null); };
+    img.src = url;
+  });
+}
+
+/* Reemplaza reader.readAsDataURL(file) en los capturadores de fotos: entrega a
+   reader.onload el mismo { target:{ result: dataUrl } }, pero ya comprimido. */
+function leerFotoComprimida(reader, file){
+  comprimirFotoDataUrl(file).then(dataUrl => {
+    if(dataUrl){ try{ reader.onload({ target:{ result: dataUrl } }); }catch(e){ console.error(e); } }
+    else reader.readAsDataURL(file);
+  });
+}
+
 function base64DeFoto(f){
   return f.base64 || (f.dataUrl ? f.dataUrl.split(",")[1] : null);
 }
@@ -3244,7 +3290,7 @@ function manejarFotosCK(index, inputEl){
         guardarBorrador();
       }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -3404,7 +3450,7 @@ function manejarFotosAdherencia(inputEl){
       pendientes--;
       if(pendientes === 0){ renombrarFotosAdherencia(); renderizarGridAdherencia(); renderGridAdh(); guardarBorrador(); }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -3489,7 +3535,7 @@ function manejarFotosEvidencia(index, inputEl){
       pendientes--;
       if(pendientes === 0){ renderizarGridEvidencia(index); guardarBorrador(); }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -3557,7 +3603,7 @@ function manejarFotosRecepcion(inputEl){
       pendientes--;
       if(pendientes === 0){ renderizarGridRecepcion(); guardarBorrador(); }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -3603,7 +3649,7 @@ function manejarFotosDanos(inputEl){
       pendientes--;
       if(pendientes === 0){ renderizarGridDanos(); guardarBorrador(); }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -3649,7 +3695,7 @@ function manejarFotosPlaca(inputEl){
       pendientes--;
       if(pendientes === 0){ renderizarGridPlaca(); guardarBorrador(); }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -3927,7 +3973,7 @@ function manejarFotosEv(tipo, inputEl){
       pendientes--;
       if(!pendientes) renderGridEv(tipo, gridId);
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -4030,7 +4076,7 @@ function manejarFotoCorr(pi, inputEl){
       pendientes--;
       if(!pendientes){ renderCorreccionesCK(); }
     };
-    reader.readAsDataURL(file);
+    leerFotoComprimida(reader, file);
   });
   inputEl.value = "";
 }
@@ -4337,8 +4383,11 @@ async function enviarChecklist(){
         const respFoto = await fetch(`/.netlify/functions/airtable-upload?recordId=${ckRecordIdGlobal}&fieldId=${FIELDS_CHECKLIST.fotos}`,
           { method:"POST", headers:{ "Content-Type":"application/json" },
             body: JSON.stringify({ contentType: fotosCK[i].contentType, filename: fotosCK[i].filename, file: base64DeFoto(fotosCK[i]) }) });
-        if(!respFoto.ok) fotosCKFallidas.push(fotosCK[i].filename);
-      } catch(e){ fotosCKFallidas.push(fotosCK[i].filename); }
+        if(!respFoto.ok){
+          const kb = Math.round((fotosCK[i].base64 || "").length * 0.75 / 1024);
+          fotosCKFallidas.push(`${fotosCK[i].filename} (${respFoto.status}${kb ? ", ~" + kb + " KB" : ""})`);
+        }
+      } catch(e){ fotosCKFallidas.push(`${fotosCK[i].filename} (sin conexión)`); }
     }
     if(fotosCKFallidas.length){
       alert("ATENCIÓN: " + fotosCKFallidas.length + " foto(s) del checklist NO se pudieron subir:\n\n" +
