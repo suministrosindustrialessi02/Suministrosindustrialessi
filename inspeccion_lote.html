@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inspección por lote | Centro de Servicio SI</title>
+<style>
+:root{
+  --navy:#0c1e35; --azul:#1a3a5c; --azul-claro:#2d5a8c; --gris:#f3f5f8; --borde:#d5dbe3; --txt:#1c2733; --txt2:#5a6878;
+  --verde:#2e7d32; --verde-bg:#e6f4e7; --amar:#e0a800; --amar-bg:#fff4cc; --rojo:#c62828; --rojo-bg:#fdeaea;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;color:var(--txt);background:var(--gris);font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
+.hidden{display:none !important}
+.top{position:sticky;top:0;z-index:20;background:var(--navy);color:#fff;display:flex;align-items:center;gap:10px;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top))}
+.top h1{font-size:1rem;margin:0;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .back{background:none;border:0;color:#fff;font-size:1.4rem;padding:0 6px;cursor:pointer}
+.chip-sync{font-size:.78rem;border-radius:20px;padding:4px 10px;background:#ffffff22;white-space:nowrap;cursor:pointer;border:0;color:#fff}
+.chip-sync.warn{background:#f2b600;color:#222}
+.chip-sync.err{background:#c62828}
+main{max-width:780px;margin:0 auto;padding:14px 14px 90px}
+.card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:14px;margin-bottom:12px}
+.card h2{font-size:.95rem;margin:0 0 10px;color:var(--azul);text-transform:uppercase;letter-spacing:.3px}
+label.l{display:block;font-size:.82rem;font-weight:700;color:var(--azul);margin:10px 0 4px}
+input[type=text],input[type=number],input[type=date],textarea,select{width:100%;padding:11px 12px;border:1px solid var(--borde);border-radius:8px;font-size:1rem;font-family:inherit;background:#fff}
+textarea{min-height:70px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}}
+.btn{border:1px solid var(--azul);background:#fff;color:var(--azul);border-radius:8px;padding:12px 16px;font-size:1rem;font-weight:700;cursor:pointer}
+.btn.pri{background:var(--azul);color:#fff}
+.btn.big{padding:16px 18px;font-size:1.1rem;width:100%}
+.btn.sm{padding:6px 10px;font-size:.82rem}
+.btn:active{transform:scale(.98)}
+.muted{color:var(--txt2);font-size:.85rem}
+.err-msg{color:var(--rojo);font-size:.9rem;font-weight:700;margin-top:8px;min-height:20px}
+.ok-msg{color:var(--verde);font-size:.9rem;font-weight:700}
+.lote-card{cursor:pointer}
+.lote-card:hover{border-color:var(--azul-claro)}
+.badge{display:inline-block;font-size:.74rem;font-weight:700;border-radius:20px;padding:2px 9px;background:#e8edf3;color:var(--azul)}
+.badge.ab{background:#e1efff;color:#0b4a8f}.badge.ce{background:#e5e7ea;color:#555}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:#bbb}
+.dot.Verde{background:var(--verde)}.dot.Amarillo{background:var(--amar)}.dot.Rojo{background:var(--rojo)}
+.cnts{display:flex;gap:12px;flex-wrap:wrap;font-size:.9rem;font-weight:700}
+.bar{height:8px;background:#e5e9ee;border-radius:5px;overflow:hidden;margin:8px 0}
+.bar>i{display:block;height:100%;background:var(--azul-claro)}
+.serie-box{background:#fff;border:2px solid var(--azul);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.serie-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.serie-row input{width:130px;font-size:1.6rem;font-weight:700;padding:10px;text-align:center}
+.serie-full{font-size:1.5rem;font-weight:700;letter-spacing:.5px;flex:1 1 auto}
+@media(max-width:560px){.serie-full{flex:1 1 100%;font-size:1.45rem}}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.slot{position:relative;border:2px dashed var(--borde);border-radius:10px;background:#fff;min-height:104px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:.85rem;font-weight:700;color:var(--azul);cursor:pointer;overflow:hidden;padding:28px 4px 4px}
+.slot.next{border-color:var(--azul-claro);border-style:solid;background:#eef4fb}
+.slot.done{border-style:solid;border-color:var(--verde)}
+.slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.slot .lbl{position:absolute;left:0;right:0;bottom:0;background:#000a;color:#fff;font-size:.75rem;padding:2px}
+.slot .gal{position:absolute;top:4px;right:4px;z-index:2;background:#fffd;border:1px solid var(--borde);border-radius:6px;font-size:.7rem;padding:2px 6px;color:var(--azul)}
+.semaforo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+.sem{border:2px solid var(--borde);border-radius:10px;background:#fff;padding:16px 4px;font-size:1.05rem;font-weight:700;cursor:pointer;text-align:center}
+.sem small{display:block;font-weight:400;font-size:.74rem;color:var(--txt2)}
+.sem.on.Verde{background:var(--verde-bg);border-color:var(--verde);color:var(--verde)}
+.sem.on.Amarillo{background:var(--amar-bg);border-color:var(--amar);color:#7a5c00}
+.sem.on.Rojo{background:var(--rojo-bg);border-color:var(--rojo);color:var(--rojo)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chipd{border:1.5px solid var(--borde);border-radius:22px;background:#fff;padding:10px 14px;font-size:.95rem;cursor:pointer}
+.chipd.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.thumb{position:relative;width:78px;height:78px;border-radius:8px;overflow:hidden;border:1px solid var(--borde)}
+.thumb img{width:100%;height:100%;object-fit:cover}
+.thumb b{position:absolute;top:0;right:0;background:#000b;color:#fff;width:22px;height:22px;text-align:center;line-height:22px;cursor:pointer}
+.savebar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--borde);padding:10px 14px;padding-bottom:max(10px,env(safe-area-inset-bottom));margin:0 -14px;z-index:15}
+.row{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--borde);border-radius:8px;padding:9px 12px;margin-bottom:6px}
+.row .s{font-weight:700;min-width:118px}
+.row .d{flex:1;font-size:.85rem;color:var(--txt2);min-width:0}
+.row .st{font-size:.72rem;font-weight:700;border-radius:12px;padding:2px 8px;white-space:nowrap}
+.st.listo{background:var(--verde-bg);color:var(--verde)}.st.pendiente,.st.subiendo{background:var(--amar-bg);color:#7a5c00}.st.error{background:var(--rojo-bg);color:var(--rojo)}
+.filtros{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.fil{border:1px solid var(--borde);background:#fff;border-radius:18px;padding:6px 12px;font-size:.85rem;cursor:pointer;font-weight:700}
+.fil.on{background:var(--azul);color:#fff;border-color:var(--azul)}
+#toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:#1c2733;color:#fff;padding:10px 16px;border-radius:22px;font-size:.9rem;z-index:50;opacity:0;pointer-events:none;transition:opacity .25s;max-width:92vw;text-align:center}
+#toast.on{opacity:1}
+#toast.bad{background:var(--rojo)}
+.modal{position:fixed;inset:0;background:#000a;z-index:60;display:flex;align-items:center;justify-content:center;padding:14px}
+.modal>div{background:#fff;border-radius:12px;padding:18px;max-width:460px;width:100%}
+.checkrow{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-size:.95rem}
+.checkrow input{width:20px;height:20px;margin-top:2px}
+.sub{font-size:.8rem;color:var(--txt2)}
+.offline{background:#c62828;color:#fff;text-align:center;font-size:.85rem;padding:6px}
+.row{flex-wrap:wrap}
+.row .acc{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.btn.del{border-color:var(--rojo);color:var(--rojo)}
+.btn.ok{border-color:var(--verde);color:var(--verde)}
+.badge.corr{background:var(--verde-bg);color:var(--verde)}
+.slot .quitar{position:absolute;top:4px;left:4px;z-index:2;background:#c62828;color:#fff;border-radius:6px;font-size:.7rem;padding:2px 6px}
+.thumb.ex{border:2px solid var(--verde)}
+/* Cámara en vivo */
+#cam{position:fixed;inset:0;z-index:80;background:#000;display:flex;flex-direction:column;color:#fff}
+#cam video{flex:1;width:100%;min-height:0;object-fit:contain;background:#000}
+#cam .camtop{display:flex;align-items:center;gap:8px;padding:10px 12px;padding-top:max(10px,env(safe-area-inset-top));background:#000c;flex-wrap:wrap}
+#cam .camtop b{flex:1;font-size:1rem;min-width:0}
+#cam .camchips{display:flex;gap:6px;flex-wrap:wrap}
+#cam .camchips button{border:1px solid #fff8;background:none;color:#fff;border-radius:16px;padding:5px 10px;font-size:.8rem;font-weight:700}
+#cam .camchips button.on{background:#fff;color:#000}
+#cam .camchips button.hecho:not(.on){border-color:#6c6;color:#9e9}
+#cam .cambot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;padding-bottom:max(14px,env(safe-area-inset-bottom));background:#000c}
+#cam .shut{width:76px;height:76px;border-radius:50%;border:5px solid #fff;background:#fff3;cursor:pointer;flex:none}
+#cam .shut:active{background:#fff}
+#cam .camthumb{width:64px;height:64px;border-radius:8px;object-fit:cover;border:2px solid #fff;background:#222}
+#cam .flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .15s}
+#cam .flash.on{opacity:.7;transition:none}
+.camcnt{font-size:.8rem;color:#ddd;text-align:center;min-width:64px}
+.corr-fotos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.corr-fotos img{width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid var(--borde)}
+.modal.alto{align-items:flex-start;overflow-y:auto}
+</style>
+</head>
+<body>
+<div id="offline" class="offline hidden">Sin conexión: lo que captures se guarda en este dispositivo y se sube solo al volver la red.</div>
+<header class="top">
+  <button class="back" id="btnBack" aria-label="Regresar" title="Regresar">&#8249;</button>
+  <h1 id="tituloTop">Inspección por lote</h1>
+  <button class="chip-sync hidden" id="chipSync"></button>
+</header>
+<main>
+
+<section id="vLista" class="view">
+  <div style="display:flex;gap:10px;margin-bottom:12px">
+    <button class="btn pri" id="btnNuevoLote" style="flex:1">Nuevo lote</button>
+    <button class="btn" id="btnRecargarLotes">Actualizar</button>
+  </div>
+  <div id="listaLotes"><p class="muted">Cargando lotes…</p></div>
+</section>
+
+<section id="vNuevo" class="view hidden">
+  <div class="card">
+    <h2>Datos del lote</h2>
+    <div id="nlClonarBox"><label class="l" for="nlClonar">Copiar de un lote anterior (opcional)</label>
+    <select id="nlClonar"><option value="">— Empezar en blanco —</option></select></div>
+    <div id="nlEditAviso" class="sub hidden" style="background:#fff4cc;border-radius:8px;padding:8px 10px"></div>
+    <div class="grid2">
+      <div><label class="l" for="nlFolio">Folio del reporte *</label><input type="text" id="nlFolio" placeholder="ABB969" autocapitalize="characters"></div>
+      <div><label class="l" for="nlFecha">Fecha</label><input type="date" id="nlFecha"></div>
+      <div><label class="l" for="nlCliente">Cliente *</label><input type="text" id="nlCliente" placeholder="ABB"></div>
+      <div><label class="l" for="nlUsuario">Usuario (quien recibe el reporte)</label><input type="text" id="nlUsuario" placeholder="ING NOMBRE APELLIDO"></div>
+      <div><label class="l" for="nlTotal">Cantidad de equipos esperada (opcional)</label><input type="number" id="nlTotal" min="1" inputmode="numeric" placeholder="Si no la sabes, déjala vacía"></div>
+      <div><label class="l" for="nlEquipo">Tipo de equipo</label><input type="text" id="nlEquipo" value="MOTOR"></div>
+      <div><label class="l" for="nlPrefijo">Inicio fijo del N/S (opcional)</label><input type="text" id="nlPrefijo" placeholder="F2609146" autocapitalize="characters"><div class="sub">Las primeras letras/números que son iguales en todos los motores. El técnico solo teclea el final (ej. 757) y el sistema arma F2609146757.</div></div>
+      <div><label class="l" for="nlSerieMin">Primer N/S del rango (opcional, completo)</label><input type="text" id="nlSerieMin" placeholder="F2609146757"><div class="sub">Si lo llenas, desde el primer motor basta con teclear los últimos dígitos.</div></div>
+      <div><label class="l" for="nlSerieMax">Último N/S del rango (opcional)</label><input type="text" id="nlSerieMax" placeholder="F2609146796"></div>
+    </div>
+    <label class="l" for="nlServicio">Servicio solicitado (va en el reporte)</label>
+    <textarea id="nlServicio"></textarea>
+  </div>
+  <div class="card">
+    <h2>Datos de placa comunes a todo el lote</h2>
+    <p class="muted" style="margin-top:0">Todo es opcional: llena solo lo que venga en la placa. Lo que dejes en blanco no sale en el reporte (o sale como N/A en el encabezado).</p>
+    <div class="grid2" id="nlPlaca"></div>
+  </div>
+  <div class="card">
+    <h2>Fotos que debe tomar el técnico</h2>
+    <div class="checkrow"><input type="checkbox" id="nlReqPlaca" checked disabled><label for="nlReqPlaca"><b>Placa</b> siempre obligatoria (evidencia, aunque sea verde)</label></div>
+    <div class="checkrow"><input type="checkbox" id="nlReqCaja" checked disabled><label for="nlReqCaja"><b>Caja de conexiones</b> siempre obligatoria</label></div>
+    <div class="checkrow"><input type="checkbox" id="nlReqPatas" checked disabled><label for="nlReqPatas"><b>Patas / base</b> obligatoria</label></div>
+    <div class="checkrow"><input type="checkbox" id="nlReqAmarillo"><label for="nlReqAmarillo">Foto del defecto obligatoria también en <b>amarillo</b> (en rojo siempre es obligatoria)</label></div>
+    <p class="sub">Menos fotos obligatorias = captura más rápida. Siempre se pueden tomar más.</p>
+  </div>
+  <div class="err-msg" id="nlErr"></div>
+  <button class="btn pri big" id="btnCrearLote">Crear lote y empezar a capturar</button>
+  <button class="btn big hidden" id="btnCancelLote" style="margin-top:10px">Cancelar</button>
+</section>
+
+<section id="vCaptura" class="view hidden">
+  <div class="card" style="padding:10px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="cnts" id="capCnts"></div>
+      <button class="btn sm" id="btnVerPanel">Ver lote y reporte</button>
+    </div>
+    <div class="bar"><i id="capBar" style="width:0%"></i></div>
+    <div class="sub" id="capSub"></div>
+  </div>
+  <div id="capEditBanner" class="card hidden" style="background:#fff4cc;border-color:#e0a800"></div>
+
+  <div class="serie-box">
+    <div class="sub" style="margin-bottom:6px">Número de serie: escribe solo los últimos dígitos (2, 3 o 4). Con letras o número completo, se toma tal cual.</div>
+    <div class="serie-row">
+      <input type="text" id="inSerie" inputmode="numeric" autocomplete="off" autocapitalize="characters" placeholder="758" aria-label="Últimos dígitos del número de serie">
+      <button class="btn sm" id="btnAbc" title="Cambiar teclado">ABC</button>
+      <div class="serie-full" id="serieFull">—</div>
+    </div>
+    <div class="sub" id="serieHint" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px">
+      <h2 style="margin:0">Fotos del equipo</h2>
+      <label class="sub" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="chkCamVivo" style="width:18px;height:18px">Cámara rápida</label>
+    </div>
+    <div class="slots" id="slotsStd"></div>
+    <div class="sub" id="camHint" style="margin-top:6px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Estado del equipo</h2>
+    <div class="semaforo">
+      <button class="sem Verde" data-s="Verde">Verde<small>Pasa, sin trabajo</small></button>
+      <button class="sem Amarillo" data-s="Amarillo">Amarillo<small>Detalle de pintura</small></button>
+      <button class="sem Rojo" data-s="Rojo">Rojo<small>Grave, requiere autorización</small></button>
+    </div>
+    <div id="boxDefectos" class="hidden">
+      <label class="l">Defectos (toca los que apliquen)</label>
+      <div class="chips" id="chipsDef"></div>
+      <div id="boxOtro" class="hidden"><label class="l" for="inOtro">Describe el defecto (Otro) *</label><input type="text" id="inOtro" placeholder="Ej. tornillo faltante en tapa"></div>
+      <label class="l" style="margin-top:14px">Fotos del defecto <span id="reqDef" class="muted"></span></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" id="btnFotoDef">+ Tomar foto</button>
+        <button class="btn" id="btnGalDef">Elegir de galería</button>
+      </div>
+      <div class="thumbs" id="thumbsDef"></div>
+    </div>
+    <label class="l" for="inNotas" style="margin-top:14px">Nota (opcional)</label>
+    <textarea id="inNotas" placeholder="Algo que quieras dejar anotado de este equipo"></textarea>
+  </div>
+
+  <div class="savebar">
+    <div class="err-msg" id="capErr" style="margin:0 0 6px"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn big pri" id="btnGuardar" style="flex:1">Guardar y siguiente</button>
+      <button class="btn hidden" id="btnCancelEdit">Cancelar edición</button>
+    </div>
+  </div>
+</section>
+
+<section id="vPanel" class="view hidden">
+  <div class="card">
+    <div id="pnlResumen"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn pri" id="btnSeguirCap">Seguir capturando</button>
+      <button class="btn" id="btnReporte">Generar reporte (PDF)</button>
+      <button class="btn" id="btnReporteCorr">Reporte de correcciones</button>
+      <button class="btn" id="btnEditarLote">Editar datos del lote</button>
+      <button class="btn" id="btnCerrarLote">Cerrar lote</button>
+      <button class="btn del" id="btnBorrarLote">Borrar lote</button>
+    </div>
+  </div>
+  <div class="card hidden" id="pnlFaltantes"></div>
+  <div class="filtros" id="filtros"></div>
+  <input type="text" id="inBuscar" placeholder="Buscar número de serie" style="margin-bottom:10px">
+  <div id="pnlLista"></div>
+</section>
+
+</main>
+<div id="toast"></div>
+
+<script>
+/* ====== Configuración de Airtable (las llamadas pasan por las funciones proxy de Netlify; aquí no hay token) ====== */
+const T_LOTES = "tbly6Jmx238oOh8RP", T_EQ = "tblVh5uHd4yitMxJd";
+const FL = { folio:"fldIFndeRlKpgZ9Lm", cliente:"fldIGhsunY5DRSUjD", usuario:"fldq7hXLVO84yg8Vj", fecha:"fld2wK6WAkhytfTe9",
+  estado:"fldPdvHGLLrLsUJKh", total:"fldVK4621yC4jglVd", serieMin:"fldpLovAP0q8N5uUu", serieMax:"fldjFu7eN2pgG3Myx",
+  servicio:"fldTUMK7JZPREbhFw", config:"fld5KOKjbM54G5yyD", creadoPor:"fldW37k8fo4oCPcXR", fechaCierre:"fldoG35zAuaagdvVG" };
+const FE = { serie:"fldRgnJ0Xfe4Kqg0X", lote:"fldjXbOQ2cDmmCzUU", semaforo:"fldtmjf5VGOdqv12l", defectos:"fldNxghr4B9QNzbOc",
+  otro:"fldZ6hG6tcdjgg4OQ", notas:"fldw7vhUyfABwD2rK", decision:"fldMnjRw2NhlzzgpI", fPlaca:"fldq1bVLKmFdTnqF7",
+  fCaja:"fldi78FspftLm1W9E", fPatas:"fldngoNQYWXmbmBlH", fDefecto:"fldQM0MSxVrXkZ6Gs", por:"fld1sE4gACd97mOm6",
+  fecha:"fld16pT2lX8xc7r7O", clientId:"fld6vfa4MGsD54Yft",
+  corregido:"fldo9HEeEPDTDMO1H", fDespues:"fldJgrOehBTxjr7WS", fechaCorr:"fldKMzcQzHWbJb0cM", corrPor:"fld3sWJSvzyLbnYj2" };
+const SLOT_FIELD = { placa:FE.fPlaca, caja:FE.fCaja, patas:FE.fPatas, defecto:FE.fDefecto, despues:FE.fDespues };
+const DEFECTOS = ["Aletas sin pintura","Escurrimiento","Pintura desprendida","Golpe","Flecha","Otro"];
+const EQ_LIGERO = [FE.serie,FE.lote,FE.semaforo,FE.defectos,FE.otro,FE.notas,FE.decision,FE.por,FE.fecha,FE.clientId,FE.corregido,FE.fechaCorr,FE.corrPor];
+const PLACA_CAMPOS = [["marca","Marca"],["noCat","No. cat."],["spec","SPEC"],["hp","HP / kW"],["volts","Volts"],["amps","Amps"],["rpm","R.P.M."],
+  ["hz","Hz / Fases"],["armazon","Armazón / Frame"],["encl","Enclaustrado"],["fServ","F. servicio"],["ipClase","I.P. / Clase"],
+  ["efic","Eficiencia nom."],["rodam","Rodamientos"],["peso","Peso"],["regimen","Régimen"],["anio","Año"],["hecho","Hecho en"]];
+const FOTO_STD = { dim:1280, q:0.72 }, FOTO_DEF = { dim:1600, q:0.8 };
+const LOGO_B64 = "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";
+
+/* ====== Utilidades ====== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const uid = () => "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+function qs(o){ const p = new URLSearchParams(); for(const k in o){ const v = o[k]; if(Array.isArray(v)) v.forEach(x => p.append(k, x)); else p.append(k, v); } return p.toString(); }
+function toast(msg, bad){ const t = $("toast"); t.textContent = msg; t.className = "on" + (bad ? " bad" : ""); clearTimeout(toast._t); toast._t = setTimeout(() => t.className = "", bad ? 4200 : 2200); }
+function hoyISO(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+function numSerie(a, b){ return String(a).localeCompare(String(b), "es", { numeric:true }); }
+
+/* Solo en la copia local: si el archivo se abre directo (file://) se lee dev_config.js (nunca se publica) y se llama a Airtable directo,
+   igual que formulario_general.html y demás copias de desarrollo. En producción (Netlify) todo pasa por las funciones proxy y aquí no hay token. */
+let DEV = null;
+function cargarDevConfig(){ return new Promise(res => { const sc = document.createElement("script"); sc.src = "dev_config.js"; sc.onload = () => { DEV = window.SI_DEV || null; res(); }; sc.onerror = () => res(); document.head.appendChild(sc); }); }
+function urlApi(table, recordId, params){
+  if(DEV) return `https://api.airtable.com/v0/${DEV.base}/${table}` + (recordId ? `/${recordId}` : "") + (params ? `?${params}` : "");
+  return `/.netlify/functions/airtable?table=${table}` + (recordId ? `&recordId=${recordId}` : "") + (params ? `&${params}` : "");
+}
+function urlUpload(recordId, fieldId){
+  return DEV ? `https://content.airtable.com/v0/${DEV.base}/${recordId}/${fieldId}/uploadAttachment` : `/.netlify/functions/airtable-upload?recordId=${recordId}&fieldId=${fieldId}`;
+}
+function hdrs(){ const h = { "Content-Type":"application/json" }; if(DEV) h.Authorization = "Bearer " + DEV.token; return h; }
+
+async function fetchConReintento(url, opciones, intentos = 3, esperaMs = 1500){
+  for(let i = 0; i < intentos; i++){
+    try{
+      const resp = await fetch(url, opciones);
+      if(!resp.ok && (resp.status === 429 || resp.status >= 500) && i < intentos - 1){ await sleep(esperaMs * (i + 1)); continue; }
+      return resp;
+    }catch(err){ if(i === intentos - 1) throw err; await sleep(esperaMs * (i + 1)); }
+  }
+}
+async function at(table, o = {}){
+  const url = urlApi(table, o.recordId, o.params);
+  const hacer = o.sinReintento ? fetch : fetchConReintento;   // crear registros NO se reintenta solo: si la respuesta se pierde, se busca por clientId para no duplicar
+  const r = await hacer(url, { method:o.method || "GET", headers:hdrs(), body:o.body ? JSON.stringify(o.body) : undefined });
+  const j = await r.json().catch(() => ({}));
+  if(!r.ok) throw new Error((j.error && (j.error.message || j.error)) || ("HTTP " + r.status));
+  return j;
+}
+async function fetchAll(table, params){
+  let out = [], offset = null;
+  do{
+    const j = await at(table, { params: params + "&pageSize=100" + (offset ? "&offset=" + encodeURIComponent(offset) : "") });
+    out = out.concat(j.records || []); offset = j.offset;
+  }while(offset);
+  return out;
+}
+
+/* ====== IndexedDB local (cola de equipos + fotos como Blob en un store aparte) ====== */
+let _db = null;
+function openDB(){
+  return new Promise((res, rej) => {
+    if(_db) return res(_db);
+    const rq = indexedDB.open("si_inspeccion_lote", 1);
+    rq.onupgradeneeded = () => {
+      const d = rq.result;
+      d.createObjectStore("equipos", { keyPath:"clientId" });
+      d.createObjectStore("fotos", { keyPath:"id" }).createIndex("clientId", "clientId");
+    };
+    rq.onsuccess = () => { _db = rq.result; res(_db); };
+    rq.onerror = () => rej(rq.error);
+  });
+}
+function idb(store, mode, fn){
+  return openDB().then(db => new Promise((res, rej) => {
+    const t = db.transaction(store, mode); const s = t.objectStore(store);
+    const r = fn(s); let out;
+    if(r && "onsuccess" in r) r.onsuccess = () => { out = r.result; };
+    t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+  }));
+}
+const idbPut = (st, v) => idb(st, "readwrite", s => s.put(v));
+const idbGet = (st, k) => idb(st, "readonly", s => s.get(k));
+const idbDel = (st, k) => idb(st, "readwrite", s => s.delete(k));
+const idbAllEquipos = () => idb("equipos", "readonly", s => s.getAll());   // solo metadatos, sin fotos
+
+/* ====== Estado ====== */
+const S = { ses:null, admin:false, lotes:[], conteos:{}, lote:null, cfg:null, server:new Map(), local:new Map(),
+  f:null, th:new Map(), syncing:false, filtro:"todos", buscar:"", vista:"lista", pollT:null, editSrv:null };
+
+function vista(v){
+  S.vista = v;
+  ["Lista","Nuevo","Captura","Panel"].forEach(n => $("v" + n).classList.toggle("hidden", n.toLowerCase() !== v));
+  $("chipSync").classList.toggle("hidden", v === "lista" || v === "nuevo");
+  $("tituloTop").textContent = v === "lista" ? "Inspección por lote" : v === "nuevo" ? "Nuevo lote" : (S.lote ? "Lote " + S.lote.folio : "Lote");
+  window.scrollTo(0, 0);
+  if(v === "lista") detenerPoll(); else if(v === "captura" || v === "panel") iniciarPoll();
+}
+$("btnBack").onclick = () => {
+  if(S.vista === "lista"){ window.location.href = S.admin ? "dashboard.html" : "plan_diario.html"; return; }
+  if(S.vista === "captura" || S.vista === "panel"){ if(S.vista === "captura") guardarBorrador(); cargarLotes(); vista("lista"); }
+  else vista("lista");
+};
+
+/* ====== Lista de lotes ====== */
+function parseLote(rec){
+  const f = rec.fields || {}; let cfg = {};
+  try{ cfg = JSON.parse(f[FL.config] || "{}"); }catch(e){}
+  return { id:rec.id, folio:f[FL.folio] || "", cliente:f[FL.cliente] || "", usuario:f[FL.usuario] || "", fecha:f[FL.fecha] || "",
+    estado:f[FL.estado] || "Abierto", total:f[FL.total] || 0, serieMin:f[FL.serieMin] || "", serieMax:f[FL.serieMax] || "",
+    servicio:f[FL.servicio] || "", cfg };
+}
+function parseEq(rec){
+  const f = rec.fields || {};
+  return { recordId:rec.id, clientId:f[FE.clientId] || "", serie:f[FE.serie] || "", lote:f[FE.lote] || "", semaforo:f[FE.semaforo] || "",
+    defectos:f[FE.defectos] || [], otro:f[FE.otro] || "", notas:f[FE.notas] || "", decision:f[FE.decision] || "", por:f[FE.por] || "",
+    fecha:f[FE.fecha] || "", corregido:!!f[FE.corregido], fechaCorr:f[FE.fechaCorr] || "", corrPor:f[FE.corrPor] || "",
+    fotos:{ placa:f[FE.fPlaca] || [], caja:f[FE.fCaja] || [], patas:f[FE.fPatas] || [], defecto:f[FE.fDefecto] || [], despues:f[FE.fDespues] || [] }, sync:"listo" };
+}
+async function cargarLotes(){
+  $("listaLotes").innerHTML = '<p class="muted">Cargando lotes…</p>';
+  try{
+    const [recs, eqs] = await Promise.all([
+      fetchAll(T_LOTES, "returnFieldsByFieldId=true"),
+      fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", "fields[]":[FE.lote, FE.semaforo] }))
+    ]);
+    S.lotes = recs.map(parseLote).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || numSerie(b.folio, a.folio));
+    S.conteos = {};
+    eqs.forEach(r => { const f = r.fields || {}, l = f[FE.lote] || "", s = f[FE.semaforo] || ""; const c = S.conteos[l] || (S.conteos[l] = { n:0, Verde:0, Amarillo:0, Rojo:0 }); c.n++; if(s) c[s]++; });
+    pintarLotes();
+  }catch(e){ $("listaLotes").innerHTML = '<p class="err-msg">No se pudieron cargar los lotes: ' + esc(e.message) + '</p>'; }
+}
+function pintarLotes(){
+  if(!S.lotes.length){ $("listaLotes").innerHTML = '<div class="card"><p class="muted">Todavía no hay lotes. ' + 'Crea el primero con "Nuevo lote".' + '</p></div>'; return; }
+  $("listaLotes").innerHTML = S.lotes.map(l => {
+    const c = S.conteos[l.folio] || { n:0, Verde:0, Amarillo:0, Rojo:0 };
+    const pct = l.total ? Math.min(100, Math.round(c.n * 100 / l.total)) : 0;
+    return `<div class="card lote-card" data-id="${l.id}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b style="font-size:1.1rem">${esc(l.folio)} · ${esc(l.cliente)}</b>
+      <span class="badge ${l.estado === "Cerrado" ? "ce" : "ab"}">${esc(l.estado)}</span></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="cnts"><span>${l.total ? c.n + " de " + l.total : c.n + " capturados"}</span><span><span class="dot Verde"></span>${c.Verde}</span><span><span class="dot Amarillo"></span>${c.Amarillo}</span><span><span class="dot Rojo"></span>${c.Rojo}</span></div>
+      <div class="sub">${esc(l.fecha)}${l.usuario ? " · " + esc(l.usuario) : ""}</div></div>`;
+  }).join("");
+  document.querySelectorAll(".lote-card").forEach(el => el.onclick = () => abrirLote(el.dataset.id));
+}
+$("btnRecargarLotes").onclick = cargarLotes;
+
+/* ====== Nuevo lote ====== */
+const SERVICIO_DEF = "Se realiza servicio de inspección visual de pintura y condición general a un lote de motores eléctricos. En cada equipo se revisa placa de datos (número de serie), caja de conexiones, patas / base de montaje, acabado de pintura (aletas, escudos y guarda de ventilador) y flecha.";
+/* El mismo formulario sirve para crear un lote nuevo (l vacío) o editar uno ya creado (l = lote) */
+function pintarFormNuevo(l){
+  S.editLote = l || null;
+  $("nlPlaca").innerHTML = PLACA_CAMPOS.map(([k, n]) => `<div><label class="l" for="pl_${k}">${n}</label><input type="text" id="pl_${k}"></div>`).join("");
+  $("nlErr").textContent = "";
+  $("nlClonarBox").classList.toggle("hidden", !!l); $("btnCancelLote").classList.toggle("hidden", !l);
+  $("btnCrearLote").textContent = l ? "Guardar cambios del lote" : "Crear lote y empezar a capturar";
+  const cfg = (l && l.cfg) || {}, p = cfg.placa || {}, r = cfg.req || {};
+  $("nlFolio").value = l ? l.folio : ""; $("nlFecha").value = l ? (l.fecha || hoyISO()) : hoyISO();
+  $("nlCliente").value = l ? l.cliente : ""; $("nlUsuario").value = l ? l.usuario : ""; $("nlTotal").value = l && l.total ? l.total : "";
+  $("nlPrefijo").value = cfg.prefijo || ""; $("nlEquipo").value = cfg.equipo || "MOTOR"; $("nlSerieMin").value = l ? l.serieMin : ""; $("nlSerieMax").value = l ? l.serieMax : "";
+  $("nlServicio").value = l ? (l.servicio || "") : SERVICIO_DEF;
+  PLACA_CAMPOS.forEach(([k]) => { $("pl_" + k).value = p[k] || ""; });
+  $("nlReqPlaca").checked = true; $("nlReqCaja").checked = true; $("nlReqPatas").checked = true; $("nlReqAmarillo").checked = !!r.amarillo;
+  const av = $("nlEditAviso"); av.classList.toggle("hidden", !l);
+  if(l){ const n = contar(todos()).n; av.innerHTML = "<b>Editando el lote " + esc(l.folio) + ".</b> Los cambios se aplican a todo el lote y al reporte." + (n ? " Si cambias el folio, también se actualizan sus " + n + " equipo(s)." : ""); return; }
+  $("nlClonar").innerHTML = '<option value="">— Empezar en blanco —</option>' + S.lotes.map(x => `<option value="${x.id}">${esc(x.folio)} · ${esc(x.cliente)}</option>`).join("");
+}
+$("btnNuevoLote").onclick = () => { pintarFormNuevo(); vista("nuevo"); };
+$("btnEditarLote").onclick = () => { if(!S.lote) return; pintarFormNuevo(S.lote); vista("nuevo"); $("tituloTop").textContent = "Editar lote " + S.lote.folio; };
+$("btnCancelLote").onclick = () => { S.editLote = null; abrirPanel(); };
+$("nlClonar").onchange = () => {
+  const l = S.lotes.find(x => x.id === $("nlClonar").value); if(!l) return;
+  $("nlCliente").value = l.cliente; $("nlUsuario").value = l.usuario; $("nlServicio").value = l.servicio || $("nlServicio").value;
+  $("nlEquipo").value = (l.cfg.equipo || "MOTOR"); const p = l.cfg.placa || {};
+  PLACA_CAMPOS.forEach(([k]) => { $("pl_" + k).value = p[k] || ""; });
+  const r = l.cfg.req || {}; $("nlReqPlaca").checked = true; $("nlReqCaja").checked = true; $("nlReqPatas").checked = true; $("nlReqAmarillo").checked = !!r.amarillo;
+};
+$("btnCrearLote").onclick = async () => {
+  const folio = $("nlFolio").value.trim().toUpperCase(), cliente = $("nlCliente").value.trim(), total = Number($("nlTotal").value) || 0;
+  const err = $("nlErr"); err.textContent = ""; const L = S.editLote;
+  if(!folio){ err.textContent = "Escribe el folio del reporte (ej. ABB969)."; return; }
+  if(S.lotes.some(l => l.folio.toUpperCase() === folio && (!L || l.id !== L.id))){ err.textContent = "Ya existe un lote con ese folio."; return; }
+  if(!cliente){ err.textContent = "Escribe el cliente."; return; }
+  const viejo = L ? L.folio : "", cambiaFolio = !!L && folio !== viejo;
+  if(cambiaFolio && pendientes().some(e => e.lote === viejo)){ err.textContent = "Hay equipos de este lote que todavía se están subiendo. Espera a que diga \"Todo guardado\" para cambiar el folio."; return; }
+  const placa = {}; PLACA_CAMPOS.forEach(([k]) => { const v = $("pl_" + k).value.trim(); if(v) placa[k] = v; });
+  const cfg = Object.assign({}, L ? L.cfg : {}, { equipo:$("nlEquipo").value.trim() || "MOTOR", prefijo:$("nlPrefijo").value.trim().toUpperCase().replace(/\s+/g, ""), placa, req:{ placa:true, caja:true, patas:true, amarillo:$("nlReqAmarillo").checked } });
+  const btn = $("btnCrearLote"), txtBtn = btn.textContent; btn.disabled = true; btn.textContent = L ? "Guardando…" : "Creando…";
+  try{
+    const fields = { [FL.folio]:folio, [FL.cliente]:cliente, [FL.usuario]:$("nlUsuario").value.trim(), [FL.fecha]:$("nlFecha").value || hoyISO(),
+      [FL.estado]:"Abierto", [FL.total]:total || null, [FL.serieMin]:$("nlSerieMin").value.trim(), [FL.serieMax]:$("nlSerieMax").value.trim(),
+      [FL.servicio]:$("nlServicio").value.trim(), [FL.config]:JSON.stringify(cfg), [FL.creadoPor]:S.ses.nombre || S.ses.usuario || "" };
+    if(!L){
+      const j = await at(T_LOTES, { method:"POST", body:{ fields, returnFieldsByFieldId:true } });
+      const lote = parseLote(j); S.lotes.unshift(lote);
+      await abrirLote(lote.id); return;
+    }
+    delete fields[FL.estado]; delete fields[FL.creadoPor];
+    if(cambiaFolio){
+      /* primero se mueven los equipos y al final el lote: si algo falla a medias, volver a "Guardar" lo termina sin perder nada */
+      const recs = await fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", "fields[]":[FE.lote], filterByFormula:`({lote}='${viejo.replace(/'/g, "\\'")}')` }));
+      for(let i = 0; i < recs.length; i += 10){
+        btn.textContent = "Moviendo equipos " + Math.min(recs.length, i + 10) + " de " + recs.length + "…";
+        await at(T_EQ, { method:"PATCH", body:{ records:recs.slice(i, i + 10).map(r => ({ id:r.id, fields:{ [FE.lote]:folio } })) } }); await sleep(220);
+      }
+      for(const e of S.local.values()) if(e.lote === viejo){ e.lote = folio; await idbPut("equipos", e); }
+      ["si_insp_ult_", "si_insp_draft_"].forEach(k => { const v = localStorage.getItem(k + viejo); if(v != null){ localStorage.setItem(k + folio, v); localStorage.removeItem(k + viejo); } });
+    }
+    const j = await at(T_LOTES, { method:"PATCH", recordId:L.id, body:{ fields, returnFieldsByFieldId:true } });
+    const nuevo = parseLote(j); Object.assign(L, nuevo);
+    S.lote = L; S.cfg = L.cfg || {}; S.cfg.req = Object.assign({ amarillo:false }, S.cfg.req || {}, { placa:true, caja:true, patas:true });
+    S.editLote = null; toast("Lote actualizado");
+    try{ await cargarServer(); }catch(e){}
+    abrirPanel();
+  }catch(e){ err.textContent = (L ? "No se pudieron guardar los cambios: " : "No se pudo crear el lote: ") + e.message + (cambiaFolio ? " (vuelve a tocar Guardar para terminar)" : ""); }
+  finally{ btn.disabled = false; btn.textContent = txtBtn; }
+};
+
+/* ====== Abrir lote ====== */
+async function cargarServer(){
+  const t0 = Date.now(), folio = S.lote.folio;
+  const recs = await fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", "fields[]":EQ_LIGERO, filterByFormula:`({lote}='${folio.replace(/'/g, "\\'")}')` }));
+  S.server = new Map(); recs.forEach(r => { const e = parseEq(r); S.server.set(e.clientId || e.recordId, e); });
+  /* equipos ya subidos desde este dispositivo que alguien borró (aquí o en otro dispositivo): se quitan de la copia local para que no reaparezcan */
+  for(const e of [...S.local.values()]){
+    if(e.tipo === "corr" || e.lote !== folio || e.sync !== "listo" || S.server.has(e.clientId) || (e.listoEn || 0) >= t0) continue;
+    S.local.delete(e.clientId); try{ await idbDel("equipos", e.clientId); }catch(er){}
+  }
+}
+async function abrirLote(id){
+  const l = S.lotes.find(x => x.id === id); if(!l) return;
+  S.lote = l; S.cfg = l.cfg || {}; S.cfg.req = Object.assign({ amarillo:false }, S.cfg.req || {}, { placa:true, caja:true, patas:true });
+  vista("captura"); $("capSub").textContent = "Cargando equipos del lote…";
+  try{ await cargarServer(); }catch(e){ toast("No se pudo leer el lote: " + e.message, true); }
+  nuevoEquipoForm(); pintarCaptura(); syncCola();
+}
+
+/* ====== Totales ====== */
+function todos(){
+  const m = new Map();
+  S.server.forEach(e => m.set(e.clientId || e.recordId, e));
+  S.local.forEach(e => { if(e.tipo === "corr" || e.lote !== S.lote.folio) return; if(e.sync !== "listo" || !m.has(e.clientId)) m.set(e.clientId, e); });
+  /* correcciones que aún se están subiendo: se muestran ya como hechas */
+  S.local.forEach(e => { if(e.tipo !== "corr" || e.sync === "listo" || e.lote !== S.lote.folio) return; const x = m.get(e.objetivo); if(x) m.set(e.objetivo, Object.assign({}, x, { corregido:e.corregido, corrSync:e.sync })); });
+  return [...m.values()];
+}
+const miNombre = () => (S.ses && (S.ses.nombre || S.ses.usuario)) || "";
+function puedeBorrar(e){ return S.lote && S.lote.estado !== "Cerrado" && (S.admin || (!!e.por && e.por === miNombre())); }
+async function borrarEquipo(key){
+  const e = todos().find(x => (x.clientId || x.recordId) === key); if(!e) return false;
+  const loc = S.local.get(e.clientId);
+  if(loc && loc.sync === "subiendo"){ toast("Este equipo se está subiendo en este momento. Intenta en unos segundos.", true); return false; }
+  if(!confirm("¿Borrar el equipo " + e.serie + " de este lote?\n\nSe borran también sus fotos. Esto no se puede deshacer.")) return false;
+  if(loc) loc.borrando = true;
+  try{
+    let rid = e.recordId || (loc && loc.recordId);
+    if(!rid && loc && loc.intentoCrear){   // pudo haberse creado sin que llegara la respuesta
+      const j = await at(T_EQ, { params:qs({ returnFieldsByFieldId:"true", filterByFormula:`{clientId}='${loc.clientId}'`, maxRecords:"1" }) });
+      if(j.records && j.records[0]) rid = j.records[0].id;
+    }
+    if(rid) await at(T_EQ, { method:"DELETE", recordId:rid });
+    for(const k of [e.clientId, "corr_" + key]){
+      const l = S.local.get(k); if(!l) continue;
+      for(const s of Object.keys(l.fotos || {})) for(const id of l.fotos[s]){ await idbDel("fotos", id); const u = S.th.get(id); if(u){ URL.revokeObjectURL(u); S.th.delete(id); } }
+      await idbDel("equipos", k); S.local.delete(k);
+    }
+    S.server.delete(key); if(e.clientId) S.server.delete(e.clientId);
+    if(localStorage.getItem("si_insp_ult_" + S.lote.folio) === e.serie){ const otro = todos().filter(x => x.serie).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))[0]; if(otro) localStorage.setItem("si_insp_ult_" + S.lote.folio, otro.serie); }
+    toast("Equipo " + e.serie + " borrado"); return true;
+  }catch(er){ if(loc) loc.borrando = false; toast("No se pudo borrar: " + er.message, true); return false; }
+}
+function contar(arr){ const c = { n:arr.length, Verde:0, Amarillo:0, Rojo:0 }; arr.forEach(e => { if(c[e.semaforo] != null) c[e.semaforo]++; }); return c; }
+function detalle(e){
+  if(e.semaforo === "Verde") return "Sin observaciones";
+  const d = (e.defectos || []).map(x => x === "Otro" ? "Otro: " + (e.otro || "") : x); return d.join(", ") || "—";
+}
+function txtN(n){ return S.lote.total ? n + " de " + S.lote.total : n + " capturado" + (n === 1 ? "" : "s"); }
+function pintarCounts(el, c){
+  el.innerHTML = `<span>${txtN(c.n)}</span><span><span class="dot Verde"></span>${c.Verde}</span><span><span class="dot Amarillo"></span>${c.Amarillo}</span><span><span class="dot Rojo"></span>${c.Rojo}</span>`;
+}
+
+/* ====== Serie ====== */
+/* Largo esperado del número de serie: el del rango del lote, o el más común de los ya capturados (solo los de 5+ caracteres) */
+function largoRef(){
+  const L = S.lote; if(L.serieMin && L.serieMin.length >= 5) return L.serieMin.length; if(L.serieMax && L.serieMax.length >= 5) return L.serieMax.length;
+  const cnt = {}; todos().forEach(e => { const n = String(e.serie || "").length; if(n >= 5) cnt[n] = (cnt[n] || 0) + 1; });
+  let best = 0, bn = 0; for(const n in cnt) if(cnt[n] > bn){ bn = cnt[n]; best = Number(n); } return best;
+}
+/* Un número de serie está incompleto si es más corto que el esperado, o si son solo 1-4 dígitos (ningún motor trae una serie así) */
+function serieIncompleta(s){ s = String(s || ""); if(!s) return false; const r = largoRef(); return (r && s.length < r) || /^\d{1,4}$/.test(s); }
+function baseSerie(){
+  const k = "si_insp_ult_" + S.lote.folio; const g = localStorage.getItem(k); if(g && !serieIncompleta(g)) return g;
+  const arr = todos().filter(e => e.serie && !serieIncompleta(e.serie)).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+  if(arr[0]) return arr[0].serie;
+  return S.lote.serieMin || S.lote.serieMax || "";   // primer equipo: se completa con el rango del lote si se capturó
+}
+function calcSerie(typed){
+  typed = String(typed || "").trim().toUpperCase().replace(/\s+/g, ""); if(!typed) return "";
+  const pre = (S.lote && S.lote.cfg && S.lote.cfg.prefijo) || "";   // inicio fijo del lote: el técnico solo teclea el final
+  if(pre) return typed.startsWith(pre) ? typed : pre + typed;
+  const base = baseSerie();
+  if(!base || /[^0-9]/.test(typed) || typed.length >= base.length) return typed;
+  return base.slice(0, base.length - typed.length) + typed;
+}
+function duplicada(serie){
+  const f = S.f; return todos().find(e => e.serie.toUpperCase() === serie.toUpperCase() && e.clientId !== f.clientId && e.recordId !== f.recordId);
+}
+function pintarSerie(){
+  const pre = (S.lote && S.lote.cfg && S.lote.cfg.prefijo) || "";
+  const typed = $("inSerie").value, s = calcSerie(typed), base = pre || baseSerie();
+  $("serieFull").textContent = s || "—"; const h = $("serieHint"); h.style.color = "";
+  if(!typed){ h.textContent = pre ? "Inicio fijo del lote: " + pre + " — teclea solo el final" : base ? (todos().some(e => e.serie === base) ? "Anterior: " : "Rango del lote: ") + base : "Primer equipo: escribe el número de serie completo (toca ABC para teclado de letras)"; return; }
+  if(serieIncompleta(s)){ h.style.color = "var(--rojo)"; h.textContent = "Número incompleto: escríbelo COMPLETO como viene en la placa (toca ABC para letras). El cliente lo necesita completo para identificar el motor."; return; }
+  const d = duplicada(s);
+  if(d){ h.style.color = "var(--rojo)"; h.textContent = "Ese número ya está capturado en este lote (" + d.semaforo + ")."; return; }
+  const m = /^(.*?)(\d+)$/.exec(s), a = /^(.*?)(\d+)$/.exec(S.lote.serieMin), b = /^(.*?)(\d+)$/.exec(S.lote.serieMax);
+  if(m && a && b && m[1] === a[1] && (Number(m[2]) < Number(a[2]) || Number(m[2]) > Number(b[2]))){ h.style.color = "#b26a00"; h.textContent = "Ojo: está fuera del rango del lote (" + S.lote.serieMin + " a " + S.lote.serieMax + ")."; return; }
+  const deRango = base && (base === S.lote.serieMin || base === S.lote.serieMax) && !todos().some(e => e.serie === base);
+  h.textContent = typed.length < s.length ? (pre ? "Se completa con el inicio fijo del lote (" + pre + ")" : "Se completa con " + (deRango ? "el rango del lote" : "el anterior") + " (" + base + ")") : "";
+}
+$("inSerie").oninput = () => { pintarSerie(); guardarBorrador(); };
+$("btnAbc").onclick = () => { const i = $("inSerie"); i.inputMode = i.inputMode === "numeric" ? "text" : "numeric"; $("btnAbc").textContent = i.inputMode === "numeric" ? "ABC" : "123"; i.blur(); i.focus(); };
+
+/* ====== Formulario de captura ====== */
+function nuevoEquipoForm(sinBorrador){
+  S.f = { clientId:uid(), semaforo:"", defectos:new Set(), otro:"", notas:"", fotos:{ placa:[], caja:[], patas:[], defecto:[] }, existentes:{ placa:[], caja:[], patas:[], defecto:[] }, quitar:new Set(), recordId:null, fecha:"", edit:false };
+  $("inSerie").value = ""; $("inOtro").value = ""; $("inNotas").value = ""; $("capErr").textContent = "";
+  $("capEditBanner").classList.add("hidden"); $("btnCancelEdit").classList.add("hidden");
+  $("inSerie").inputMode = baseSerie() ? "numeric" : "text"; $("btnAbc").textContent = baseSerie() ? "ABC" : "123";
+  if(!sinBorrador) restaurarBorrador();
+}
+function pintarCaptura(){
+  pintarCounts($("capCnts"), contar(todos()));
+  const c = contar(todos()); $("capBar").style.width = (S.lote.total ? Math.min(100, Math.round(c.n * 100 / S.lote.total)) : 0) + "%";
+  $("capSub").textContent = S.lote.estado === "Cerrado" ? "Este lote está CERRADO. Para seguir capturando, reábrelo desde el panel." : (!S.lote.total ? "Sin cantidad esperada: captura hasta terminar y cierra el lote" : S.lote.total - c.n > 0 ? "Faltan " + (S.lote.total - c.n) + " por capturar" : "Lote completo");
+  pintarSerie(); pintarSlots(); pintarSemaforo(); pintarSync();
+}
+const SLOTS_STD = [["placa", "Placa"], ["caja", "Caja de conexiones"], ["patas", "Patas / base"]];
+function thumbHtml(id){ const u = S.th.get(id); return u ? `<img src="${u}" alt="">` : ""; }
+/* fotos ya subidas a Airtable (al editar) que se conservan; las marcadas en f.quitar se borran al guardar */
+function exVivas(k){ return ((S.f && S.f.existentes[k]) || []).filter(a => !S.f.quitar.has(a.id)); }
+function nEx(k){ return exVivas(k).length; }
+function urlMini(a){ return (a.thumbnails && (a.thumbnails.large || a.thumbnails.small) || {}).url || a.url; }
+function pintarSlots(){
+  const f = S.f; let siguiente = null;
+  SLOTS_STD.forEach(([k]) => { if(!siguiente && S.cfg.req[k] && !f.fotos[k].length && !nEx(k)) siguiente = k; });
+  $("slotsStd").innerHTML = SLOTS_STD.map(([k, n]) => {
+    const ex = exVivas(k), tiene = f.fotos[k].length > 0 || ex.length > 0, req = S.cfg.req[k];
+    let cont;
+    if(f.fotos[k].length) cont = thumbHtml(f.fotos[k][0]) + `<span class="lbl">${n} · toca para repetir</span>`;
+    else if(ex.length) cont = `<img src="${esc(urlMini(ex[0]))}" alt=""><span class="quitar" data-q="${k}">quitar</span><span class="lbl">${n} · guardada · toca para reemplazar</span>`;
+    else cont = `<span>Tomar foto<br>${n}${req ? " *" : ""}</span>`;
+    return `<div class="slot ${tiene ? "done" : (siguiente === k ? "next" : "")}" data-k="${k}"><span class="gal" data-g="${k}">galería</span>${cont}</div>`;
+  }).join("");
+  document.querySelectorAll("#slotsStd .slot").forEach(el => el.onclick = ev => { if(ev.target.dataset.g || ev.target.dataset.q) return; tomarFoto(el.dataset.k, false); });
+  document.querySelectorAll("#slotsStd .gal").forEach(el => el.onclick = () => tomarFoto(el.dataset.g, true));
+  document.querySelectorAll("#slotsStd .quitar").forEach(el => el.onclick = () => {
+    const k = el.dataset.q; if(!confirm("¿Quitar la foto guardada de " + SLOTS_STD.find(x => x[0] === k)[1] + "? Se borra al tocar Guardar.")) return;
+    exVivas(k).forEach(a => f.quitar.add(a.id)); pintarSlots();
+  });
+  pintarThumbsDef();
+}
+function pintarThumbsDef(){
+  const f = S.f;
+  $("thumbsDef").innerHTML = exVivas("defecto").map(a => `<div class="thumb ex" title="Ya guardada"><img src="${esc(urlMini(a))}" alt=""><b data-delx="${esc(a.id)}">×</b></div>`).join("") +
+    f.fotos.defecto.map(id => `<div class="thumb">${thumbHtml(id)}<b data-del="${id}">×</b></div>`).join("") +
+    (f.quitar.size ? `<span class="sub" style="align-self:center;color:var(--rojo)">${f.quitar.size} foto(s) guardada(s) se quitarán al guardar</span>` : "");
+  document.querySelectorAll("#thumbsDef b[data-del]").forEach(el => el.onclick = () => quitarFotoDef(el.dataset.del));
+  document.querySelectorAll("#thumbsDef b[data-delx]").forEach(el => el.onclick = () => { if(!confirm("¿Quitar esta foto guardada? Se borra al tocar Guardar.")) return; f.quitar.add(el.dataset.delx); pintarThumbsDef(); });
+  const req = f.semaforo === "Rojo" ? "(obligatoria)" : (f.semaforo === "Amarillo" && S.cfg.req.amarillo ? "(obligatoria)" : "(recomendada)");
+  $("reqDef").textContent = req;
+}
+function pintarSemaforo(){
+  const f = S.f;
+  document.querySelectorAll(".sem").forEach(b => b.classList.toggle("on", b.dataset.s === f.semaforo));
+  $("boxDefectos").classList.toggle("hidden", !f.semaforo || f.semaforo === "Verde");
+  $("chipsDef").innerHTML = DEFECTOS.map(d => `<button class="chipd ${f.defectos.has(d) ? "on" : ""}" data-d="${d}">${d === "Otro" ? "Otro…" : d}</button>`).join("");
+  document.querySelectorAll(".chipd").forEach(el => el.onclick = () => { const d = el.dataset.d; f.defectos.has(d) ? f.defectos.delete(d) : f.defectos.add(d); pintarSemaforo(); guardarBorrador(); });
+  $("boxOtro").classList.toggle("hidden", !f.defectos.has("Otro"));
+  pintarThumbsDef();
+}
+document.querySelectorAll(".sem").forEach(b => b.onclick = () => {
+  const f = S.f; f.semaforo = b.dataset.s; if(f.semaforo === "Verde") f.defectos = new Set(); $("capErr").textContent = ""; pintarSemaforo(); pintarSlots(); guardarBorrador();
+});
+$("inOtro").oninput = () => { S.f.otro = $("inOtro").value; guardarBorrador(); };
+$("inNotas").oninput = () => { S.f.notas = $("inNotas").value; guardarBorrador(); };
+
+/* ====== Fotos ====== */
+function comprimir(file, cfg){
+  return new Promise((res, rej) => {
+    const u = URL.createObjectURL(file), img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(u);
+      let w = img.naturalWidth, h = img.naturalHeight; const k = Math.min(1, cfg.dim / Math.max(w, h)); w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement("canvas"); c.width = w; c.height = h; c.getContext("2d").drawImage(img, 0, 0, w, h);
+      c.toBlob(b => b ? res(b) : rej(new Error("No se pudo comprimir la foto")), "image/jpeg", cfg.q);
+    };
+    img.onerror = () => { URL.revokeObjectURL(u); rej(new Error("No se pudo leer la foto")); };
+    img.src = u;
+  });
+}
+/* input de archivo normal (cámara del sistema o galería); handler recibe cada archivo */
+function pedirArchivo(galeria, handler){
+  const i = document.createElement("input"); i.type = "file"; i.accept = "image/*";
+  if(!galeria) i.setAttribute("capture", "environment"); else i.multiple = true;
+  i.style.display = "none"; document.body.appendChild(i);
+  i.onchange = async () => { const files = [...i.files]; i.remove(); for(const file of files) await handler(file); };
+  i.click();
+}
+function tomarFoto(slot, galeria){
+  if(!galeria && camActiva()){ abrirCamaraCaptura(slot); return; }
+  pedirArchivo(galeria, file => agregarFoto(slot, file));
+}
+
+/* ====== Cámara en vivo: varias fotos seguidas sin salir de la página ====== */
+const camSoportada = () => !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) && window.isSecureContext !== false;
+function camActiva(){ return camSoportada() && $("chkCamVivo").checked; }
+function initCamToggle(){
+  const ch = $("chkCamVivo"), h = $("camHint");
+  if(!camSoportada()){ ch.checked = false; ch.disabled = true; h.textContent = "Este navegador no permite la cámara rápida aquí; se usa la cámara normal."; return; }
+  let v = null; try{ v = localStorage.getItem("si_insp_cam"); }catch(e){}
+  ch.checked = v !== "0";
+  const pinta = () => { h.textContent = ch.checked ? "Cámara rápida: toca una foto y se toman Placa → Caja → Patas seguidas, sin salir de la página." : ""; };
+  ch.onchange = () => { try{ localStorage.setItem("si_insp_cam", ch.checked ? "1" : "0"); }catch(e){} pinta(); };
+  pinta();
+}
+const CAM = { stream:null, el:null, o:null, slot:null, n:0 };
+/* o = { pasos:[[slot, nombre]], inicio, multiples:Set(slots que admiten varias), onFoto(slot, blob), hecho(slot)->bool, autoCerrar:bool } */
+async function abrirCamara(o){
+  try{
+    CAM.stream = await navigator.mediaDevices.getUserMedia({ audio:false, video:{ facingMode:{ ideal:"environment" }, width:{ ideal:1920 }, height:{ ideal:1440 } } });
+  }catch(e){
+    toast("No se pudo abrir la cámara rápida (" + (e.name === "NotAllowedError" ? "sin permiso" : e.message) + "). Se usa la cámara normal.", true);
+    return false;
+  }
+  CAM.o = o; CAM.slot = o.inicio; CAM.n = 0;
+  const d = document.createElement("div"); d.id = "cam";
+  d.innerHTML = `<div class="camtop"><b id="camTit"></b><button class="btn sm" id="camFin" style="background:#fff">Listo</button><div class="camchips" id="camChips" style="flex-basis:100%"></div></div>
+    <div style="position:relative;flex:1;min-height:0;display:flex"><video id="camVid" playsinline muted autoplay></video><div class="flash" id="camFlash"></div></div>
+    <div class="cambot"><img class="camthumb" id="camTh" alt=""><button class="shut" id="camShut" aria-label="Tomar foto"></button><div class="camcnt" id="camCnt"></div></div>`;
+  document.body.appendChild(d); CAM.el = d;
+  const v = $("camVid"); v.srcObject = CAM.stream; try{ await v.play(); }catch(e){}
+  CAM.stream.getVideoTracks().forEach(t => t.onended = () => cerrarCamara());
+  $("camFin").onclick = () => cerrarCamara();
+  $("camShut").onclick = capturarCamara;
+  $("camTh").style.visibility = "hidden";
+  pintarCamara(); return true;
+}
+function pintarCamara(){
+  if(!CAM.el) return; const o = CAM.o, p = o.pasos.find(x => x[0] === CAM.slot);
+  $("camTit").textContent = "Foto: " + (p ? p[1] : CAM.slot) + (o.multiples.has(CAM.slot) ? " (puedes tomar varias)" : "");
+  $("camChips").innerHTML = o.pasos.length > 1 ? o.pasos.map(([k, n]) => `<button data-k="${k}" class="${k === CAM.slot ? "on" : ""} ${o.hecho(k) ? "hecho" : ""}">${o.hecho(k) ? "✓ " : ""}${n}</button>`).join("") : "";
+  document.querySelectorAll("#camChips button").forEach(b => b.onclick = () => { CAM.slot = b.dataset.k; pintarCamara(); });
+  $("camCnt").textContent = CAM.n ? CAM.n + " foto" + (CAM.n === 1 ? "" : "s") : "";
+}
+function capturarCamara(){
+  const v = $("camVid"); if(!v || !v.videoWidth){ toast("La cámara todavía no está lista", true); return; }
+  const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext("2d").drawImage(v, 0, 0);
+  const fl = $("camFlash"); fl.classList.add("on"); setTimeout(() => fl.classList.remove("on"), 80);
+  const slot = CAM.slot, o = CAM.o;
+  c.toBlob(async b => {
+    if(!b){ toast("No se pudo tomar la foto", true); return; }
+    const th = $("camTh"); if(th){ if(th.dataset.u) URL.revokeObjectURL(th.dataset.u); th.dataset.u = URL.createObjectURL(b); th.src = th.dataset.u; th.style.visibility = "visible"; }
+    CAM.n++;
+    await o.onFoto(slot, b);
+    if(!CAM.el) return;
+    if(!o.multiples.has(slot)){
+      const sig = o.pasos.find(([k]) => !o.multiples.has(k) && !o.hecho(k));
+      if(sig) CAM.slot = sig[0]; else if(o.autoCerrar){ cerrarCamara(); return; }
+    }
+    pintarCamara();
+  }, "image/jpeg", 0.9);
+}
+function cerrarCamara(){
+  if(CAM.stream) CAM.stream.getTracks().forEach(t => { t.onended = null; t.stop(); });
+  const th = $("camTh"); if(th && th.dataset.u) URL.revokeObjectURL(th.dataset.u);
+  if(CAM.el) CAM.el.remove();
+  const o = CAM.o; CAM.stream = null; CAM.el = null; CAM.o = null;
+  if(o && o.alCerrar) o.alCerrar();
+}
+async function abrirCamaraCaptura(slot){
+  const f = S.f;
+  const ok = await abrirCamara({ pasos:[...SLOTS_STD, ["defecto", "Defecto"]], inicio:slot, multiples:new Set(["defecto"]), autoCerrar:slot !== "defecto",
+    hecho:k => k === "defecto" ? f.fotos.defecto.length > 0 : (f.fotos[k].length > 0 || nEx(k) > 0),
+    onFoto:(k, b) => agregarFoto(k, b) });
+  if(!ok) pedirArchivo(false, file => agregarFoto(slot, file));
+}
+document.addEventListener("visibilitychange", () => { if(document.hidden && CAM.el) cerrarCamara(); });
+
+async function agregarFoto(slot, file){
+  const f = S.f;
+  try{
+    let blob; try{ blob = await comprimir(file, slot === "defecto" ? FOTO_DEF : FOTO_STD); }catch(e){ if(file.size < 4.5e6) blob = file; else throw e; }
+    const id = f.clientId + "_" + slot + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    await idbPut("fotos", { id, clientId:f.clientId, slot, blob });
+    S.th.set(id, URL.createObjectURL(blob));
+    if(slot !== "defecto") exVivas(slot).forEach(a => f.quitar.add(a.id));   // foto nueva en placa/caja/patas = reemplaza la guardada
+    if(slot !== "defecto"){ for(const old of f.fotos[slot]) await idbDel("fotos", old); f.fotos[slot] = [id]; } else f.fotos.defecto.push(id);
+    $("capErr").textContent = ""; pintarSlots(); guardarBorrador();
+  }catch(e){ toast("Foto no guardada: " + e.message, true); }
+}
+async function quitarFotoDef(id){
+  const f = S.f; f.fotos.defecto = f.fotos.defecto.filter(x => x !== id); await idbDel("fotos", id); pintarThumbsDef(); guardarBorrador();
+}
+$("btnFotoDef").onclick = () => tomarFoto("defecto", false);
+$("btnGalDef").onclick = () => tomarFoto("defecto", true);
+
+/* ====== Borrador local (si se cierra la pestaña, no se pierde el equipo en captura) ====== */
+const kBorr = () => "si_insp_draft_" + (S.lote ? S.lote.folio : "");
+function guardarBorrador(){
+  if(!S.f || !S.lote || S.f.edit) return;
+  const f = S.f, hay = $("inSerie").value || f.semaforo || f.fotos.placa.length || f.fotos.caja.length || f.fotos.patas.length || f.fotos.defecto.length || f.notas;
+  if(!hay){ localStorage.removeItem(kBorr()); return; }
+  try{ localStorage.setItem(kBorr(), JSON.stringify({ clientId:f.clientId, serie:$("inSerie").value, semaforo:f.semaforo, defectos:[...f.defectos], otro:f.otro, notas:f.notas, fotos:f.fotos })); }catch(e){}
+}
+async function restaurarBorrador(){
+  let d; try{ d = JSON.parse(localStorage.getItem(kBorr()) || "null"); }catch(e){}
+  if(!d || !d.clientId) return;
+  const f = S.f; f.clientId = d.clientId; f.semaforo = d.semaforo || ""; f.defectos = new Set(d.defectos || []); f.otro = d.otro || ""; f.notas = d.notas || "";
+  $("inSerie").value = d.serie || ""; $("inOtro").value = f.otro; $("inNotas").value = f.notas;
+  for(const k of Object.keys(f.fotos)){
+    for(const id of (d.fotos && d.fotos[k]) || []){
+      const r = await idbGet("fotos", id); if(r && r.blob){ f.fotos[k].push(id); S.th.set(id, URL.createObjectURL(r.blob)); }
+    }
+  }
+  pintarCaptura();
+}
+
+/* ====== Guardar equipo ====== */
+function validar(){
+  const f = S.f, s = calcSerie($("inSerie").value);
+  if(S.lote.estado === "Cerrado") return "El lote está cerrado. Reábrelo desde el panel para capturar.";
+  if(!s) return "Escribe los últimos dígitos del número de serie.";
+  if(serieIncompleta(s)) return "El número de serie " + s + " está incompleto. Escríbelo completo como viene en la placa.";
+  if(duplicada(s)) return "Ese número de serie ya está capturado en este lote.";
+  for(const [k, n] of SLOTS_STD) if(S.cfg.req[k] && !f.fotos[k].length && !nEx(k)) return "Falta la foto de: " + n + ".";
+  if(!f.semaforo) return "Elige el estado: verde, amarillo o rojo.";
+  if(f.semaforo !== "Verde"){
+    if(!f.defectos.size) return "Marca al menos un defecto.";
+    if(f.defectos.has("Otro") && !f.otro.trim()) return "Describe el defecto en \"Otro\".";
+    const nf = f.fotos.defecto.length + nEx("defecto");
+    if(f.semaforo === "Rojo" && !nf) return "En rojo es obligatoria al menos una foto del defecto.";
+    if(f.semaforo === "Amarillo" && S.cfg.req.amarillo && !nf) return "Falta la foto del defecto.";
+  }
+  return "";
+}
+async function guardarEquipo(){
+  const f = S.f, err = validar(); if(err){ $("capErr").textContent = err; return; }
+  const serie = calcSerie($("inSerie").value);
+  const eq = { clientId:f.clientId, lote:S.lote.folio, serie, semaforo:f.semaforo, defectos:f.semaforo === "Verde" ? [] : [...f.defectos],
+    otro:(f.defectos.has("Otro") && f.semaforo !== "Verde") ? f.otro.trim() : "", notas:f.notas.trim(), por:f.por || (S.ses.nombre || S.ses.usuario || ""),
+    fecha:f.fecha || new Date().toISOString(), fotos:f.fotos, subidas:{}, sync:"pendiente", recordId:f.recordId, patch:!!f.recordId, intentoCrear:false, intentos:0 };
+  if(f.recordId && f.quitar.size){   // fotos guardadas que se quitaron/reemplazaron: se manda la lista de las que se conservan
+    eq.keep = {}; for(const k of Object.keys(f.existentes)) if(f.existentes[k].some(a => f.quitar.has(a.id))) eq.keep[k] = exVivas(k).map(a => a.id);
+  }
+  await idbPut("equipos", eq); S.local.set(eq.clientId, eq);
+  if(!f.edit) localStorage.setItem("si_insp_ult_" + S.lote.folio, serie);
+  if(!f.edit) localStorage.removeItem(kBorr()); const n = contar(todos()).n;
+  toast("Guardado " + serie + " · " + txtN(n)); const eraEdit = f.edit;
+  nuevoEquipoForm(); pintarCaptura(); syncCola();
+  if(eraEdit){ abrirPanel(); } else window.scrollTo(0, 0);
+}
+$("btnGuardar").onclick = guardarEquipo;
+
+/* ====== Subida en segundo plano ====== */
+function blobB64(b){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b); }); }
+async function subirEquipo(e){
+  const fields = { [FE.serie]:e.serie, [FE.lote]:e.lote, [FE.semaforo]:e.semaforo, [FE.defectos]:e.defectos, [FE.otro]:e.otro || "", [FE.notas]:e.notas || "",
+    [FE.por]:e.por || "", [FE.fecha]:e.fecha, [FE.clientId]:e.clientId };
+  if(e.keep) for(const k of Object.keys(e.keep)) fields[SLOT_FIELD[k]] = e.keep[k].map(id => ({ id }));
+  if(e.tipo === "corr"){   // corrección de un amarillo: solo se tocan los campos de corrección del equipo ya existente
+    if(e.patch){
+      const fc = { [FE.corregido]:!!e.corregido, [FE.fechaCorr]:e.corregido ? e.fecha : null, [FE.corrPor]:e.corregido ? e.por : "" };
+      if(e.keep) for(const k of Object.keys(e.keep)) fc[SLOT_FIELD[k]] = e.keep[k].map(id => ({ id }));
+      await at(T_EQ, { method:"PATCH", recordId:e.recordId, body:{ fields:fc } }); e.patch = false; await idbPut("equipos", e);
+    }
+  }else if(!e.recordId){
+    if(e.intentoCrear){   // un intento anterior pudo crearse sin que llegara la respuesta: se busca antes de crear otra vez
+      const j = await at(T_EQ, { params:qs({ returnFieldsByFieldId:"true", filterByFormula:`{clientId}='${e.clientId}'`, maxRecords:"1" }) });
+      if(j.records && j.records[0]) e.recordId = j.records[0].id;
+    }
+    if(!e.recordId){
+      e.intentoCrear = true; await idbPut("equipos", e);
+      const j = await at(T_EQ, { method:"POST", sinReintento:true, body:{ fields, returnFieldsByFieldId:true } }); e.recordId = j.id;
+    }else{ await at(T_EQ, { method:"PATCH", recordId:e.recordId, body:{ fields, returnFieldsByFieldId:true } }); }
+    e.patch = false; await idbPut("equipos", e);
+  }else if(e.patch){
+    await at(T_EQ, { method:"PATCH", recordId:e.recordId, body:{ fields, returnFieldsByFieldId:true } }); e.patch = false; await idbPut("equipos", e);
+  }
+  for(const slot of Object.keys(e.fotos)){
+    let n = 0;
+    for(const id of e.fotos[slot]){
+      n++; if(e.subidas[id]) continue;
+      const r = await idbGet("fotos", id); if(!r || !r.blob){ e.subidas[id] = true; continue; }
+      const b64 = await blobB64(r.blob);
+      const resp = await fetchConReintento(urlUpload(e.recordId, SLOT_FIELD[slot]), { method:"POST", headers:hdrs(),
+        body:JSON.stringify({ contentType:"image/jpeg", filename:`${e.serie}_${slot}_${n}_${id.slice(-5)}.jpg`, file:b64 }) });
+      if(!resp.ok){ const j = await resp.json().catch(() => ({})); throw new Error("Foto " + slot + ": " + ((j.error && (j.error.message || j.error)) || resp.status)); }
+      e.subidas[id] = true; await idbPut("equipos", e); await sleep(250);
+    }
+  }
+  for(const slot of Object.keys(e.fotos)) for(const id of e.fotos[slot]){ await idbDel("fotos", id); const u = S.th.get(id); if(u){ URL.revokeObjectURL(u); S.th.delete(id); } }
+  e.fotos = { placa:[], caja:[], patas:[], defecto:[] }; e.subidas = {}; e.sync = "listo"; e.err = ""; e.intentos = 0; e.proxIntento = 0; e.keep = null; e.listoEn = Date.now();
+  if(e.tipo === "corr"){ await idbDel("equipos", e.clientId); S.local.delete(e.clientId); if(S.lote && S.lote.folio === e.lote){ try{ await cargarServer(); }catch(er){} } return; }
+  await idbPut("equipos", e);
+}
+async function syncCola(){
+  if(S.syncing) return; S.syncing = true; pintarSync();
+  try{
+    for(;;){
+      const e = [...S.local.values()].filter(x => x.sync !== "listo" && !x.borrando && (!x.proxIntento || Date.now() >= x.proxIntento)).sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)))[0];
+      if(!e) break;
+      e.sync = "subiendo"; pintarSync(); refrescarListas();
+      try{ await subirEquipo(e); }
+      catch(err){ e.sync = "error"; e.err = String(err.message || err); e.intentos = (e.intentos || 0) + 1; e.proxIntento = Date.now() + Math.min(120000, 10000 * e.intentos); await idbPut("equipos", e); }
+      refrescarListas(); await sleep(200);
+    }
+  }finally{
+    S.syncing = false; pintarSync();
+    const err = [...S.local.values()].filter(x => x.sync === "error");
+    if(err.length){ const t = Math.max(3000, Math.min(...err.map(x => x.proxIntento || 0)) - Date.now()); clearTimeout(S._reint); S._reint = setTimeout(syncCola, t + 200); }
+  }
+}
+function pendientes(){ return [...S.local.values()].filter(e => e.sync !== "listo"); }
+function pintarSync(){
+  const c = $("chipSync"), p = pendientes(), er = p.filter(e => e.sync === "error").length;
+  c.className = "chip-sync" + (er ? " err" : p.length ? " warn" : "") + (S.vista === "lista" || S.vista === "nuevo" ? " hidden" : "");
+  c.textContent = er ? er + " con error · reintentar" : p.length ? "Subiendo " + p.length + "…" : "Todo guardado";
+  $("offline").classList.toggle("hidden", navigator.onLine);
+}
+$("chipSync").onclick = () => { [...S.local.values()].forEach(e => { if(e.sync === "error") e.proxIntento = 0; }); syncCola(); if(pendientes().some(e => e.err)) alert(pendientes().filter(e => e.err).map(e => e.serie + ": " + e.err).join("\n")); };
+window.addEventListener("online", () => { pintarSync(); syncCola(); });
+window.addEventListener("offline", pintarSync);
+window.addEventListener("beforeunload", ev => { if(S.f) guardarBorrador(); if(pendientes().length){ ev.preventDefault(); ev.returnValue = ""; } });
+
+/* ====== Actualización periódica (otros técnicos capturando el mismo lote) ====== */
+function iniciarPoll(){ detenerPoll(); S.pollT = setInterval(async () => { if(document.hidden || !S.lote) return; try{ await cargarServer(); refrescarListas(); }catch(e){} }, 30000); }
+function detenerPoll(){ clearInterval(S.pollT); S.pollT = null; }
+function refrescarListas(){ if(S.vista === "captura") pintarCaptura(); else if(S.vista === "panel") pintarPanel(); pintarSync(); }
+
+/* ====== Panel del lote ====== */
+function abrirPanel(){ guardarBorrador(); vista("panel"); pintarPanel(); }
+$("btnVerPanel").onclick = abrirPanel;
+$("btnSeguirCap").onclick = () => { vista("captura"); pintarCaptura(); };
+function faltantes(){
+  const a = /^(.*?)(\d+)$/.exec(S.lote.serieMin), b = /^(.*?)(\d+)$/.exec(S.lote.serieMax); if(!a || !b || a[1] !== b[1] || a[2].length !== b[2].length) return null;
+  const lo = Number(a[2]), hi = Number(b[2]); if(hi < lo || hi - lo > 1000) return null;
+  const tiene = new Set(todos().map(e => e.serie.toUpperCase())), out = [];
+  for(let n = lo; n <= hi; n++){ const s = a[1] + String(n).padStart(a[2].length, "0"); if(!tiene.has(s.toUpperCase())) out.push(s); }
+  return out;
+}
+function pintarPanel(){
+  const arr = todos(), c = contar(arr), L = S.lote;
+  $("pnlResumen").innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:1.1rem">${esc(L.folio)} · ${esc(L.cliente)}</b><span class="badge ${L.estado === "Cerrado" ? "ce" : "ab"}">${esc(L.estado)}</span></div>
+    <div class="bar"><i style="width:${L.total ? Math.min(100, Math.round(c.n * 100 / L.total)) : 0}%"></i></div><div class="cnts" id="pnlCnts"></div>`;
+  pintarCounts($("pnlCnts"), c);
+  $("btnReporte").classList.toggle("hidden", !S.admin); $("btnCerrarLote").classList.toggle("hidden", !S.admin); $("btnBorrarLote").classList.toggle("hidden", !S.admin);
+  $("btnReporteCorr").classList.toggle("hidden", !S.admin || !c.Amarillo);
+  $("btnEditarLote").classList.toggle("hidden", L.estado === "Cerrado" && !S.admin);
+  $("btnCerrarLote").textContent = L.estado === "Cerrado" ? "Reabrir lote" : "Cerrar lote";
+  const fa = faltantes(), box = $("pnlFaltantes");
+  if(fa && fa.length){ box.classList.remove("hidden"); box.innerHTML = `<b>Faltan ${fa.length} número(s) del rango ${esc(L.serieMin)} a ${esc(L.serieMax)}</b><div class="sub" style="margin-top:6px">${esc(fa.slice(0, 60).join(", "))}${fa.length > 60 ? "…" : ""}</div>`; } else box.classList.add("hidden");
+  const amar = arr.filter(e => e.semaforo === "Amarillo"), nCorr = amar.filter(e => e.corregido).length;
+  const f = S.filtro, defs = [["todos", "Todos " + c.n], ["Verde", "Verde " + c.Verde], ["Amarillo", "Amarillo " + c.Amarillo], ["Rojo", "Rojo " + c.Rojo], ["pend", "Por subir " + pendientes().length]];
+  if(c.Amarillo) defs.splice(4, 0, ["porCorr", "Por corregir " + (c.Amarillo - nCorr)]);
+  $("filtros").innerHTML = defs.map(([k, n]) => `<button class="fil ${f === k ? "on" : ""}" data-f="${k}">${n}</button>`).join("");
+  document.querySelectorAll(".fil").forEach(el => el.onclick = () => { S.filtro = el.dataset.f; pintarPanel(); });
+  const b = S.buscar.trim().toUpperCase();
+  const pasa = e => f === "todos" || (f === "pend" ? e.sync && e.sync !== "listo" : f === "porCorr" ? e.semaforo === "Amarillo" && !e.corregido : e.semaforo === f);
+  let lista = arr.filter(e => pasa(e) && (!b || e.serie.toUpperCase().includes(b)));
+  lista.sort((x, y) => numSerie(x.serie, y.serie));
+  $("pnlLista").innerHTML = lista.slice(0, 400).map(e => {
+    const k = esc(e.clientId || e.recordId), st = e.sync || "listo";
+    const dec = (S.admin && e.semaforo === "Rojo" && e.recordId) ? `<select class="decSel" data-r="${e.recordId}" style="width:auto;padding:5px"><option value="">Decisión…</option>${["Pendiente", "Reparar", "Regresar"].map(o => `<option ${e.decision === o ? "selected" : ""}>${o}</option>`).join("")}</select>` : (e.semaforo === "Rojo" && e.decision ? `<span class="badge">${esc(e.decision)}</span>` : "");
+    const inc = serieIncompleta(e.serie) ? `<span class="badge" style="background:var(--rojo-bg);color:var(--rojo)">Serie incompleta · corrígela con Editar</span>` : "";
+    const corr = inc + (e.semaforo !== "Amarillo" ? "" : e.corregido ? `<span class="badge corr">✓ Corregido${e.corrSync ? " (subiendo)" : ""}</span>` : "");
+    const acc = [];
+    if(L.estado !== "Cerrado") acc.push(`<button class="btn sm" data-e="${k}">Editar</button>`);
+    if(e.semaforo === "Amarillo" && e.recordId && st === "listo") acc.push(`<button class="btn sm ok" data-c="${k}">${e.corregido ? "Ver corrección" : "Corregir"}</button>`);
+    if(puedeBorrar(e)) acc.push(`<button class="btn sm del" data-b="${k}" title="Borrar equipo">Borrar</button>`);
+    return `<div class="row"><span class="dot ${e.semaforo}"></span><span class="s">${esc(e.serie)}</span><span class="d">${esc(detalle(e))}</span>${dec}${corr}
+      <span class="st ${st}">${st === "listo" ? "Guardado" : st === "error" ? "Error" : "Subiendo"}</span><span class="acc">${acc.join("")}</span></div>`;
+  }).join("") + (lista.length > 400 ? `<p class="muted">Mostrando 400 de ${lista.length}. Usa el buscador.</p>` : "") + (!lista.length ? '<p class="muted">Sin equipos con ese filtro.</p>' : "");
+  document.querySelectorAll("#pnlLista [data-e]").forEach(el => el.onclick = () => editarEquipo(el.dataset.e));
+  document.querySelectorAll("#pnlLista [data-c]").forEach(el => el.onclick = () => abrirCorreccion(el.dataset.c));
+  document.querySelectorAll("#pnlLista [data-b]").forEach(el => el.onclick = async () => { el.disabled = true; if(await borrarEquipo(el.dataset.b)){ try{ await cargarServer(); }catch(er){} } pintarPanel(); });
+  document.querySelectorAll(".decSel").forEach(el => el.onchange = async () => {
+    try{ await at(T_EQ, { method:"PATCH", recordId:el.dataset.r, body:{ fields:{ [FE.decision]:el.value || null } } }); await cargarServer(); toast("Decisión guardada"); pintarPanel(); }catch(e){ toast("No se guardó: " + e.message, true); }
+  });
+}
+$("inBuscar").oninput = () => { S.buscar = $("inBuscar").value; pintarPanel(); };
+
+async function editarEquipo(key){
+  const e = todos().find(x => (x.clientId || x.recordId) === key); if(!e) return;
+  if(e.sync && e.sync !== "listo"){ toast("Este equipo todavía se está subiendo. Espera a que diga Guardado.", true); return; }
+  guardarBorrador(); nuevoEquipoForm(true); const f = S.f;
+  f.edit = true; f.clientId = e.clientId || uid(); f.recordId = e.recordId || null; f.semaforo = e.semaforo; f.defectos = new Set(e.defectos || []); f.otro = e.otro || ""; f.notas = e.notas || ""; f.por = e.por; f.fecha = e.fecha;
+  $("inSerie").value = e.serie; $("inOtro").value = f.otro; $("inNotas").value = f.notas; $("inSerie").inputMode = "text";
+  if(e.recordId){
+    try{ const j = await at(T_EQ, { recordId:e.recordId, params:"returnFieldsByFieldId=true" });
+      const g = j.fields || {}; f.existentes = { placa:g[FE.fPlaca] || [], caja:g[FE.fCaja] || [], patas:g[FE.fPatas] || [], defecto:g[FE.fDefecto] || [] };
+    }catch(er){ toast("No se leyeron las fotos guardadas: " + er.message, true); }
+  }
+  $("capEditBanner").classList.remove("hidden");
+  $("capEditBanner").innerHTML = "<div style='display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap'><b>Editando " + esc(e.serie) + "</b>" +
+    (puedeBorrar(e) ? "<button class='btn sm del' id='btnBorrarEdit'>Borrar este equipo</button>" : "") +
+    "</div><div class='sub'>Puedes cambiar serie, estado, defectos y notas. Para reemplazar una foto guardada tómala de nuevo; para quitarla toca \"quitar\" o la ×. Nada se cambia hasta tocar Guardar.</div>";
+  if($("btnBorrarEdit")) $("btnBorrarEdit").onclick = async () => { if(await borrarEquipo(key)){ nuevoEquipoForm(); try{ await cargarServer(); }catch(er){} pintarCaptura(); abrirPanel(); } };
+  $("btnCancelEdit").classList.remove("hidden"); vista("captura"); pintarCaptura(); pintarSemaforo();
+  $("boxOtro").classList.toggle("hidden", !f.defectos.has("Otro"));
+}
+$("btnCancelEdit").onclick = async () => { nuevoEquipoForm(); pintarCaptura(); abrirPanel(); };
+
+/* ====== Seguimiento de amarillos: marcar corregido con fotos "después" ====== */
+async function abrirCorreccion(key){
+  const e = todos().find(x => (x.clientId || x.recordId) === key); if(!e || !e.recordId) return;
+  const ck = "corr_" + key;
+  if(S.local.get(ck) && S.local.get(ck).sync !== "listo"){ toast("La corrección de este equipo todavía se está subiendo.", true); return; }
+  const m = document.createElement("div"); m.className = "modal alto";
+  m.innerHTML = `<div><p class="muted">Cargando fotos…</p></div>`; document.body.appendChild(m);
+  let g = {};
+  try{ g = (await at(T_EQ, { recordId:e.recordId, params:"returnFieldsByFieldId=true" })).fields || {}; }
+  catch(er){ m.remove(); toast("No se pudo leer el equipo: " + er.message, true); return; }
+  const C = { antes:g[FE.fDefecto] || [], exist:g[FE.fDespues] || [], quitar:new Set(), nuevas:[], corregido:!!g[FE.corregido] };
+  const vivas = () => C.exist.filter(a => !C.quitar.has(a.id));
+  const limpiar = async () => { for(const id of C.nuevas){ await idbDel("fotos", id); const u = S.th.get(id); if(u){ URL.revokeObjectURL(u); S.th.delete(id); } } };
+  async function agregar(file){
+    try{
+      let blob; try{ blob = await comprimir(file, FOTO_DEF); }catch(er){ if(file.size < 4.5e6) blob = file; else throw er; }
+      const id = ck + "_despues_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      await idbPut("fotos", { id, clientId:ck, slot:"despues", blob }); S.th.set(id, URL.createObjectURL(blob)); C.nuevas.push(id); pinta();
+    }catch(er){ toast("Foto no guardada: " + er.message, true); }
+  }
+  function pinta(){
+    const fechaTxt = g[FE.fechaCorr] ? new Date(g[FE.fechaCorr]).toLocaleString("es-MX", { dateStyle:"short", timeStyle:"short" }) : "";
+    m.innerHTML = `<div style="max-width:560px">
+      <h2 style="margin:0 0 4px;color:var(--azul)">Corrección · N/S ${esc(e.serie)}</h2>
+      <div class="sub">${esc(detalle(e))}${C.corregido ? ` · <b style="color:var(--verde)">Corregido</b>${g[FE.corrPor] ? " por " + esc(g[FE.corrPor]) : ""}${fechaTxt ? " · " + esc(fechaTxt) : ""}` : ""}</div>
+      <div class="corr-fotos" style="margin-top:12px">
+        <div><label class="l" style="margin-top:0">Antes (${C.antes.length})</label>${C.antes.slice(0, 4).map(a => `<img src="${esc(urlMini(a))}" alt="" style="margin-bottom:6px">`).join("") || '<p class="sub">Sin foto del defecto</p>'}</div>
+        <div><label class="l" style="margin-top:0">Después *</label>
+          <div class="thumbs" style="margin-top:0">${vivas().map(a => `<div class="thumb ex"><img src="${esc(urlMini(a))}" alt=""><b data-qx="${esc(a.id)}">×</b></div>`).join("")}${C.nuevas.map(id => `<div class="thumb">${thumbHtml(id)}<b data-qn="${id}">×</b></div>`).join("")}</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" id="coFoto">+ Tomar foto</button><button class="btn sm" id="coGal">Galería</button></div></div>
+      </div>
+      <div class="err-msg" id="coErr"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn pri" id="coOk" style="flex:1">${C.corregido ? "Guardar cambios" : "Marcar como corregido"}</button>
+        ${C.corregido && S.admin ? '<button class="btn del" id="coQuitar">Quitar "corregido"</button>' : ""}
+        <button class="btn" id="coNo">Cancelar</button></div></div>`;
+    m.querySelectorAll("[data-qx]").forEach(el => el.onclick = () => { C.quitar.add(el.dataset.qx); pinta(); });
+    m.querySelectorAll("[data-qn]").forEach(el => el.onclick = async () => { const id = el.dataset.qn; C.nuevas = C.nuevas.filter(x => x !== id); await idbDel("fotos", id); pinta(); });
+    $("coFoto").onclick = async () => {
+      if(camActiva()){
+        m.style.display = "none";
+        const ok = await abrirCamara({ pasos:[["despues", "Después"]], inicio:"despues", multiples:new Set(["despues"]), autoCerrar:false, hecho:() => C.nuevas.length > 0,
+          onFoto:(k, b) => agregar(b), alCerrar:() => { m.style.display = ""; pinta(); } });
+        if(!ok){ m.style.display = ""; pedirArchivo(false, agregar); }
+      }else pedirArchivo(false, agregar);
+    };
+    $("coGal").onclick = () => pedirArchivo(true, agregar);
+    $("coNo").onclick = async () => { await limpiar(); m.remove(); };
+    $("coOk").onclick = () => guardar(true);
+    if($("coQuitar")) $("coQuitar").onclick = () => { if(confirm("¿Quitar la marca de corregido de " + e.serie + "? Las fotos de después se conservan.")) guardar(false); };
+  }
+  async function guardar(corregido){
+    if(corregido && !vivas().length && !C.nuevas.length){ $("coErr").textContent = "Toma al menos una foto de cómo quedó (después)."; return; }
+    const keep = C.quitar.size ? { despues:vivas().map(a => a.id) } : null;
+    const nombre = miNombre();
+    const corr = { clientId:ck, tipo:"corr", objetivo:key, recordId:e.recordId, lote:S.lote.folio, serie:e.serie, corregido,
+      fecha:(corregido && C.corregido && g[FE.fechaCorr]) ? g[FE.fechaCorr] : new Date().toISOString(),
+      por:(corregido && C.corregido && g[FE.corrPor]) ? g[FE.corrPor] : nombre,
+      fotos:{ despues:C.nuevas }, keep, subidas:{}, sync:"pendiente", patch:true, intentos:0 };
+    await idbPut("equipos", corr); S.local.set(ck, corr); m.remove();
+    toast(corregido ? "Corrección guardada · " + e.serie : "Se quitó la marca de corregido"); pintarPanel(); syncCola();
+  }
+  pinta();
+}
+
+$("btnCerrarLote").onclick = async () => {
+  const L = S.lote, btn = $("btnCerrarLote");
+  if(L.estado === "Cerrado"){ if(!confirm("¿Reabrir el lote " + L.folio + " para seguir capturando?")) return; }
+  else{
+    const p = pendientes().length, c = contar(todos());
+    if(p && !confirm("Todavía hay " + p + " equipo(s) subiéndose o con error. ¿Cerrar de todos modos?")) return;
+    if(L.total && c.n < L.total && !confirm("Se capturaron " + c.n + " de " + L.total + " equipos. ¿Cerrar el lote así?")) return;
+  }
+  btn.disabled = true;
+  try{
+    const cerrar = L.estado !== "Cerrado";
+    await at(T_LOTES, { method:"PATCH", recordId:L.id, body:{ fields:{ [FL.estado]:cerrar ? "Cerrado" : "Abierto", [FL.fechaCierre]:cerrar ? new Date().toISOString() : null } } });
+    L.estado = cerrar ? "Cerrado" : "Abierto"; toast(cerrar ? "Lote cerrado" : "Lote reabierto"); pintarPanel();
+  }catch(e){ toast("No se pudo actualizar el lote: " + e.message, true); }
+  finally{ btn.disabled = false; }
+};
+
+$("btnBorrarLote").onclick = async () => {
+  const L = S.lote, btn = $("btnBorrarLote"); if(!L || !S.admin) return;
+  if(pendientes().length){ toast("Hay equipos subiéndose. Espera a que terminen e intenta de nuevo.", true); return; }
+  const n = contar(todos()).n;
+  if(!confirm("¿BORRAR el lote " + L.folio + " · " + L.cliente + "?\n\nSe borran también sus " + n + " equipo(s) con todas sus fotos. Esto no se puede deshacer.")) return;
+  const tecleado = prompt("Para confirmar, escribe el folio del lote exactamente:\n" + L.folio);
+  if(tecleado == null) return;
+  if(tecleado.trim() !== L.folio){ toast("El folio no coincide. No se borró nada.", true); return; }
+  btn.disabled = true;
+  try{
+    const recs = await fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", "fields[]":[FE.serie], filterByFormula:`({lote}='${L.folio.replace(/'/g, "\\'")}')` }));
+    for(let i = 0; i < recs.length; i += 5) await Promise.all(recs.slice(i, i + 5).map(r => at(T_EQ, { method:"DELETE", recordId:r.id })));
+    await at(T_LOTES, { method:"DELETE", recordId:L.id });
+    for(const e of [...S.local.values()]){
+      if(e.lote !== L.folio) continue;
+      for(const s of Object.keys(e.fotos || {})) for(const id of e.fotos[s]){ await idbDel("fotos", id); const u = S.th.get(id); if(u){ URL.revokeObjectURL(u); S.th.delete(id); } }
+      await idbDel("equipos", e.clientId); S.local.delete(e.clientId);
+    }
+    try{ localStorage.removeItem("si_insp_ult_" + L.folio); }catch(er){}
+    S.lote = null; toast("Lote " + L.folio + " borrado"); await cargarLotes(); vista("lista");
+  }catch(e){ toast("No se pudo borrar el lote: " + e.message + ". Puede quedar a medias; vuelve a intentarlo.", true); }
+  finally{ btn.disabled = false; }
+};
+
+/* ====== Reporte (PDF por impresión del navegador: carta, vertical) ====== */
+function avisoSeriesIncompletas(){
+  const inc = todos().filter(e => serieIncompleta(e.serie)).map(e => e.serie).sort(numSerie);
+  if(!inc.length) return true;
+  return confirm(inc.length + " equipo(s) tienen el número de serie INCOMPLETO y así saldrían en el reporte:\n\n" + inc.slice(0, 30).join(", ") + (inc.length > 30 ? "…" : "") +
+    "\n\nEl cliente no podrá identificar esos motores. Corrígelos con \"Editar\" en el panel (filtra o busca la serie).\n\n¿Generar el reporte de todos modos?");
+}
+$("btnReporte").onclick = () => {
+  if(!avisoSeriesIncompletas()) return;
+  const p = pendientes().length;
+  if(p && !confirm("Hay " + p + " equipo(s) que aún no terminan de subirse y no saldrán completos en el reporte. ¿Generar de todos modos?")) return;
+  const m = document.createElement("div"); m.className = "modal";
+  m.innerHTML = `<div><h2 style="margin:0 0 10px;color:var(--azul)">Generar reporte</h2>
+    <div class="checkrow"><input type="checkbox" id="rpAma"><label for="rpAma">Incluir anexo con fotos de los equipos <b>amarillos</b></label></div>
+    <p class="sub">Se abre una hoja lista para imprimir. En la ventana de impresión elige <b>Guardar como PDF</b> (o Microsoft Print to PDF), tamaño Carta, márgenes predeterminados.</p>
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn pri" id="rpGo" style="flex:1">Generar</button><button class="btn" id="rpNo">Cancelar</button></div></div>`;
+  document.body.appendChild(m);
+  $("rpNo").onclick = () => m.remove();
+  $("rpGo").onclick = () => { const o = { amarillos:$("rpAma").checked, placaRojos:false }; const w = window.open("", "_blank"); m.remove(); generarReporte(w, o); };
+};
+$("btnReporteCorr").onclick = () => {
+  if(!avisoSeriesIncompletas()) return;
+  const p = pendientes().length;
+  if(p && !confirm("Hay " + p + " cambio(s) que aún no terminan de subirse y no saldrán en el reporte. ¿Generar de todos modos?")) return;
+  const w = window.open("", "_blank"); generarReporte(w, { corr:true });
+};
+function urlFoto(a){ return (a.thumbnails && a.thumbnails.large && a.thumbnails.large.url) || a.url; }
+async function generarReporte(w, o){
+  if(!w){ alert("El navegador bloqueó la ventana. Permite ventanas emergentes para este sitio y vuelve a intentar."); return; }
+  w.document.write("<p style='font-family:Arial;padding:20px'>Preparando el reporte… puede tardar un poco con lotes grandes.</p>");
+  try{
+    const recs = await fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", filterByFormula:`({lote}='${S.lote.folio.replace(/'/g, "\\'")}')` }));
+    const eqs = recs.map(parseEq).sort((x, y) => numSerie(x.serie, y.serie));
+    w.document.open(); w.document.write(o.corr ? htmlReporteCorr(eqs) : htmlReporte(eqs, o)); w.document.close();
+    const t0 = Date.now(); const imgs = [...w.document.images];
+    await Promise.race([Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))), sleep(90000)]);
+    w.focus(); w.print();
+  }catch(e){ w.document.body.innerHTML = "<p style='font-family:Arial;padding:20px;color:#c00'>No se pudo generar el reporte: " + esc(e.message) + "</p>"; }
+}
+function encabezadoRep(n, subtitulo, fechaISO){
+  const L = S.lote, cfg = L.cfg || {}, p = cfg.placa || {};
+  const fechaTxt = (fechaISO || L.fecha || hoyISO()).split("-").reverse().join("/");
+  return `<table class="hd"><tr><td rowspan="3" class="lg"><img src="data:image/png;base64,${LOGO_B64}" alt=""></td><td rowspan="2" colspan="3" class="tt">CENTRO DE SERVICIO SI</td><th>REPORTE</th><td><b>${esc(L.folio)}</b></td></tr>
+    <tr><th>FECHA</th><td>${esc(fechaTxt)}</td></tr><tr><td colspan="3" class="st2">${esc(subtitulo)}</td><th>CANTIDAD</th><td>${n} EQUIPOS</td></tr>
+    <tr><th>CLIENTE</th><td>${esc(L.cliente)}</td><th>USUARIO</th><td>${esc(L.usuario || "N/A")}</td><th>HP</th><td>${esc(p.hp || "N/A")}</td></tr>
+    <tr><th>EQUIPO</th><td>${esc(cfg.equipo || "MOTOR")}</td><th>SPEC</th><td>${esc(p.spec || "N/A")}</td><th>FRAME</th><td>${esc(p.armazon || "N/A")}</td></tr>
+    <tr><th>NO. CAT.</th><td>${esc(p.noCat || "N/A")}</td><th>VOLTS</th><td>${esc(p.volts || "N/A")}</td><th>ITEM N°</th><td>N/A</td></tr></table>`;
+}
+function htmlReporteCorr(eqs){
+  const L = S.lote, amar = eqs.filter(e => e.semaforo === "Amarillo"), hechos = amar.filter(e => e.corregido), pend = amar.filter(e => !e.corregido);
+  const fCorta = s => s ? new Date(s).toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" }) : "";
+  const filas = amar.map((e, i) => `<tr><td class="c">${i + 1}</td><td><b>${esc(e.serie)}</b></td><td>${esc(detalle(e))}</td><td>${e.corregido ? '<span class="d Verde"></span>Corregido ' + esc(fCorta(e.fechaCorr)) : '<span class="d Amarillo"></span>Pendiente'}</td></tr>`).join("");
+  const fotos = (arr, max) => arr.slice(0, max).map(a => `<img src="${esc(urlFoto(a))}" alt="">`).join("") || '<p style="font-size:8pt;color:#777">Sin foto</p>';
+  const pares = hechos.map(e => `<div class="rj"><div class="rjh" style="background:#e6f4e7"><b>Equipo ${amar.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span>${esc(detalle(e))}</span></div>
+    <div class="ad"><div><div class="adt">ANTES</div><div class="ph">${fotos(e.fotos.defecto, 2)}</div></div><div><div class="adt">DESPUÉS</div><div class="ph">${fotos(e.fotos.despues, 2)}</div></div></div></div>`).join("");
+  const hoy = hoyISO();
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte ${esc(L.folio)} - Correcciones</title><style>${cssRep()}
+    .ad{display:grid;grid-template-columns:1fr 1fr}.ad>div{padding:0}.ad>div+div{border-left:.6pt solid #777}.adt{font-weight:700;font-size:8.5pt;text-align:center;background:#f2f2f2;padding:1mm;border-bottom:.6pt solid #ccc}
+    .ad .ph img{width:40mm;height:32mm}</style></head><body>
+  ${encabezadoRep(amar.length, "REPORTE DE CORRECCIONES - EQUIPOS EN AMARILLO", hoy)}
+  <div class="bar">I. DESCRIPCIÓN</div><div class="txt">Seguimiento del reporte de inspección ${esc(L.folio)}. Los equipos clasificados en <b>amarillo</b> (detalles de pintura) se corrigieron en el Centro de Servicio. Se muestran fotos del defecto encontrado (antes) y de cómo quedó el equipo (después).</div>
+  <div class="bar">II. RESULTADOS</div>
+  <div class="res"><div class="a">Equipos en amarillo<b>${amar.length}</b></div><div class="v">Corregidos<b>${hechos.length}</b></div><div class="r">Pendientes<b>${pend.length}</b></div></div>
+  <div class="bar">III. RESUMEN POR EQUIPO</div>
+  <table class="eq"><thead><tr><th>No.</th><th>Número de serie</th><th>Defecto encontrado</th><th style="width:38mm">Estado</th></tr></thead><tbody>${filas}</tbody></table>
+  ${hechos.length ? `<div class="bar pb">IV. ANTES Y DESPUÉS (${hechos.length})</div>${pares}` : ""}
+  </body></html>`;
+}
+function cssRep(){ return `@page{size:letter;margin:12mm 12mm 14mm;@bottom-center{content:"Hoja " counter(page) " de " counter(pages);font:8pt Arial;color:#555}@bottom-left{content:"CENTRO DE SERVICIO SI";font:7pt Arial;color:#555}}
+  *{box-sizing:border-box}body{font:9.5pt Arial,Helvetica,sans-serif;color:#111;margin:0}
+  table{border-collapse:collapse;width:100%}td,th{border:.6pt solid #777;padding:2.2mm 2.5mm;vertical-align:middle}th{background:#d9e1f2;font-size:8pt;text-align:center}
+  .hd td{font-size:9pt;text-align:center}.hd .lg{width:24mm;text-align:center}.hd .lg img{width:19mm}.hd .tt{font-size:15pt;font-weight:700}.hd .st2{font-size:9.5pt;font-weight:700}
+  .bar{background:#1f3864;color:#fff;font-weight:700;padding:1.6mm 3mm;margin:5mm 0 0;font-size:10pt;break-after:avoid}
+  .txt{border:.6pt solid #777;border-top:0;padding:3mm}.pl td{text-align:center}.pl th{width:21%}
+  .cr td:first-child{width:9mm;text-align:center;font-weight:700;background:#d9e1f2}
+  .res{display:flex;gap:3mm;margin-top:2mm}.res div{flex:1;border:.6pt solid #777;padding:2.5mm 3mm;font-size:9pt}.res b{display:block;font-size:17pt}
+  .res .v{background:#e6f4e7}.res .a{background:#fff4cc}.res .r{background:#fdeaea}
+  .eq th{position:static}.eq thead{display:table-header-group}.eq tr{break-inside:avoid}.eq td.c{text-align:center;width:10mm}.eq td{padding:1.4mm 2.5mm;font-size:8.8pt}
+  .d{display:inline-block;width:2.8mm;height:2.8mm;border-radius:50%;margin-right:1.5mm;vertical-align:-.3mm;background:#bbb}.d.Verde{background:#2e7d32}.d.Amarillo{background:#e0a800}.d.Rojo{background:#c62828}
+  .rj{border:.6pt solid #777;margin-top:3mm;break-inside:avoid}.rjh{display:flex;justify-content:space-between;gap:4mm;background:#fdeaea;padding:1.8mm 3mm;font-size:9pt}
+  .ph{display:flex;flex-wrap:wrap;gap:2mm;padding:2.5mm}.ph img{height:40mm;width:57mm;object-fit:contain;border:.4pt solid #ccc;background:#fafafa}
+  .dc{border-top:.6pt solid #777;padding:2mm 3mm;font-size:9.5pt}.cb{font-size:13pt;vertical-align:-1pt}
+  .ev .ph{flex-wrap:nowrap;justify-content:space-between;padding:2mm 3mm}.ev figure{margin:0;width:57mm;text-align:center}.ev figure img{width:57mm;height:30mm}.ev figcaption{font-size:7.5pt;color:#444}.ev .nof{width:57mm;height:30mm;border:.4pt dashed #aaa;color:#999;font-size:8pt;display:flex;align-items:center;justify-content:center}
+  .pb{break-before:page}`; }
+function htmlReporte(eqs, o){
+  const L = S.lote, cfg = L.cfg || {}, p = cfg.placa || {}, c = contar(eqs);
+  const hd = encabezadoRep(c.n, "REPORTE DE INSPECCIÓN - LOTE DE " + c.n + " EQUIPOS");
+  const placaFilas = PLACA_CAMPOS.filter(([k]) => p[k]);
+  let placaHtml = ""; for(let i = 0; i < placaFilas.length; i += 2){ const a = placaFilas[i], b = placaFilas[i + 1]; placaHtml += `<tr><th>${a[1]}</th><td>${esc(p[a[0]])}</td>${b ? `<th>${b[1]}</th><td>${esc(p[b[0]])}</td>` : "<th></th><td></td>"}</tr>`; }
+  const fCortaG = s => s ? new Date(s).toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" }) : "";
+  const estadoTxt = e => esc(e.semaforo || "—") + (e.semaforo === "Amarillo" ? (e.corregido ? "<br><b style=\"color:#2e7d32\">Corregido" + (e.fechaCorr ? " " + esc(fCortaG(e.fechaCorr)) : "") + "</b>" : "<br><span style=\"color:#8a6d00\">Por corregir</span>") : "");
+  const filas = eqs.map((e, i) => `<tr><td class="c">${i + 1}</td><td><b>${esc(e.serie)}</b></td><td><span class="d ${e.semaforo}"></span>${estadoTxt(e)}</td><td>${esc(detalle(e))}${e.notas ? " <i>(" + esc(e.notas) + ")</i>" : ""}</td></tr>`).join("");
+  const rojos = eqs.filter(e => e.semaforo === "Rojo"), amar = eqs.filter(e => e.semaforo === "Amarillo"), verdes = eqs.filter(e => e.semaforo === "Verde");
+  const ROMANOS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"]; let rn = 0; const R = () => ROMANOS[rn++];   // la numeración se acomoda sola según las secciones que aparezcan
+  const fotosHtml = (arr, max) => arr.slice(0, max).map(a => `<img src="${esc(urlFoto(a))}" alt="">`).join("");
+  const rojosHtml = rojos.map(e => `<div class="rj"><div class="rjh"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span>${esc(detalle(e))}</span></div>
+      <div class="ph">${fotosHtml(e.fotos.defecto, o.placaRojos ? 2 : 3)}${o.placaRojos ? fotosHtml(e.fotos.placa, 1) : ""}</div>
+      <div class="dc">Decisión del cliente: <span class="cb">${e.decision === "Reparar" ? "&#9745;" : "&#9744;"}</span> Reparar &nbsp;&nbsp; <span class="cb">${e.decision === "Regresar" ? "&#9745;" : "&#9744;"}</span> Regresar</div></div>`).join("");
+  const evHtml = eqs.map(e => `<div class="rj ev"><div class="rjh" style="background:#f2f2f2"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span><span class="d ${e.semaforo}"></span>${esc(e.semaforo || "—")}</span></div>
+      <div class="ph">${[["placa", "Placa"], ["caja", "Caja de conexiones"], ["patas", "Patas / base"]].map(([k, n]) => (e.fotos[k] && e.fotos[k][0]) ? `<figure><img src="${esc(urlFoto(e.fotos[k][0]))}" alt=""><figcaption>${n}</figcaption></figure>` : `<figure><div class="nof">Sin foto</div><figcaption>${n}</figcaption></figure>`).join("")}</div></div>`).join("");
+  const amarHtml = o.amarillos ? amar.map(e => `<div class="rj"><div class="rjh"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span>${esc(detalle(e))}</span></div><div class="ph">${fotosHtml(e.fotos.defecto, 4)}</div></div>`).join("") : "";
+  const corregidos = amar.filter(e => e.corregido);
+  const fotosC = (arr, max) => arr.slice(0, max).map(a => `<img src="${esc(urlFoto(a))}" alt="">`).join("") || `<p style="font-size:8pt;color:#777;padding:2mm">Sin foto</p>`;
+  const corrHtml = corregidos.map(e => `<div class="rj"><div class="rjh" style="background:#e6f4e7"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span>${esc(detalle(e))} · Corrección realizada${e.fechaCorr ? " el " + esc(fCortaG(e.fechaCorr)) : ""}</span></div>
+    <div class="ad"><div><div class="adt">CONDICIÓN INICIAL</div><div class="ph">${fotosC(e.fotos.defecto, 2)}</div></div><div><div class="adt">CONDICIÓN FINAL</div><div class="ph">${fotosC(e.fotos.despues, 2)}</div></div></div></div>`).join("");
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Reporte ${esc(L.folio)} - Inspección lote</title><style>${cssRep()}
+  .ad{display:grid;grid-template-columns:1fr 1fr}.ad>div{padding:0}.ad>div+div{border-left:.6pt solid #777}.adt{font-weight:700;font-size:8.5pt;text-align:center;background:#f2f2f2;padding:1mm;border-bottom:.6pt solid #ccc}.ad .ph img{width:40mm;height:32mm}
+  </style></head><body>
+  ${hd}
+  <div class="bar">${R()}. SERVICIO SOLICITADO</div><div class="txt">${esc(L.servicio)}</div>
+  ${placaHtml ? `<div class="bar">${R()}. DATOS DE PLACA (COMUNES A LOS ${c.n} EQUIPOS)</div><table class="pl">${placaHtml}</table>` : ""}
+  <div class="bar">${R()}. CRITERIOS DE EVALUACIÓN</div>
+  <table class="cr"><tr><td><span class="d Verde"></span></td><td><b>Verde:</b> el equipo pasa; no requiere trabajo.</td></tr>
+  <tr><td><span class="d Amarillo"></span></td><td><b>Amarillo:</b> detalles de pintura (escurrimiento, falta de pintura, desprendimiento, etc.). Se corrigen en el Centro de Servicio sin necesidad de autorización.</td></tr>
+  <tr><td><span class="d Rojo"></span></td><td><b>Rojo:</b> defectos que no se corrigen solo con pintura (flecha, golpes fuertes, etc.). No se interviene el equipo hasta recibir su autorización para reparar o regresar.</td></tr></table>
+  <div class="bar">${R()}. RESULTADOS GENERALES</div>
+  <div class="res"><div class="v">Verde · pasa<b>${c.Verde}</b></div><div class="a">Amarillo · se corrige<b>${c.Amarillo}</b>${c.Amarillo ? "<span style=\"font-size:8.5pt\">Corregidos: " + amar.filter(e => e.corregido).length + " de " + c.Amarillo + "</span>" : ""}</div><div class="r">Rojo · requiere autorización<b>${c.Rojo}</b></div></div>
+  <div class="bar pb">${R()}. RESUMEN POR EQUIPO</div>
+  <table class="eq"><thead><tr><th>No.</th><th>Número de serie</th><th style="width:26mm">Estado</th><th>Detalle</th></tr></thead><tbody>${filas}</tbody></table>
+  ${rojos.length ? `<div class="bar pb">${R()}. EQUIPOS QUE REQUIEREN SU AUTORIZACIÓN (${rojos.length})</div><div class="txt" style="font-size:9pt">Estos equipos no se intervendrán hasta recibir su decisión: <b>Reparar</b> o <b>Regresar</b>.</div>${rojosHtml}` : ""}
+  ${o.amarillos && amar.length ? `<div class="bar pb">${R()}. ANEXO: DETALLE DE EQUIPOS EN AMARILLO (${amar.length})</div>${amarHtml}` : ""}
+  ${corregidos.length ? `<div class="bar pb">${R()}. CORRECCIONES REALIZADAS (${corregidos.length})</div><div class="txt" style="font-size:9pt">Los equipos clasificados en amarillo fueron corregidos en el Centro de Servicio SI. Se muestra la condición inicial detectada en la inspección y la condición final posterior a la corrección.</div>${corrHtml}` : ""}
+  ${eqs.length ? `<div class="bar pb">${R()}. EVIDENCIA FOTOGRÁFICA DE TODOS LOS EQUIPOS (${eqs.length})</div><div class="txt" style="font-size:9pt">Fotografías de placa de datos, caja de conexiones y patas / base de cada equipo inspeccionado, sin importar su resultado.</div>${evHtml}` : ""}
+  </body></html>`;
+}
+
+/* ====== Inicio ====== */
+(async function init(){
+  if(location.protocol === "file:"){
+    await cargarDevConfig();
+    if(!DEV){ document.body.innerHTML = "<p style='padding:24px;font-family:Arial'>Falta el archivo <b>dev_config.js</b> junto a esta página (solo para la copia local de pruebas).</p>"; return; }
+  }
+  try{ S.ses = JSON.parse(localStorage.getItem("si_session") || "null"); }catch(e){}
+  if(!S.ses || !["Admin", "Tecnico", "Direccion"].includes(S.ses.rol)){ window.location.href = "login.html"; return; }
+  S.admin = S.ses.rol === "Admin" || S.ses.rol === "Direccion";
+  initCamToggle();
+  try{ (await idbAllEquipos()).forEach(e => S.local.set(e.clientId, e)); }catch(e){ console.warn("IndexedDB no disponible", e); }
+  S.local.forEach(e => { if(e.sync === "subiendo"){ e.sync = "pendiente"; } });
+  vista("lista"); await cargarLotes();
+  if(pendientes().length) syncCola();
+})();
+</script>
+</body>
+</html>
