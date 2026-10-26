@@ -1153,7 +1153,7 @@ function htmlReporteCorr(eqs){
   </body></html>`;
 }
 function cssRep(){ return `@page{size:letter;margin:12mm 12mm 14mm;@bottom-center{content:"Hoja " counter(page) " de " counter(pages);font:8pt Arial;color:#555}@bottom-left{content:"CENTRO DE SERVICIO SI";font:7pt Arial;color:#555}}
-  *{box-sizing:border-box}body{font:9.5pt Arial,Helvetica,sans-serif;color:#111;margin:0}
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font:9.5pt Arial,Helvetica,sans-serif;color:#111;margin:0}
   table{border-collapse:collapse;width:100%}td,th{border:.6pt solid #777;padding:2.2mm 2.5mm;vertical-align:middle}th{background:#d9e1f2;font-size:8pt;text-align:center}
   .hd td{font-size:9pt;text-align:center}.hd .lg{width:24mm;text-align:center}.hd .lg img{width:19mm}.hd .tt{font-size:15pt;font-weight:700}.hd .st2{font-size:9.5pt;font-weight:700}
   .bar{background:#1f3864;color:#fff;font-weight:700;padding:1.6mm 3mm;margin:5mm 0 0;font-size:10pt;break-after:avoid}
@@ -1161,7 +1161,7 @@ function cssRep(){ return `@page{size:letter;margin:12mm 12mm 14mm;@bottom-cente
   .cr td:first-child{width:9mm;text-align:center;font-weight:700;background:#d9e1f2}
   .res{display:flex;gap:3mm;margin-top:2mm}.res div{flex:1;border:.6pt solid #777;padding:2.5mm 3mm;font-size:9pt}.res b{display:block;font-size:17pt}
   .res .v{background:#e6f4e7}.res .a{background:#fff4cc}.res .r{background:#fdeaea}
-  .eq th{position:static}.eq thead{display:table-header-group}.eq tr{break-inside:avoid}.eq td.c{text-align:center;width:10mm}.eq td{padding:1.4mm 2.5mm;font-size:8.8pt}
+  .eq th{position:static}.eq thead{display:table-header-group}.eq tr{break-inside:avoid}.eq td.c{text-align:center;width:10mm}.eq td{padding:1.4mm 2.5mm;font-size:8.8pt}.eq td.sv{font-weight:700;text-align:center}.eq td.sv-Verde{background:#70ad47;color:#fff}.eq td.sv-Amarillo{background:#ffc000;color:#111}.eq td.sv-Rojo{background:#e53935;color:#fff}.eq td.sv small{display:block;font-weight:400;font-size:7.5pt}
   .d{display:inline-block;width:2.8mm;height:2.8mm;border-radius:50%;margin-right:1.5mm;vertical-align:-.3mm;background:#bbb}.d.Verde{background:#2e7d32}.d.Amarillo{background:#e0a800}.d.Rojo{background:#c62828}
   .rj{border:.6pt solid #777;margin-top:3mm;break-inside:avoid}.rjh{display:flex;justify-content:space-between;gap:4mm;background:#fdeaea;padding:1.8mm 3mm;font-size:9pt}
   .ph{display:flex;flex-wrap:wrap;gap:2mm;padding:2.5mm}.ph img{height:40mm;width:57mm;object-fit:contain;border:.4pt solid #ccc;background:#fafafa}
@@ -1174,8 +1174,8 @@ function htmlReporte(eqs, o){
   const placaFilas = PLACA_CAMPOS.filter(([k]) => p[k]);
   let placaHtml = ""; for(let i = 0; i < placaFilas.length; i += 2){ const a = placaFilas[i], b = placaFilas[i + 1]; placaHtml += `<tr><th>${a[1]}</th><td>${esc(p[a[0]])}</td>${b ? `<th>${b[1]}</th><td>${esc(p[b[0]])}</td>` : "<th></th><td></td>"}</tr>`; }
   const fCortaG = s => s ? new Date(s).toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" }) : "";
-  const estadoTxt = e => esc(e.semaforo || "—") + (e.semaforo === "Amarillo" ? (e.corregido ? "<br><b style=\"color:#2e7d32\">Corregido" + (e.fechaCorr ? " " + esc(fCortaG(e.fechaCorr)) : "") + "</b>" : "<br><span style=\"color:#8a6d00\">Por corregir</span>") : "");
-  const filas = eqs.map((e, i) => `<tr><td class="c">${i + 1}</td><td><b>${esc(e.serie)}</b></td><td><span class="d ${e.semaforo}"></span>${estadoTxt(e)}</td><td>${esc(detalle(e))}${e.notas ? " <i>(" + esc(e.notas) + ")</i>" : ""}</td></tr>`).join("");
+  const estadoTxt = e => esc(e.semaforo || "—") + (e.semaforo === "Amarillo" ? (e.corregido ? "<small>Corregido" + (e.fechaCorr ? " " + esc(fCortaG(e.fechaCorr)) : "") + "</small>" : "<small>Por corregir</small>") : "");
+  const filas = eqs.map((e, i) => `<tr><td class="c sv sv-${e.semaforo}">${i + 1}</td><td><b>${esc(e.serie)}</b></td><td class="sv sv-${e.semaforo}">${estadoTxt(e)}</td><td>${esc(detalle(e))}${e.notas ? " <i>(" + esc(e.notas) + ")</i>" : ""}</td></tr>`).join("");
   const rojos = eqs.filter(e => e.semaforo === "Rojo"), amar = eqs.filter(e => e.semaforo === "Amarillo"), verdes = eqs.filter(e => e.semaforo === "Verde");
   const ROMANOS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI"]; let rn = 0; const R = () => ROMANOS[rn++];   // la numeración se acomoda sola según las secciones que aparezcan
   const fotosHtml = (arr, max) => arr.slice(0, max).map(a => `<img src="${esc(urlFoto(a))}" alt="">`).join("");
