@@ -408,6 +408,7 @@ input[type="file"].hidden-input{ display:none; }
    ============================================================ */
 
 const T_ORDENES   = "tblcyGwDeOORxELJg";
+const T_LOTES_INSP = "tbly6Jmx238oOh8RP", FL_INSP_REMISIONES = "fld17bCOsRGlS6ark";   // INSPECCION_LOTES.remisionesTexto (folios REM compartidos)
 const T_CHECKLIST = "tbl1yAx029Em12QDG";
 const T_PINTURA   = "tbl6fY01T6q69BVN0";
 const T_EVIDENCIA = "tblSxLh7qYCkr4dTa";
@@ -2867,6 +2868,21 @@ async function obtenerSiguienteFolioRemision(){
       if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
     });
   });
+  // Las remisiones de lotes de inspección (inspeccion_lote.html) comparten esta misma numeración REM####
+  let offL = null;
+  do{
+    let urlL = `/.netlify/functions/airtable?table=${T_LOTES_INSP}&returnFieldsByFieldId=true&pageSize=100&fields%5B%5D=${FL_INSP_REMISIONES}`;
+    if(offL) urlL += `&offset=${encodeURIComponent(offL)}`;
+    const rL = await fetch(urlL, { headers:{}});
+    const dL = await rL.json();
+    (dL.records || []).forEach(rec => {
+      parseRemisiones(rec.fields?.[FL_INSP_REMISIONES]).forEach(datos => {
+        const m = /^REM(\d+)$/.exec(datos.folioRemision || "");
+        if(m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+      });
+    });
+    offL = dL.offset || null;
+  } while(offL);
   return `REM${maxNum + 1}`;
 }
 

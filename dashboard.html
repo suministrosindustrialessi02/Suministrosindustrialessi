@@ -1516,6 +1516,14 @@ footer strong{ color: var(--azul); }
       </div>
     </div>
 
+    <!-- LOTES DE INSPECCIÓN EN C.S. (solo Admin / Dirección) -->
+    <div id="secLotesCS" class="hidden">
+      <div class="section-label">Lotes de inspección en C.S.</div>
+      <div class="card" style="padding:12px 16px;margin-bottom:18px">
+        <div id="lotesCSBody" style="font-size:0.85rem"></div>
+      </div>
+    </div>
+
     <!-- BARRA PROGRESO GLOBAL -->
     <div class="global-prog">
       <div class="gp-label">Progreso global del período</div>
@@ -2425,6 +2433,8 @@ const TABLA_BORRADORES = "tblPY24L7lg3pS8iS";
 const BF_SERIE = "fldegmWGpcWW7Awzn";
 const BF_PCT   = "fldsmzz7mJjY6gHNn";  // porcentaje en TABLA_BORRADORES
 const TABLA_USUARIOS = "tblBLOdgolBZWZjyb";
+const TABLA_LOTES_INSP = "tbly6Jmx238oOh8RP";   // INSPECCION_LOTES (inspeccion_lote.html)
+const TABLA_EQ_INSP    = "tblVh5uHd4yitMxJd";   // INSPECCION_EQUIPOS
 const UF = {
   nombre: "fldmBBHrmw8YfCztf",
   rol:    "fldrYhMpiJDQnfyTQ",
@@ -2567,6 +2577,81 @@ async function fetchTecnicos(){
       .filter(Boolean)
       .sort((a,b) => a.localeCompare(b));
   } catch(e){ return []; }
+}
+
+/* ---------- Lotes de inspección en C.S. (resumen; el detalle vive en inspeccion_lote.html) ---------- */
+async function fetchLotesInsp(){
+  let all = [], offset = null;
+  do{
+    let url = `/.netlify/functions/airtable?table=${TABLA_LOTES_INSP}&returnFieldsByFieldId=true&pageSize=100`;
+    if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+    const res = await fetch(url, { headers:{}});
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+    all = all.concat(d.records || []);
+    offset = d.offset || null;
+  } while(offset);
+  return all;
+}
+async function fetchEquiposInsp(){
+  let all = [], offset = null;
+  do{
+    let url = `/.netlify/functions/airtable?table=${TABLA_EQ_INSP}&returnFieldsByFieldId=true&pageSize=100`;
+    url += "&fields%5B%5D=fldjXbOQ2cDmmCzUU&fields%5B%5D=fldtmjf5VGOdqv12l&fields%5B%5D=fldvChe4YbtkDaJub&fields%5B%5D=fldTg011aGHqhvjCI&fields%5B%5D=fldo9HEeEPDTDMO1H";
+    if(offset) url += `&offset=${encodeURIComponent(offset)}`;
+    const res = await fetch(url, { headers:{}});
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    const d = await res.json();
+    all = all.concat(d.records || []);
+    offset = d.offset || null;
+  } while(offset);
+  return all;
+}
+async function cargarLotesCS(){
+  const sec = document.getElementById("secLotesCS");
+  if(!sec) return;
+  if(!_sesion || !(_sesion.rol === "Admin" || _sesion.rol === "Direccion")){ sec.classList.add("hidden"); return; }
+  const body = document.getElementById("lotesCSBody");
+  try{
+    const [lotes, eqs] = await Promise.all([fetchLotesInsp(), fetchEquiposInsp()]);
+    const por = {};
+    eqs.forEach(r => {
+      const f = r.fields || {}, l = f["fldjXbOQ2cDmmCzUU"] || "";
+      const x = por[l] || (por[l] = { n:0, ent:0, Verde:0, Amarillo:0, Rojo:0, porCorr:0, tar:{} });
+      const sem = f["fldtmjf5VGOdqv12l"] || "", ent = !!f["fldTg011aGHqhvjCI"];
+      x.n++; if(sem && x[sem] != null) x[sem]++;
+      if(ent){ x.ent++; return; }
+      if(sem === "Amarillo" && !f["fldo9HEeEPDTDMO1H"]) x.porCorr++;
+      const t = f["fldvChe4YbtkDaJub"] || ""; x.tar[t] = (x.tar[t] || 0) + 1;
+    });
+    const hoyMs = Date.now();
+    const filas = lotes.map(r => {
+      const f = r.fields || {}, folio = f["fldIFndeRlKpgZ9Lm"] || "", x = por[folio] || { n:0, ent:0, Verde:0, Amarillo:0, Rojo:0, porCorr:0, tar:{} };
+      const fecha = f["fld2wK6WAkhytfTe9"] || "";
+      const dias = fecha ? Math.max(0, Math.floor((hoyMs - new Date(fecha + "T00:00:00").getTime()) / 864e5)) : 0;
+      return { folio, cliente:f["fldIGhsunY5DRSUjD"] || "", fecha, dias, x, enCS:x.n - x.ent };
+    }).filter(l => l.enCS > 0).sort((a, b) => b.dias - a.dias);
+    sec.classList.remove("hidden");
+    if(!filas.length){ body.innerHTML = '<span style="color:var(--gris-texto,#667)">Sin lotes de inspección pendientes en el C.S.</span>'; return; }
+    const totCS = filas.reduce((a, l) => a + l.enCS, 0);
+    body.innerHTML = `<div style="margin-bottom:8px;color:var(--gris-texto,#667)"><b style="color:inherit">${filas.length}</b> lote(s) con equipos en el C.S. · <b>${totCS}</b> equipo(s) por entregar</div>
+      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">
+      <thead><tr style="text-align:left;font-size:0.72rem;text-transform:uppercase;letter-spacing:.4px;color:#667">
+        <th style="padding:6px 8px">Lote</th><th style="padding:6px 8px">Cliente</th><th style="padding:6px 8px;text-align:center">En C.S.</th><th style="padding:6px 8px;text-align:center">Entregados</th>
+        <th style="padding:6px 8px">Semáforo</th><th style="padding:6px 8px">Por corregir</th><th style="padding:6px 8px">Tarimas en C.S.</th><th style="padding:6px 8px;text-align:right">Días</th></tr></thead><tbody>${
+      filas.map(l => {
+        const tars = Object.keys(l.x.tar).sort((a, b) => a.localeCompare(b, "es", { numeric:true })).map(t => (t ? "T" + esc(t) : "S/T") + " (" + l.x.tar[t] + ")").join(", ");
+        const colD = l.dias >= 15 ? "#c62828" : l.dias >= 8 ? "#b26a00" : "inherit";
+        return `<tr class="lote-cs-row" onclick="window.location.href='inspeccion_lote.html?lote=${encodeURIComponent(l.folio)}'" style="cursor:pointer;border-top:1px solid rgba(128,128,128,.25)">
+          <td style="padding:7px 8px"><b>${esc(l.folio)}</b></td><td style="padding:7px 8px">${esc(l.cliente)}</td>
+          <td style="padding:7px 8px;text-align:center"><b>${l.enCS}</b> <span style="color:#667">de ${l.x.n}</span></td><td style="padding:7px 8px;text-align:center">${l.x.ent}</td>
+          <td style="padding:7px 8px;white-space:nowrap"><span style="color:#2e7d32">&#9679;</span> ${l.x.Verde} &nbsp;<span style="color:#e0a800">&#9679;</span> ${l.x.Amarillo} &nbsp;<span style="color:#c62828">&#9679;</span> ${l.x.Rojo}</td>
+          <td style="padding:7px 8px">${l.x.porCorr || "—"}</td><td style="padding:7px 8px">${tars || "—"}</td>
+          <td style="padding:7px 8px;text-align:right;font-weight:700;color:${colD}">${l.dias}</td></tr>`;
+      }).join("")}</tbody></table></div>`;
+  }catch(e){
+    sec.classList.add("hidden");   // si falla, el resto del dashboard sigue igual
+  }
 }
 
 async function fetchBorradores(){
@@ -2739,6 +2824,7 @@ async function cargarDatos(){
     borradorLookup = borradores;
     tecnicosList = tecnicos;
     allTareasPlan = tareasPlan;
+    cargarLotesCS();
     poblarFiltroHP();
     aplicarFiltros();
     tsActualizacion = new Date();

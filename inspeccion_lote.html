@@ -190,6 +190,12 @@ textarea{min-height:70px;resize:vertical}
       <div class="serie-full" id="serieFull">—</div>
     </div>
     <div class="sub" id="serieHint" style="margin-top:6px"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
+      <label class="l" for="inTarima" style="margin:0">Tarima</label>
+      <input type="text" id="inTarima" inputmode="numeric" autocomplete="off" placeholder="1" style="width:90px" aria-label="Tarima">
+      <button class="btn sm" id="btnNuevaTarima" type="button">+ Nueva tarima</button>
+      <span class="sub" id="tarimaHint"></span>
+    </div>
   </div>
 
   <div class="card">
@@ -245,7 +251,9 @@ textarea{min-height:70px;resize:vertical}
     </div>
   </div>
   <div class="card hidden" id="pnlFaltantes"></div>
+  <div class="card hidden" id="pnlEntrega"></div>
   <div class="filtros" id="filtros"></div>
+  <div class="filtros" id="filtrosTar"></div>
   <input type="text" id="inBuscar" placeholder="Buscar número de serie" style="margin-bottom:10px">
   <div id="pnlLista"></div>
 </section>
@@ -258,15 +266,18 @@ textarea{min-height:70px;resize:vertical}
 const T_LOTES = "tbly6Jmx238oOh8RP", T_EQ = "tblVh5uHd4yitMxJd";
 const FL = { folio:"fldIFndeRlKpgZ9Lm", cliente:"fldIGhsunY5DRSUjD", usuario:"fldq7hXLVO84yg8Vj", fecha:"fld2wK6WAkhytfTe9",
   estado:"fldPdvHGLLrLsUJKh", total:"fldVK4621yC4jglVd", serieMin:"fldpLovAP0q8N5uUu", serieMax:"fldjFu7eN2pgG3Myx",
-  servicio:"fldTUMK7JZPREbhFw", config:"fld5KOKjbM54G5yyD", creadoPor:"fldW37k8fo4oCPcXR", fechaCierre:"fldoG35zAuaagdvVG" };
+  servicio:"fldTUMK7JZPREbhFw", config:"fld5KOKjbM54G5yyD", creadoPor:"fldW37k8fo4oCPcXR", fechaCierre:"fldoG35zAuaagdvVG",
+  remisiones:"fld17bCOsRGlS6ark", fotosRem:"fldOjmsgR2n5nvW4c" };
 const FE = { serie:"fldRgnJ0Xfe4Kqg0X", lote:"fldjXbOQ2cDmmCzUU", semaforo:"fldtmjf5VGOdqv12l", defectos:"fldNxghr4B9QNzbOc",
   otro:"fldZ6hG6tcdjgg4OQ", notas:"fldw7vhUyfABwD2rK", decision:"fldMnjRw2NhlzzgpI", fPlaca:"fldq1bVLKmFdTnqF7",
   fCaja:"fldi78FspftLm1W9E", fPatas:"fldngoNQYWXmbmBlH", fDefecto:"fldQM0MSxVrXkZ6Gs", por:"fld1sE4gACd97mOm6",
   fecha:"fld16pT2lX8xc7r7O", clientId:"fld6vfa4MGsD54Yft",
-  corregido:"fldo9HEeEPDTDMO1H", fDespues:"fldJgrOehBTxjr7WS", fechaCorr:"fldKMzcQzHWbJb0cM", corrPor:"fld3sWJSvzyLbnYj2" };
+  corregido:"fldo9HEeEPDTDMO1H", fDespues:"fldJgrOehBTxjr7WS", fechaCorr:"fldKMzcQzHWbJb0cM", corrPor:"fld3sWJSvzyLbnYj2",
+  tarima:"fldvChe4YbtkDaJub", entregado:"fldTg011aGHqhvjCI", fechaEntrega:"fld8KdxccB15LTIWy", remFolio:"fldek6DsfuF7BEmdX" };
+const T_ORDENES = "tblcyGwDeOORxELJg", FO_REMISION = "fldefjJlNZIHGaqZg";   // las remisiones de órdenes y de lotes comparten la numeración REM####
 const SLOT_FIELD = { placa:FE.fPlaca, caja:FE.fCaja, patas:FE.fPatas, defecto:FE.fDefecto, despues:FE.fDespues };
 const DEFECTOS = ["Aletas sin pintura","Escurrimiento","Pintura desprendida","Golpe","Flecha","Otro"];
-const EQ_LIGERO = [FE.serie,FE.lote,FE.semaforo,FE.defectos,FE.otro,FE.notas,FE.decision,FE.por,FE.fecha,FE.clientId,FE.corregido,FE.fechaCorr,FE.corrPor];
+const EQ_LIGERO = [FE.serie,FE.lote,FE.semaforo,FE.defectos,FE.otro,FE.notas,FE.decision,FE.por,FE.fecha,FE.clientId,FE.corregido,FE.fechaCorr,FE.corrPor,FE.tarima,FE.entregado,FE.fechaEntrega,FE.remFolio];
 const PLACA_CAMPOS = [["marca","Marca"],["noCat","No. cat."],["spec","SPEC"],["hp","HP / kW"],["volts","Volts"],["amps","Amps"],["rpm","R.P.M."],
   ["hz","Hz / Fases"],["armazon","Armazón / Frame"],["encl","Enclaustrado"],["fServ","F. servicio"],["ipClase","I.P. / Clase"],
   ["efic","Eficiencia nom."],["rodam","Rodamientos"],["peso","Peso"],["regimen","Régimen"],["anio","Año"],["hecho","Hecho en"]];
@@ -351,7 +362,7 @@ const idbDel = (st, k) => idb(st, "readwrite", s => s.delete(k));
 const idbAllEquipos = () => idb("equipos", "readonly", s => s.getAll());   // solo metadatos, sin fotos
 
 /* ====== Estado ====== */
-const S = { ses:null, admin:false, lotes:[], conteos:{}, lote:null, cfg:null, server:new Map(), local:new Map(),
+const S = { filtroTar:"", visibles:[], ses:null, admin:false, lotes:[], conteos:{}, lote:null, cfg:null, server:new Map(), local:new Map(),
   f:null, th:new Map(), syncing:false, filtro:"todos", buscar:"", vista:"lista", pollT:null, editSrv:null };
 
 function vista(v){
@@ -374,13 +385,13 @@ function parseLote(rec){
   try{ cfg = JSON.parse(f[FL.config] || "{}"); }catch(e){}
   return { id:rec.id, folio:f[FL.folio] || "", cliente:f[FL.cliente] || "", usuario:f[FL.usuario] || "", fecha:f[FL.fecha] || "",
     estado:f[FL.estado] || "Abierto", total:f[FL.total] || 0, serieMin:f[FL.serieMin] || "", serieMax:f[FL.serieMax] || "",
-    servicio:f[FL.servicio] || "", cfg };
+    servicio:f[FL.servicio] || "", cfg, fotosRem:f[FL.fotosRem] || [], remisiones:(() => { try{ const v = JSON.parse(f[FL.remisiones] || "[]"); return Array.isArray(v) ? v : []; }catch(e){ return []; } })() };
 }
 function parseEq(rec){
   const f = rec.fields || {};
   return { recordId:rec.id, clientId:f[FE.clientId] || "", serie:f[FE.serie] || "", lote:f[FE.lote] || "", semaforo:f[FE.semaforo] || "",
     defectos:f[FE.defectos] || [], otro:f[FE.otro] || "", notas:f[FE.notas] || "", decision:f[FE.decision] || "", por:f[FE.por] || "",
-    fecha:f[FE.fecha] || "", corregido:!!f[FE.corregido], fechaCorr:f[FE.fechaCorr] || "", corrPor:f[FE.corrPor] || "",
+    fecha:f[FE.fecha] || "", tarima:f[FE.tarima] || "", entregado:!!f[FE.entregado], fechaEntrega:f[FE.fechaEntrega] || "", remFolio:f[FE.remFolio] || "", corregido:!!f[FE.corregido], fechaCorr:f[FE.fechaCorr] || "", corrPor:f[FE.corrPor] || "",
     fotos:{ placa:f[FE.fPlaca] || [], caja:f[FE.fCaja] || [], patas:f[FE.fPatas] || [], defecto:f[FE.fDefecto] || [], despues:f[FE.fDespues] || [] }, sync:"listo" };
 }
 async function cargarLotes(){
@@ -388,25 +399,27 @@ async function cargarLotes(){
   try{
     const [recs, eqs] = await Promise.all([
       fetchAll(T_LOTES, "returnFieldsByFieldId=true"),
-      fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", "fields[]":[FE.lote, FE.semaforo] }))
+      fetchAll(T_EQ, qs({ returnFieldsByFieldId:"true", "fields[]":[FE.lote, FE.semaforo, FE.entregado] }))
     ]);
     S.lotes = recs.map(parseLote).sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)) || numSerie(b.folio, a.folio));
     S.conteos = {};
-    eqs.forEach(r => { const f = r.fields || {}, l = f[FE.lote] || "", s = f[FE.semaforo] || ""; const c = S.conteos[l] || (S.conteos[l] = { n:0, Verde:0, Amarillo:0, Rojo:0 }); c.n++; if(s) c[s]++; });
+    eqs.forEach(r => { const f = r.fields || {}, l = f[FE.lote] || "", s = f[FE.semaforo] || ""; const c = S.conteos[l] || (S.conteos[l] = { n:0, Verde:0, Amarillo:0, Rojo:0, ent:0 }); c.n++; if(s) c[s]++; if(f[FE.entregado]) c.ent++; });
     pintarLotes();
   }catch(e){ $("listaLotes").innerHTML = '<p class="err-msg">No se pudieron cargar los lotes: ' + esc(e.message) + '</p>'; }
 }
 function pintarLotes(){
   if(!S.lotes.length){ $("listaLotes").innerHTML = '<div class="card"><p class="muted">Todavía no hay lotes. ' + 'Crea el primero con "Nuevo lote".' + '</p></div>'; return; }
   $("listaLotes").innerHTML = S.lotes.map(l => {
-    const c = S.conteos[l.folio] || { n:0, Verde:0, Amarillo:0, Rojo:0 };
+    const c = S.conteos[l.folio] || { n:0, Verde:0, Amarillo:0, Rojo:0, ent:0 };
+    const enCS = c.n - (c.ent || 0), dias = l.fecha ? Math.max(0, Math.floor((Date.now() - new Date(l.fecha + "T00:00:00").getTime()) / 864e5)) : 0;
+    const csTxt = !c.n ? "" : enCS === 0 ? '<span class="badge" style="background:var(--verde-bg);color:var(--verde)">Entregado completo</span>' : (c.ent ? '<span class="badge" style="background:#fff4cc;color:#8a6d00">Entrega parcial</span> ' : "") + '<span class="badge">En C.S.: ' + enCS + (enCS === c.n ? "" : " de " + c.n) + " · " + dias + " d</span>";
     const pct = l.total ? Math.min(100, Math.round(c.n * 100 / l.total)) : 0;
     return `<div class="card lote-card" data-id="${l.id}">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b style="font-size:1.1rem">${esc(l.folio)} · ${esc(l.cliente)}</b>
       <span class="badge ${l.estado === "Cerrado" ? "ce" : "ab"}">${esc(l.estado)}</span></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="cnts"><span>${l.total ? c.n + " de " + l.total : c.n + " capturados"}</span><span><span class="dot Verde"></span>${c.Verde}</span><span><span class="dot Amarillo"></span>${c.Amarillo}</span><span><span class="dot Rojo"></span>${c.Rojo}</span></div>
-      <div class="sub">${esc(l.fecha)}${l.usuario ? " · " + esc(l.usuario) : ""}</div></div>`;
+      <div class="sub">${esc(l.fecha)}${l.usuario ? " · " + esc(l.usuario) : ""}</div>${csTxt ? '<div style="margin-top:6px">' + csTxt + "</div>" : ""}</div>`;
   }).join("");
   document.querySelectorAll(".lote-card").forEach(el => el.onclick = () => abrirLote(el.dataset.id));
 }
@@ -512,7 +525,7 @@ function todos(){
   return [...m.values()];
 }
 const miNombre = () => (S.ses && (S.ses.nombre || S.ses.usuario)) || "";
-function puedeBorrar(e){ return S.lote && S.lote.estado !== "Cerrado" && (S.admin || (!!e.por && e.por === miNombre())); }
+function puedeBorrar(e){ return S.lote && S.lote.estado !== "Cerrado" && !e.entregado && (S.admin || (!!e.por && e.por === miNombre())); }
 async function borrarEquipo(key){
   const e = todos().find(x => (x.clientId || x.recordId) === key); if(!e) return false;
   const loc = S.local.get(e.clientId);
@@ -592,6 +605,7 @@ $("btnAbc").onclick = () => { const i = $("inSerie"); i.inputMode = i.inputMode 
 function nuevoEquipoForm(sinBorrador){
   S.f = { clientId:uid(), semaforo:"", defectos:new Set(), otro:"", notas:"", fotos:{ placa:[], caja:[], patas:[], defecto:[] }, existentes:{ placa:[], caja:[], patas:[], defecto:[] }, quitar:new Set(), recordId:null, fecha:"", edit:false };
   $("inSerie").value = ""; $("inOtro").value = ""; $("inNotas").value = ""; $("capErr").textContent = "";
+  $("inTarima").value = tarimaActual();
   $("capEditBanner").classList.add("hidden"); $("btnCancelEdit").classList.add("hidden");
   $("inSerie").inputMode = baseSerie() ? "numeric" : "text"; $("btnAbc").textContent = baseSerie() ? "ABC" : "123";
   if(!sinBorrador) restaurarBorrador();
@@ -600,7 +614,7 @@ function pintarCaptura(){
   pintarCounts($("capCnts"), contar(todos()));
   const c = contar(todos()); $("capBar").style.width = (S.lote.total ? Math.min(100, Math.round(c.n * 100 / S.lote.total)) : 0) + "%";
   $("capSub").textContent = S.lote.estado === "Cerrado" ? "Este lote está CERRADO. Para seguir capturando, reábrelo desde el panel." : (!S.lote.total ? "Sin cantidad esperada: captura hasta terminar y cierra el lote" : S.lote.total - c.n > 0 ? "Faltan " + (S.lote.total - c.n) + " por capturar" : "Lote completo");
-  pintarSerie(); pintarSlots(); pintarSemaforo(); pintarSync();
+  pintarSerie(); pintarSlots(); pintarSemaforo(); pintarSync(); pintarTarimaHint();
 }
 const SLOTS_STD = [["placa", "Placa"], ["caja", "Caja de conexiones"], ["patas", "Patas / base"]];
 function thumbHtml(id){ const u = S.th.get(id); return u ? `<img src="${u}" alt="">` : ""; }
@@ -816,12 +830,13 @@ async function guardarEquipo(){
   const serie = calcSerie($("inSerie").value);
   const eq = { clientId:f.clientId, lote:S.lote.folio, serie, semaforo:f.semaforo, defectos:f.semaforo === "Verde" ? [] : [...f.defectos],
     otro:(f.defectos.has("Otro") && f.semaforo !== "Verde") ? f.otro.trim() : "", notas:f.notas.trim(), por:f.por || (S.ses.nombre || S.ses.usuario || ""),
-    fecha:f.fecha || new Date().toISOString(), fotos:f.fotos, subidas:{}, sync:"pendiente", recordId:f.recordId, patch:!!f.recordId, intentoCrear:false, intentos:0 };
+    fecha:f.fecha || new Date().toISOString(), tarima:$("inTarima").value.trim().toUpperCase(), fotos:f.fotos, subidas:{}, sync:"pendiente", recordId:f.recordId, patch:!!f.recordId, intentoCrear:false, intentos:0 };
   if(f.recordId && f.quitar.size){   // fotos guardadas que se quitaron/reemplazaron: se manda la lista de las que se conservan
     eq.keep = {}; for(const k of Object.keys(f.existentes)) if(f.existentes[k].some(a => f.quitar.has(a.id))) eq.keep[k] = exVivas(k).map(a => a.id);
   }
   await idbPut("equipos", eq); S.local.set(eq.clientId, eq);
   if(!f.edit) localStorage.setItem("si_insp_ult_" + S.lote.folio, serie);
+  try{ localStorage.setItem("si_insp_tar_" + S.lote.folio, eq.tarima); }catch(er){}
   if(!f.edit) localStorage.removeItem(kBorr()); const n = contar(todos()).n;
   toast("Guardado " + serie + " · " + txtN(n)); const eraEdit = f.edit;
   nuevoEquipoForm(); pintarCaptura(); syncCola();
@@ -833,7 +848,7 @@ $("btnGuardar").onclick = guardarEquipo;
 function blobB64(b){ return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(b); }); }
 async function subirEquipo(e){
   const fields = { [FE.serie]:e.serie, [FE.lote]:e.lote, [FE.semaforo]:e.semaforo, [FE.defectos]:e.defectos, [FE.otro]:e.otro || "", [FE.notas]:e.notas || "",
-    [FE.por]:e.por || "", [FE.fecha]:e.fecha, [FE.clientId]:e.clientId };
+    [FE.por]:e.por || "", [FE.fecha]:e.fecha, [FE.clientId]:e.clientId, [FE.tarima]:e.tarima || "" };
   if(e.keep) for(const k of Object.keys(e.keep)) fields[SLOT_FIELD[k]] = e.keep[k].map(id => ({ id }));
   if(e.tipo === "corr"){   // corrección de un amarillo: solo se tocan los campos de corrección del equipo ya existente
     if(e.patch){
@@ -929,17 +944,24 @@ function pintarPanel(){
   if(fa && fa.length){ box.classList.remove("hidden"); box.innerHTML = `<b>Faltan ${fa.length} número(s) del rango ${esc(L.serieMin)} a ${esc(L.serieMax)}</b><div class="sub" style="margin-top:6px">${esc(fa.slice(0, 60).join(", "))}${fa.length > 60 ? "…" : ""}</div>`; } else box.classList.add("hidden");
   const amar = arr.filter(e => e.semaforo === "Amarillo"), nCorr = amar.filter(e => e.corregido).length;
   const f = S.filtro, defs = [["todos", "Todos " + c.n], ["Verde", "Verde " + c.Verde], ["Amarillo", "Amarillo " + c.Amarillo], ["Rojo", "Rojo " + c.Rojo], ["pend", "Por subir " + pendientes().length]];
+  const nEnt = arr.filter(e => e.entregado).length; if(nEnt){ defs.push(["enCS", "En C.S. " + (arr.length - nEnt)]); defs.push(["entregados", "Entregados " + nEnt]); }
   if(c.Amarillo) defs.splice(4, 0, ["porCorr", "Por corregir " + (c.Amarillo - nCorr)]);
   $("filtros").innerHTML = defs.map(([k, n]) => `<button class="fil ${f === k ? "on" : ""}" data-f="${k}">${n}</button>`).join("");
   document.querySelectorAll(".fil").forEach(el => el.onclick = () => { S.filtro = el.dataset.f; pintarPanel(); });
   const b = S.buscar.trim().toUpperCase();
-  const pasa = e => f === "todos" || (f === "pend" ? e.sync && e.sync !== "listo" : f === "porCorr" ? e.semaforo === "Amarillo" && !e.corregido : e.semaforo === f);
+  const ft = S.filtroTar;
+  const pasa = e => (ft === "" || (e.tarima || "") === (ft === "__sin" ? "" : ft)) && (f === "todos" || f === "enCS" && !e.entregado || f === "entregados" && e.entregado || (f === "pend" ? e.sync && e.sync !== "listo" : f === "porCorr" ? e.semaforo === "Amarillo" && !e.corregido : e.semaforo === f));
   let lista = arr.filter(e => pasa(e) && (!b || e.serie.toUpperCase().includes(b)));
-  lista.sort((x, y) => numSerie(x.serie, y.serie));
+  lista.sort((x, y) => numSerie(x.serie, y.serie)); S.visibles = lista;
+  const tars = tarimasInfo(arr);
+  $("filtrosTar").innerHTML = tars.length > 1 || (tars[0] && tars[0].t) ? [["", "Todas las tarimas"], ...tars.map(x => [x.t || "__sin", x.t ? "Tarima " + x.t + " · " + x.n : "Sin tarima · " + x.n])].map(([k, n]) => `<button class="fil ${ft === k ? "on" : ""}" data-t="${esc(k)}">${esc(n)}</button>`).join("") : "";
+  document.querySelectorAll("#filtrosTar .fil").forEach(el => el.onclick = () => { S.filtroTar = el.dataset.t; pintarPanel(); });
+  pintarEntrega(arr);
   $("pnlLista").innerHTML = lista.slice(0, 400).map(e => {
     const k = esc(e.clientId || e.recordId), st = e.sync || "listo";
     const dec = (S.admin && e.semaforo === "Rojo" && e.recordId) ? `<select class="decSel" data-r="${e.recordId}" style="width:auto;padding:5px"><option value="">Decisión…</option>${["Pendiente", "Reparar", "Regresar"].map(o => `<option ${e.decision === o ? "selected" : ""}>${o}</option>`).join("")}</select>` : (e.semaforo === "Rojo" && e.decision ? `<span class="badge">${esc(e.decision)}</span>` : "");
-    const inc = serieIncompleta(e.serie) ? `<span class="badge" style="background:var(--rojo-bg);color:var(--rojo)">Serie incompleta · corrígela con Editar</span>` : "";
+    const tarB = (e.tarima ? `<span class="badge">Tarima ${esc(e.tarima)}</span>` : "") + (e.entregado ? `<span class="badge" style="background:var(--verde-bg);color:var(--verde)">Entregado ${esc(e.remFolio || "")}</span>` : "");
+    const inc = tarB + (serieIncompleta(e.serie) ? `<span class="badge" style="background:var(--rojo-bg);color:var(--rojo)">Serie incompleta · corrígela con Editar</span>` : "");
     const corr = inc + (e.semaforo !== "Amarillo" ? "" : e.corregido ? `<span class="badge corr">✓ Corregido${e.corrSync ? " (subiendo)" : ""}</span>` : "");
     const acc = [];
     if(L.estado !== "Cerrado") acc.push(`<button class="btn sm" data-e="${k}">Editar</button>`);
@@ -962,7 +984,7 @@ async function editarEquipo(key){
   if(e.sync && e.sync !== "listo"){ toast("Este equipo todavía se está subiendo. Espera a que diga Guardado.", true); return; }
   guardarBorrador(); nuevoEquipoForm(true); const f = S.f;
   f.edit = true; f.clientId = e.clientId || uid(); f.recordId = e.recordId || null; f.semaforo = e.semaforo; f.defectos = new Set(e.defectos || []); f.otro = e.otro || ""; f.notas = e.notas || ""; f.por = e.por; f.fecha = e.fecha;
-  $("inSerie").value = e.serie; $("inOtro").value = f.otro; $("inNotas").value = f.notas; $("inSerie").inputMode = "text";
+  $("inSerie").value = e.serie; $("inOtro").value = f.otro; $("inNotas").value = f.notas; $("inSerie").inputMode = "text"; $("inTarima").value = e.tarima || "";
   if(e.recordId){
     try{ const j = await at(T_EQ, { recordId:e.recordId, params:"returnFieldsByFieldId=true" });
       const g = j.fields || {}; f.existentes = { placa:g[FE.fPlaca] || [], caja:g[FE.fCaja] || [], patas:g[FE.fPatas] || [], defecto:g[FE.fDefecto] || [] };
@@ -1084,6 +1106,219 @@ $("btnBorrarLote").onclick = async () => {
   finally{ btn.disabled = false; }
 };
 
+/* ====== Tarimas, control En C.S. y entrega (remisión) del lote ====== */
+function tarimaActual(){ try{ return localStorage.getItem("si_insp_tar_" + S.lote.folio) || ""; }catch(e){ return ""; } }
+function pintarTarimaHint(){
+  const t = $("inTarima").value.trim().toUpperCase(), h = $("tarimaHint"); if(!h) return;
+  if(!t){ h.textContent = "Opcional: agrupa los motores por tarima"; return; }
+  const n = todos().filter(e => (e.tarima || "") === t && !(S.f && S.f.edit && (e.clientId || e.recordId) === (S.f.clientId || S.f.recordId))).length;
+  h.textContent = "Ya capturados en la tarima " + t + ": " + n;
+}
+$("inTarima").oninput = pintarTarimaHint;
+$("btnNuevaTarima").onclick = () => {
+  const nums = todos().map(e => parseInt(e.tarima, 10)).filter(n => !isNaN(n));
+  const n = Math.max(0, ...nums, parseInt($("inTarima").value, 10) || 0) + 1;
+  $("inTarima").value = String(n); try{ localStorage.setItem("si_insp_tar_" + S.lote.folio, String(n)); }catch(e){} pintarTarimaHint();
+};
+function tarimasInfo(arr){
+  const m = new Map();
+  arr.forEach(e => { const t = e.tarima || ""; const x = m.get(t) || { t, n:0, ent:0, Verde:0, Amarillo:0, Rojo:0 }; x.n++; if(e.entregado) x.ent++; if(x[e.semaforo] != null) x[e.semaforo]++; m.set(t, x); });
+  return [...m.values()].sort((a, b) => numSerie(a.t, b.t));
+}
+const tarKey = t => t || "__sin", tarNom = t => t ? "Tarima " + t : "Sin tarima";
+
+function pintarEntrega(arr){
+  const box = $("pnlEntrega"), L = S.lote;
+  if(!S.admin){ box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const enCS = arr.filter(e => !e.entregado).length, ts = tarimasInfo(arr), rems = L.remisiones || [];
+  const dias = L.fecha ? Math.max(0, Math.floor((Date.now() - new Date(L.fecha + "T00:00:00").getTime()) / 864e5)) : 0;
+  box.innerHTML = `<h2 style="margin:0 0 6px">Control en C.S. y entrega</h2>
+    <div class="sub">En C.S.: <b>${enCS}</b> · Entregados: <b>${arr.length - enCS}</b> de ${arr.length} · ${dias} día(s) desde el ingreso</div>
+    <div style="margin-top:8px">${ts.map(x => `<div class="row" style="flex-wrap:wrap"><b style="min-width:110px">${esc(tarNom(x.t))}</b><span class="d">${x.n} equipo(s) · <span class="dot Verde"></span>${x.Verde} <span class="dot Amarillo"></span>${x.Amarillo} <span class="dot Rojo"></span>${x.Rojo} · ${x.ent === x.n ? "<b style='color:var(--verde)'>entregada</b>" : "en C.S.: " + (x.n - x.ent)}</span>
+      ${x.n - x.ent ? `<button class="btn sm ok" data-ent="${esc(tarKey(x.t))}">Entregar</button>` : ""}</div>`).join("")}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+      <button class="btn pri" id="btnEntregar"${enCS ? "" : " disabled"}>Entregar y generar remisión…</button>
+      <button class="btn" id="btnAsigTar">Asignar tarima a los equipos de la lista</button>
+    </div>
+    ${rems.length ? `<div style="margin-top:12px"><label class="l" style="margin-top:0">Remisiones de este lote</label>${rems.map((r, i) => `<div class="row" style="flex-wrap:wrap"><b>${esc(r.folioRemision)}</b><span class="d">${esc(r.fechaEntrega || "")} · ${r.total || (r.series || []).length} equipo(s)${r.tarimas && r.tarimas.length ? " · " + esc(r.tarimas.map(tarNom).join(", ")) : ""}</span><button class="btn sm" data-rv="${i}">Ver / imprimir</button><button class="btn sm" data-rf="${i}">+ Foto firmada</button></div>`).join("")}
+      ${(L.fotosRem || []).length ? `<div class="sub" style="margin-top:6px">Remisiones firmadas: ${(L.fotosRem || []).map((a, i) => `<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.filename || "foto " + (i + 1))}</a>`).join(" · ")}</div>` : ""}</div>` : ""}`;
+  box.querySelectorAll("[data-ent]").forEach(el => el.onclick = () => abrirEntrega(new Set([el.dataset.ent])));
+  $("btnEntregar").onclick = () => abrirEntrega(null);
+  $("btnAsigTar").onclick = asignarTarima;
+  box.querySelectorAll("[data-rv]").forEach(el => el.onclick = () => imprimirRemision(rems[Number(el.dataset.rv)]));
+  box.querySelectorAll("[data-rf]").forEach(el => el.onclick = () => subirRemisionFirmada(rems[Number(el.dataset.rf)]));
+}
+
+async function asignarTarima(){
+  const lista = (S.visibles || []).filter(e => e.recordId);
+  if(!lista.length){ toast("No hay equipos guardados en la lista actual.", true); return; }
+  if(lista.length < (S.visibles || []).length) toast("Los equipos que aún se están subiendo no se incluyen.", true);
+  const t = prompt("Tarima para los " + lista.length + " equipos que se ven en la lista (usa los filtros para elegir cuáles).\nDeja vacío para quitar la tarima:", "");
+  if(t == null) return;
+  const val = t.trim().toUpperCase();
+  try{
+    for(let i = 0; i < lista.length; i += 10){
+      await at(T_EQ, { method:"PATCH", body:{ records:lista.slice(i, i + 10).map(e => ({ id:e.recordId, fields:{ [FE.tarima]:val } })) } }); await sleep(220);
+    }
+    await cargarServer(); toast("Tarima asignada a " + lista.length + " equipo(s)"); pintarPanel();
+  }catch(e){ toast("No se pudo asignar: " + e.message, true); }
+}
+
+async function siguienteFolioRemision(){
+  let max = 1299;   // misma numeración que las remisiones de órdenes (reportes.html)
+  const [ord, lots] = await Promise.all([
+    fetchAll(T_ORDENES, qs({ returnFieldsByFieldId:"true", "fields[]":[FO_REMISION] })),
+    fetchAll(T_LOTES, qs({ returnFieldsByFieldId:"true", "fields[]":[FL.remisiones] }))
+  ]);
+  const scan = raw => { let v = []; try{ v = JSON.parse(raw || "[]"); }catch(e){} if(!Array.isArray(v)) v = [v]; v.forEach(r => { const m = /^REM(\d+)$/.exec((r && r.folioRemision) || ""); if(m) max = Math.max(max, parseInt(m[1], 10)); }); };
+  ord.forEach(r => scan((r.fields || {})[FO_REMISION])); lots.forEach(r => scan((r.fields || {})[FL.remisiones]));
+  return "REM" + (max + 1);
+}
+
+function estadoEntrega(e){ return e.semaforo === "Verde" ? "Sin observaciones" : e.semaforo === "Amarillo" ? (e.corregido ? "Corregido" : "Con observaciones") : e.semaforo === "Rojo" ? (e.decision === "Regresar" ? "Sin reparar (devolución)" : "Sin reparar") : "—"; }
+
+async function abrirEntrega(pre){
+  const L = S.lote, arr = todos();
+  if(pendientes().length){ toast("Hay equipos que aún se están subiendo. Espera a que terminen.", true); return; }
+  const pend = arr.filter(e => !e.entregado);
+  if(!pend.length){ toast("Todos los equipos de este lote ya se entregaron."); return; }
+  const info = tarimasInfo(pend), sel = new Set(pre || info.map(x => tarKey(x.t)));
+  const cfg = L.cfg || {}, p = cfg.placa || {};
+  const m = document.createElement("div"); m.className = "modal alto";
+  const hoy = hoyISO(); let folioEditado = false;
+  m.innerHTML = `<div style="max-width:620px">
+    <h2 style="margin:0 0 4px;color:var(--azul)">Entrega · ${esc(L.folio)}</h2>
+    <div class="sub">Se genera la remisión de entrega con el mismo formato que las demás y los equipos pasan a "Entregado".</div>
+    <label class="l">Qué se entrega</label>
+    <div id="enTars">${info.map(x => `<div class="checkrow"><input type="checkbox" data-tk="${esc(tarKey(x.t))}" id="enT_${esc(tarKey(x.t))}"><label for="enT_${esc(tarKey(x.t))}"><b>${esc(tarNom(x.t))}</b> · ${x.n} por entregar (${x.Verde} verdes, ${x.Amarillo} amarillos, ${x.Rojo} rojos)</label></div>`).join("")}</div>
+    <div id="enSum" class="sub" style="margin-top:6px"></div>
+    <div class="grid2" style="margin-top:8px">
+      <div><label class="l" for="enTipo">Tipo de entrega</label><select id="enTipo"><option value="directa">Entrega directa</option><option value="cliente_recoge_cs">Cliente recoge en C.S.</option><option value="paqueteria">Paquetería</option><option value="sitio">Servicio en sitio</option></select></div>
+      <div><label class="l" for="enFolio">Folio de remisión</label><input type="text" id="enFolio" value="Calculando…"></div>
+      <div><label class="l" for="enEmpresa" id="enLblEmp">Cliente</label><input type="text" id="enEmpresa" value="${esc(L.cliente)}"></div>
+      <div><label class="l" for="enContacto" id="enLblCon">Contacto</label><input type="text" id="enContacto" value="${esc(L.usuario || "")}"></div>
+      <div id="enGuiaBox" class="hidden"><label class="l" for="enGuia">Guía / rastreo</label><input type="text" id="enGuia"></div>
+      <div><label class="l" for="enFechaE">Fecha de entrega</label><input type="date" id="enFechaE" value="${hoy}"></div>
+      <div><label class="l" for="enFechaR">Fecha de recibido</label><input type="date" id="enFechaR" value="${hoy}"></div>
+      <div><label class="l" for="enRecibe">Nombre de quien recibe</label><input type="text" id="enRecibe"></div>
+    </div>
+    <label class="l" for="enDesc">Descripción</label><textarea id="enDesc" rows="2"></textarea>
+    <label class="l" for="enServ">Servicios realizados (uno por línea)</label><textarea id="enServ" rows="3"></textarea>
+    <div class="err-msg" id="enErr"></div>
+    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn big pri" id="enGo" style="flex:1">Entregar y generar remisión</button><button class="btn" id="enNo">Cancelar</button></div></div>`;
+  document.body.appendChild(m);
+  const elegidos = () => pend.filter(e => sel.has(tarKey(e.tarima || "")));
+  function pintaSel(){
+    m.querySelectorAll("[data-tk]").forEach(c => c.checked = sel.has(c.dataset.tk));
+    const q = elegidos(), v = q.filter(e => e.semaforo === "Verde").length, a = q.filter(e => e.semaforo === "Amarillo"), r = q.filter(e => e.semaforo === "Rojo");
+    const aSin = a.filter(e => !e.corregido).length, rNo = r.filter(e => e.decision !== "Regresar").length;
+    $("enSum").innerHTML = `<b>${q.length}</b> equipo(s): ${v} verdes, ${a.length} amarillos, ${r.length} rojos.` + (aSin ? ` <span style="color:var(--rojo)">⚠ ${aSin} amarillo(s) sin corregir.</span>` : "") + (rNo ? ` <span style="color:var(--rojo)">⚠ ${rNo} rojo(s) sin decisión "Regresar".</span>` : "");
+    const tars = [...new Set(q.map(e => e.tarima || ""))].sort(numSerie);
+    const eq = (cfg.equipo || "MOTOR").toUpperCase(), partes = [q.length + " " + (q.length === 1 ? eq : eq + (/[RSZ]$/.test(eq) ? "ES" : "S"))];
+    if(p.spec) partes.push(p.spec); if(p.hp) partes.push(p.hp + (/hp|kw/i.test(p.hp) ? "" : " HP")); if(p.volts) partes.push(p.volts + " VOLTS");
+    if(tars.some(Boolean)) partes.push(tars.filter(Boolean).length === 1 ? "TARIMA " + tars.filter(Boolean)[0] : "TARIMAS " + tars.filter(Boolean).join(", "));
+    $("enDesc").value = partes.join(", ") + " (relación de números de serie adjunta)";
+    const sv = ["Inspección visual de pintura y condición general (placa, caja de conexiones, patas, pintura y flecha)."];
+    if(a.filter(e => e.corregido).length) sv.push("Corrección de detalles de pintura en " + a.filter(e => e.corregido).length + " equipo(s).");
+    $("enServ").value = sv.join("\n");
+  }
+  m.querySelectorAll("[data-tk]").forEach(c => c.onchange = () => { if(c.checked) sel.add(c.dataset.tk); else sel.delete(c.dataset.tk); pintaSel(); });
+  const tipo = () => { const p = $("enTipo").value === "paqueteria"; $("enLblEmp").textContent = p ? "Empresa de paquetería" : "Cliente"; $("enLblCon").textContent = p ? "Servicio solicitado por" : "Contacto"; $("enGuiaBox").classList.toggle("hidden", !p); };
+  $("enTipo").onchange = tipo; $("enFolio").oninput = () => { folioEditado = true; };
+  pintaSel();
+  $("enNo").onclick = () => m.remove();
+  siguienteFolioRemision().then(f => { if(!folioEditado) $("enFolio").value = f; }).catch(() => { if(!folioEditado) $("enFolio").value = ""; $("enErr").textContent = "No se pudo calcular el folio; escríbelo a mano."; });
+  $("enGo").onclick = async () => {
+    const q = elegidos(), err = $("enErr"); err.textContent = "";
+    if(!q.length){ err.textContent = "Elige al menos una tarima."; return; }
+    if(q.some(e => !e.recordId)){ err.textContent = "Hay equipos que aún no terminan de subirse."; return; }
+    if(!$("enEmpresa").value.trim()){ err.textContent = "Falta el cliente."; return; }
+    const aSin = q.filter(e => e.semaforo === "Amarillo" && !e.corregido).length, rNo = q.filter(e => e.semaforo === "Rojo" && e.decision !== "Regresar").length;
+    if((aSin || rNo) && !confirm("Se van a entregar " + (aSin ? aSin + " amarillo(s) SIN corregir" : "") + (aSin && rNo ? " y " : "") + (rNo ? rNo + " rojo(s) sin decisión \"Regresar\"" : "") + ".\n\n¿Entregar de todos modos?")) return;
+    const btn = $("enGo"); btn.disabled = true; btn.textContent = "Generando…";
+    const w = window.open("", "_blank");   // se reserva antes de los await para que el navegador no bloquee la ventana
+    try{
+      let folio = $("enFolio").value.trim();
+      if(!folioEditado || !folio) folio = await siguienteFolioRemision();
+      const fechaE = $("enFechaE").value || hoyISO();
+      const tars = [...new Set(q.map(e => e.tarima || ""))].sort(numSerie);
+      const d = { folioRemision:folio, tipoEntrega:$("enTipo").value, empresa:$("enEmpresa").value.trim(), contacto:$("enContacto").value.trim(), guiaRastreo:$("enGuia").value.trim(),
+        descripcionEquipo:$("enDesc").value.trim(), fechaEntrega:fechaE, fechaRecibido:$("enFechaR").value, nombreRecibe:$("enRecibe").value.trim(),
+        serviciosRealizados:$("enServ").value.split("\n").map(x => x.trim()).filter(Boolean), tarimas:tars, total:q.length, fecha:new Date().toISOString(),
+        series:q.slice().sort((a, b) => numSerie(a.serie, b.serie)).map(e => ({ serie:e.serie, tarima:e.tarima || "", estado:estadoEntrega(e) })) };
+      for(let i = 0; i < q.length; i += 10){
+        await at(T_EQ, { method:"PATCH", body:{ records:q.slice(i, i + 10).map(e => ({ id:e.recordId, fields:{ [FE.entregado]:true, [FE.fechaEntrega]:fechaE, [FE.remFolio]:folio } })) } }); await sleep(220);
+      }
+      let avisoHist = "";
+      try{
+        const hist = (L.remisiones || []).concat([d]);
+        await at(T_LOTES, { method:"PATCH", recordId:L.id, body:{ fields:{ [FL.remisiones]:JSON.stringify(hist) } } }); L.remisiones = hist;
+      }catch(er){ avisoHist = " Los equipos ya se marcaron como entregados, pero NO se guardó el historial de la remisión (" + er.message + "). Imprímela ahora."; }
+      m.remove();
+      try{ await cargarServer(); }catch(er){}
+      pintarPanel(); toast("Entrega registrada: " + folio + " · " + q.length + " equipo(s)." + avisoHist, !!avisoHist);
+      imprimirRemision(d, w);
+    }catch(er){ if(w) w.close(); err.textContent = "No se pudo completar la entrega: " + er.message + ". Revisa el panel: puede haber equipos ya marcados; vuelve a intentarlo con el resto."; btn.disabled = false; btn.textContent = "Entregar y generar remisión"; }
+  };
+}
+
+function cssRemision(){ return `@page{size:A4;margin:1.2cm 1.5cm}@media print{.no-print{display:none!important}}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,Helvetica,sans-serif;font-size:9pt;color:#000;background:#fff;line-height:1.45}
+  .rep-logo{border-bottom:2.5px solid #000;padding-bottom:6px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}.rep-logo span{font-size:8.5pt;font-weight:700}
+  .rep-title-cell{font-size:11pt;font-weight:bold;text-align:center;background:#0c1e35;color:#fff;padding:8px 5px;text-transform:uppercase;letter-spacing:.8px}
+  .info-tbl{width:100%;border-collapse:collapse;margin-bottom:12px}.info-tbl td{border:1.5px solid #555;padding:5px 8px;font-size:8.5pt}.info-tbl .lbl{background:#c8d8ee;font-weight:bold;white-space:nowrap}
+  .adh-tbl{width:100%;border-collapse:collapse;margin:6px 0 10px}.adh-tbl td,.adh-tbl th{border:1.5px solid #555;padding:5px 8px;font-size:8.5pt}.adh-tbl th{background:#0c1e35;color:#fff;font-weight:bold}
+  .serv-section{font-size:9.5pt;font-weight:bold;background:#0c1e35;color:#fff;margin:12px 0 5px;padding:6px 10px;break-after:avoid}
+  .rel td,.rel th{padding:3px 8px}.rel tr{break-inside:avoid}.rel thead{display:table-header-group}.firma{break-inside:avoid}
+  .print-bar{padding:10px;background:#eef;border-bottom:1px solid #99a;margin-bottom:10px}.print-bar button{padding:8px 16px;font-size:11pt;cursor:pointer}`; }
+function htmlRemision(d){
+  const esPaq = d.tipoEntrega === "paqueteria", L = S.lote;
+  const fF = s => s ? s.split("-").reverse().join("/") : "—";
+  const fFecha = d.fecha ? new Date(d.fecha).toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric" }) : "—";
+  const rel = (d.series || []).map((x, i) => `<tr><td style="text-align:center">${i + 1}</td><td><b>${esc(x.serie)}</b></td><td style="text-align:center">${esc(x.tarima || "—")}</td><td>${esc(x.estado)}</td></tr>`).join("");
+  return `<div class="rep-logo"><img src="data:image/png;base64,${LOGO_B64}" alt="" style="width:52px"><span>Centro de Servicio</span></div>
+  <table class="info-tbl">
+    <tr><td colspan="4" class="rep-title-cell">REMISIÓN — ${esc(d.folioRemision)}</td></tr>
+    <tr><td class="lbl">${esPaq ? "EMPRESA DE PAQUETERÍA" : "CLIENTE"}:</td><td colspan="3">${esc(d.empresa)}</td></tr>
+    <tr><td class="lbl">${esPaq ? "SERVICIO SOLICITADO POR" : "CONTACTO"}:</td><td colspan="3">${esc(d.contacto) || "—"}</td></tr>
+    <tr><td class="lbl">AGENTE DE REFERENCIA:</td><td>JAZMIN PEREZ</td><td class="lbl">TELÉFONO:</td><td>444 453 80 47</td></tr>
+    <tr><td class="lbl">FECHA:</td><td>${esc(fFecha)}</td><td class="lbl">FOLIO ORDEN:</td><td>${esc(L.folio)}</td></tr>
+    ${esPaq ? `<tr><td class="lbl">GUÍA / RASTREO:</td><td colspan="3">${esc(d.guiaRastreo) || "—"}</td></tr>` : ""}
+  </table>
+  <table class="adh-tbl"><tr><th>CANTIDAD</th><th>UNIDAD</th><th>DESCRIPCIÓN</th><th>FECHA DE ENTREGA</th></tr>
+    <tr><td style="text-align:center">${d.total || (d.series || []).length}</td><td style="text-align:center">SERV</td><td>${esc(d.descripcionEquipo)}</td><td style="text-align:center">${esc(fF(d.fechaEntrega))}</td></tr></table>
+  <div class="serv-section">SERVICIOS REALIZADOS</div>
+  <ul style="margin-left:16px;font-size:8.5pt;margin-bottom:10px">${(d.serviciosRealizados || []).map(x => `<li>${esc(x)}</li>`).join("") || "<li>—</li>"}</ul>
+  <div class="serv-section">RELACIÓN DE EQUIPOS ENTREGADOS (${(d.series || []).length})</div>
+  <table class="adh-tbl rel"><thead><tr><th style="width:12mm">No.</th><th>NÚMERO DE SERIE</th><th style="width:22mm">TARIMA</th><th>ESTADO</th></tr></thead><tbody>${rel}</tbody></table>
+  <div class="firma"><div style="margin-top:24px;font-size:9pt;font-weight:bold">FECHA DE RECIBIDO: ${esc(fF(d.fechaRecibido))}</div>
+  <div style="margin-top:14px;font-size:9pt;font-weight:bold">NOMBRE DE LA PERSONA QUE RECIBE: ${esc(d.nombreRecibe) || "_______________________________"}</div>
+  <div style="margin-top:40px;text-align:center;font-size:9pt;font-weight:bold;border-top:1px solid #000;padding-top:6px;max-width:260px;margin-left:auto;margin-right:auto">FIRMA Y SELLO DE LA EMPRESA</div></div>`;
+}
+function imprimirRemision(d, w){
+  if(!d) return;
+  w = w || window.open("", "_blank");
+  if(!w){ alert("El navegador bloqueó la ventana. Permite ventanas emergentes para este sitio; la remisión ya quedó guardada en el panel del lote (Ver / imprimir)."); return; }
+  w.document.open();
+  w.document.write(`<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Remisión ${esc(d.folioRemision)}</title><style>${cssRemision()}</style></head><body>
+    <div class="print-bar no-print"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>${htmlRemision(d)}</body></html>`);
+  w.document.close(); setTimeout(() => { try{ w.focus(); w.print(); }catch(e){} }, 500);
+}
+function subirRemisionFirmada(r){
+  if(!r) return;
+  pedirArchivo(true, async file => {
+    try{
+      let blob; try{ blob = await comprimir(file, FOTO_DEF); }catch(e){ if(file.size < 4.5e6) blob = file; else throw e; }
+      toast("Subiendo remisión firmada…");
+      const resp = await fetchConReintento(urlUpload(S.lote.id, FL.fotosRem), { method:"POST", headers:hdrs(), body:JSON.stringify({ contentType:"image/jpeg", filename:`${r.folioRemision}_firmada_${Date.now().toString(36).slice(-4)}.jpg`, file:await blobB64(blob) }) });
+      if(!resp.ok){ const j = await resp.json().catch(() => ({})); throw new Error((j.error && (j.error.message || j.error)) || resp.status); }
+      const j = await at(T_LOTES, { recordId:S.lote.id, params:"returnFieldsByFieldId=true" }); S.lote.fotosRem = (j.fields || {})[FL.fotosRem] || [];
+      toast("Remisión firmada guardada"); pintarPanel();
+    }catch(e){ toast("No se pudo subir: " + e.message, true); }
+  });
+}
+
 /* ====== Reporte (PDF por impresión del navegador: carta, vertical) ====== */
 function avisoSeriesIncompletas(){
   const inc = todos().filter(e => serieIncompleta(e.serie)).map(e => e.serie).sort(numSerie);
@@ -1153,7 +1388,7 @@ function htmlReporteCorr(eqs){
   </body></html>`;
 }
 function cssRep(){ return `@page{size:letter;margin:12mm 12mm 14mm;@bottom-center{content:"Hoja " counter(page) " de " counter(pages);font:8pt Arial;color:#555}@bottom-left{content:"CENTRO DE SERVICIO SI";font:7pt Arial;color:#555}}
-  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font:9.5pt Arial,Helvetica,sans-serif;color:#111;margin:0}
+  *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font:9.5pt Arial,Helvetica,sans-serif;color:#111;background:#fff;margin:0}
   table{border-collapse:collapse;width:100%}td,th{border:.6pt solid #777;padding:2.2mm 2.5mm;vertical-align:middle}th{background:#d9e1f2;font-size:8pt;text-align:center}
   .hd td{font-size:9pt;text-align:center}.hd .lg{width:24mm;text-align:center}.hd .lg img{width:19mm}.hd .tt{font-size:15pt;font-weight:700}.hd .st2{font-size:9.5pt;font-weight:700}
   .bar{background:#1f3864;color:#fff;font-weight:700;padding:1.6mm 3mm;margin:5mm 0 0;font-size:10pt;break-after:avoid}
@@ -1167,6 +1402,13 @@ function cssRep(){ return `@page{size:letter;margin:12mm 12mm 14mm;@bottom-cente
   .ph{display:flex;flex-wrap:wrap;gap:2mm;padding:2.5mm}.ph img{height:40mm;width:57mm;object-fit:contain;border:.4pt solid #ccc;background:#fafafa}
   .dc{border-top:.6pt solid #777;padding:2mm 3mm;font-size:9.5pt}.cb{font-size:13pt;vertical-align:-1pt}
   .ev .ph{flex-wrap:nowrap;justify-content:space-between;padding:2mm 3mm}.ev figure{margin:0;width:57mm;text-align:center}.ev figure img{width:57mm;height:30mm}.ev figcaption{font-size:7.5pt;color:#444}.ev .nof{width:57mm;height:30mm;border:.4pt dashed #aaa;color:#999;font-size:8pt;display:flex;align-items:center;justify-content:center}
+  .eqp{margin-top:4mm}.eqp+.eqp{break-before:page}.eqp{break-inside:avoid}
+  .eqh{background:#1f3864;color:#fff;font-weight:700;font-size:10pt;padding:1.6mm 3mm}
+  .defb{display:flex;gap:4mm;align-items:center;border:.6pt solid #777;border-top:0;font-size:9pt}.defb b{background:#f2f2f2;padding:1.6mm 4mm;border-right:.6pt solid #777;align-self:stretch;display:flex;align-items:center}.defb span{flex:1;text-align:center;font-weight:700;padding:1.6mm 2mm}
+  .defb.fv-Verde span{background:#70ad47;color:#fff}.defb.fv-Amarillo span{background:#ffc000;color:#111}.defb.fv-Rojo span{background:#e53935;color:#fff}.defb span{align-self:stretch;display:flex;align-items:center;justify-content:center}
+  .fg{display:grid;grid-template-columns:repeat(3,1fr);border-left:.6pt solid #777;border-top:.6pt solid #777;margin-top:0}
+  .fg figure{margin:0;border-right:.6pt solid #777;border-bottom:.6pt solid #777;text-align:center}.fg figure img,.fg .nof{width:100%;height:58mm;object-fit:contain;display:flex;align-items:center;justify-content:center;background:#fafafa}.fg .nof{color:#999;font-size:8pt;border-bottom:.4pt dashed #bbb}
+  .fg figcaption{background:#e2f0d9;font-weight:700;font-size:7.8pt;padding:1.2mm}.fg .f-defecto figcaption{background:#fde0de}.fg .f-despues figcaption{background:#d9e1f2}
   .pb{break-before:page}`; }
 function htmlReporte(eqs, o){
   const L = S.lote, cfg = L.cfg || {}, p = cfg.placa || {}, c = contar(eqs);
@@ -1182,8 +1424,17 @@ function htmlReporte(eqs, o){
   const rojosHtml = rojos.map(e => `<div class="rj"><div class="rjh"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span>${esc(detalle(e))}</span></div>
       <div class="ph">${fotosHtml(e.fotos.defecto, o.placaRojos ? 2 : 3)}${o.placaRojos ? fotosHtml(e.fotos.placa, 1) : ""}</div>
       <div class="dc">Decisión del cliente: <span class="cb">${e.decision === "Reparar" ? "&#9745;" : "&#9744;"}</span> Reparar &nbsp;&nbsp; <span class="cb">${e.decision === "Regresar" ? "&#9745;" : "&#9744;"}</span> Regresar</div></div>`).join("");
-  const evHtml = eqs.map(e => `<div class="rj ev"><div class="rjh" style="background:#f2f2f2"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span><span class="d ${e.semaforo}"></span>${esc(e.semaforo || "—")}</span></div>
-      <div class="ph">${[["placa", "Placa"], ["caja", "Caja de conexiones"], ["patas", "Patas / base"]].map(([k, n]) => (e.fotos[k] && e.fotos[k][0]) ? `<figure><img src="${esc(urlFoto(e.fotos[k][0]))}" alt=""><figcaption>${n}</figcaption></figure>` : `<figure><div class="nof">Sin foto</div><figcaption>${n}</figcaption></figure>`).join("")}</div></div>`).join("");
+  /* Una hoja por equipo (como el reporte de referencia): encabezado con serie, barra de defectos del color del semáforo y las fotos con su etiqueta */
+  const figs = e => {
+    const L = [];
+    [["placa", "Placa de datos"], ["caja", "Caja de conexiones"], ["patas", "Patas / base de montaje"]].forEach(([k, n]) => L.push([k, n, (e.fotos[k] && e.fotos[k][0]) || null]));
+    (e.fotos.defecto || []).slice(0, 3).forEach((a, x) => L.push(["defecto", "Defecto" + (e.fotos.defecto.length > 1 ? " " + (x + 1) : ""), a]));
+    if(e.corregido) (e.fotos.despues || []).slice(0, 2).forEach((a, x) => L.push(["despues", "Corrección" + (e.fotos.despues.length > 1 ? " " + (x + 1) : ""), a]));
+    return L.map(([k, n, a], x) => `<figure class="f-${k}">${a ? `<img src="${esc(urlFoto(a))}" alt="">` : `<div class="nof">Sin foto</div>`}<figcaption>Foto ${eqs.indexOf(e) + 1}.${x + 1}: ${n}</figcaption></figure>`).join("");
+  };
+  const evHtml = eqs.map(e => `<div class="eqp"><div class="eqh">EQUIPO ${eqs.indexOf(e) + 1} DE ${eqs.length} &nbsp;|&nbsp; N/S: ${esc(e.serie)}</div>
+      <div class="defb fv-${e.semaforo}"><b>DEFECTOS</b><span>${e.semaforo === "Verde" ? "Sin defectos que ameriten rechazo" : esc(detalle(e)) + (e.notas ? " (" + esc(e.notas) + ")" : "")}${e.semaforo === "Amarillo" ? (e.corregido ? " · Corregido" + (e.fechaCorr ? " " + esc(fCortaG(e.fechaCorr)) : "") : " · Por corregir") : ""}</span></div>
+      <div class="fg">${figs(e)}</div></div>`).join("");
   const amarHtml = o.amarillos ? amar.map(e => `<div class="rj"><div class="rjh"><b>Equipo ${eqs.indexOf(e) + 1} · N/S ${esc(e.serie)}</b><span>${esc(detalle(e))}</span></div><div class="ph">${fotosHtml(e.fotos.defecto, 4)}</div></div>`).join("") : "";
   const corregidos = amar.filter(e => e.corregido);
   const fotosC = (arr, max) => arr.slice(0, max).map(a => `<img src="${esc(urlFoto(a))}" alt="">`).join("") || `<p style="font-size:8pt;color:#777;padding:2mm">Sin foto</p>`;
@@ -1206,7 +1457,7 @@ function htmlReporte(eqs, o){
   ${rojos.length ? `<div class="bar pb">${R()}. EQUIPOS QUE REQUIEREN SU AUTORIZACIÓN (${rojos.length})</div><div class="txt" style="font-size:9pt">Estos equipos no se intervendrán hasta recibir su decisión: <b>Reparar</b> o <b>Regresar</b>.</div>${rojosHtml}` : ""}
   ${o.amarillos && amar.length ? `<div class="bar pb">${R()}. ANEXO: DETALLE DE EQUIPOS EN AMARILLO (${amar.length})</div>${amarHtml}` : ""}
   ${corregidos.length ? `<div class="bar pb">${R()}. CORRECCIONES REALIZADAS (${corregidos.length})</div><div class="txt" style="font-size:9pt">Los equipos clasificados en amarillo fueron corregidos en el Centro de Servicio SI. Se muestra la condición inicial detectada en la inspección y la condición final posterior a la corrección.</div>${corrHtml}` : ""}
-  ${eqs.length ? `<div class="bar pb">${R()}. EVIDENCIA FOTOGRÁFICA DE TODOS LOS EQUIPOS (${eqs.length})</div><div class="txt" style="font-size:9pt">Fotografías de placa de datos, caja de conexiones y patas / base de cada equipo inspeccionado, sin importar su resultado.</div>${evHtml}` : ""}
+  ${eqs.length ? `<div class="bar pb">${R()}. EVIDENCIA FOTOGRÁFICA POR EQUIPO (${eqs.length})</div><div class="txt" style="font-size:9pt">Fotografías de placa de datos, caja de conexiones y patas / base de cada equipo inspeccionado, sin importar su resultado, junto con las del defecto y su corrección cuando aplica.</div>${evHtml}` : ""}
   </body></html>`;
 }
 
@@ -1223,6 +1474,7 @@ function htmlReporte(eqs, o){
   try{ (await idbAllEquipos()).forEach(e => S.local.set(e.clientId, e)); }catch(e){ console.warn("IndexedDB no disponible", e); }
   S.local.forEach(e => { if(e.sync === "subiendo"){ e.sync = "pendiente"; } });
   vista("lista"); await cargarLotes();
+  try{ const q = new URLSearchParams(location.search).get("lote"); const l = q && S.lotes.find(x => x.folio === q); if(l){ await abrirLote(l.id); abrirPanel(); } }catch(e){}   // enlace desde el dashboard: ?lote=FOLIO
   if(pendientes().length) syncCola();
 })();
 </script>
