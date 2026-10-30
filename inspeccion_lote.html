@@ -112,7 +112,13 @@ textarea{min-height:70px;resize:vertical}
 #cam .flash.on{opacity:.7;transition:none}
 .camcnt{font-size:.8rem;color:#ddd;text-align:center;min-width:64px}
 .corr-fotos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.corr-fotos img{width:100%;height:110px;object-fit:cover;border-radius:6px;border:1px solid var(--borde)}
+.corr-fotos img{width:100%;height:auto;max-height:300px;object-fit:contain;background:#f1f3f5;border-radius:6px;border:1px solid var(--borde)}
+.corr-fotos .thumbs{display:block}
+.corr-fotos .thumb{width:100%;height:auto;min-height:60px;margin-bottom:6px;background:#f1f3f5}
+.corr-fotos .thumb img{height:auto;max-height:300px;object-fit:contain;border:0}
+@media (max-width:480px){.corr-fotos{grid-template-columns:1fr}}
+.qrbtn{background:transparent;border-color:transparent;color:var(--azul);padding:4px 8px;font-size:1rem;line-height:1}
+.qrbtn:hover{background:#eef4fb;border-color:var(--borde)}
 .modal.alto{align-items:flex-start;overflow-y:auto}
 </style>
 </head>
@@ -245,6 +251,7 @@ textarea{min-height:70px;resize:vertical}
       <button class="btn pri" id="btnSeguirCap">Seguir capturando</button>
       <button class="btn" id="btnReporte">Generar reporte (PDF)</button>
       <button class="btn" id="btnReporteCorr">Reporte de correcciones</button>
+      <button class="btn" id="btnEtiquetasQR">Etiquetas QR</button>
       <button class="btn" id="btnEditarLote">Editar datos del lote</button>
       <button class="btn" id="btnCerrarLote">Cerrar lote</button>
       <button class="btn del" id="btnBorrarLote">Borrar lote</button>
@@ -261,6 +268,7 @@ textarea{min-height:70px;resize:vertical}
 </main>
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>
 /* ====== Configuración de Airtable (las llamadas pasan por las funciones proxy de Netlify; aquí no hay token) ====== */
 const T_LOTES = "tbly6Jmx238oOh8RP", T_EQ = "tblVh5uHd4yitMxJd";
@@ -966,12 +974,14 @@ function pintarPanel(){
     const acc = [];
     if(L.estado !== "Cerrado") acc.push(`<button class="btn sm" data-e="${k}">Editar</button>`);
     if(e.semaforo === "Amarillo" && e.recordId && st === "listo") acc.push(`<button class="btn sm ok" data-c="${k}">${e.corregido ? "Ver corrección" : "Corregir"}</button>`);
+    if(e.recordId) acc.push(`<button class="btn sm qrbtn" data-q="${k}" title="Código QR del equipo" aria-label="Código QR">▦</button>`);
     if(puedeBorrar(e)) acc.push(`<button class="btn sm del" data-b="${k}" title="Borrar equipo">Borrar</button>`);
     return `<div class="row"><span class="dot ${e.semaforo}"></span><span class="s">${esc(e.serie)}</span><span class="d">${esc(detalle(e))}</span>${dec}${corr}
       <span class="st ${st}">${st === "listo" ? "Guardado" : st === "error" ? "Error" : "Subiendo"}</span><span class="acc">${acc.join("")}</span></div>`;
   }).join("") + (lista.length > 400 ? `<p class="muted">Mostrando 400 de ${lista.length}. Usa el buscador.</p>` : "") + (!lista.length ? '<p class="muted">Sin equipos con ese filtro.</p>' : "");
   document.querySelectorAll("#pnlLista [data-e]").forEach(el => el.onclick = () => editarEquipo(el.dataset.e));
   document.querySelectorAll("#pnlLista [data-c]").forEach(el => el.onclick = () => abrirCorreccion(el.dataset.c));
+  document.querySelectorAll("#pnlLista [data-q]").forEach(el => el.onclick = () => abrirQR(el.dataset.q));
   document.querySelectorAll("#pnlLista [data-b]").forEach(el => el.onclick = async () => { el.disabled = true; if(await borrarEquipo(el.dataset.b)){ try{ await cargarServer(); }catch(er){} } pintarPanel(); });
   document.querySelectorAll(".decSel").forEach(el => el.onchange = async () => {
     try{ await at(T_EQ, { method:"PATCH", recordId:el.dataset.r, body:{ fields:{ [FE.decision]:el.value || null } } }); await cargarServer(); toast("Decisión guardada"); pintarPanel(); }catch(e){ toast("No se guardó: " + e.message, true); }
@@ -1000,6 +1010,47 @@ async function editarEquipo(key){
 }
 $("btnCancelEdit").onclick = async () => { nuevoEquipoForm(); pintarCaptura(); abrirPanel(); };
 
+/* ====== Código QR por equipo: al escanearlo abre este lote en la ficha del equipo (defecto + corrección). Requiere sesión. ====== */
+function urlQR(e){ return location.origin + location.pathname.replace(/[^/]*$/, "") + "evidencia_equipo.html?" + qs({ lote:S.lote.folio, serie:e.serie }); }
+function qrDataUrl(texto, px){
+  const d = document.createElement("div");
+  new QRCode(d, { text:texto, width:px, height:px, correctLevel:QRCode.CorrectLevel.M });
+  const c = d.querySelector("canvas"); return c ? c.toDataURL("image/png") : "";
+}
+function abrirQR(key){
+  const e = todos().find(x => (x.clientId || x.recordId) === key); if(!e) return;
+  if(typeof QRCode === "undefined"){ toast("No cargó el generador de QR. Revisa tu conexión.", true); return; }
+  const src = qrDataUrl(urlQR(e), 220);
+  const m = document.createElement("div"); m.className = "modal";
+  m.innerHTML = `<div style="max-width:340px;text-align:center"><h2 style="margin:0 0 4px;color:var(--azul)">N/S ${esc(e.serie)}</h2>
+    <div class="sub"><span class="dot ${e.semaforo}"></span> ${esc(detalle(e))}${e.semaforo === "Amarillo" ? (e.corregido ? " · <b style='color:var(--verde)'>Corregido</b>" : " · Por corregir") : ""}</div>
+    <img src="${src}" alt="QR" style="width:220px;height:220px;margin:12px auto;display:block">
+    <div class="sub">Al escanearlo, el cliente ve (solo lectura) el antes y el después de este equipo.</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn pri" id="qrImp">Imprimir etiqueta</button><button class="btn" id="qrNo">Cerrar</button></div></div>`;
+  document.body.appendChild(m);
+  $("qrNo").onclick = () => m.remove();
+  $("qrImp").onclick = () => imprimirEtiquetas([e]);
+}
+function imprimirEtiquetas(lista){
+  if(typeof QRCode === "undefined"){ toast("No cargó el generador de QR. Revisa tu conexión.", true); return; }
+  if(!lista.length){ toast("No hay equipos para imprimir con este filtro.", true); return; }
+  const w = window.open("", "_blank"); if(!w){ alert("El navegador bloqueó la ventana. Permite ventanas emergentes para este sitio y vuelve a intentar."); return; }
+  const col = { Verde:"#1b7f3b", Amarillo:"#d9a400", Rojo:"#c0392b" };
+  const items = lista.map(e => `<div class="et"><img src="${qrDataUrl(urlQR(e), 320)}" alt=""><div class="tx"><b>${esc(e.serie)}</b><span style="color:${col[e.semaforo] || "#555"}">● ${esc(e.semaforo || "")}</span><small>${esc(S.lote.folio)}</small><small>${esc(detalle(e))}</small></div></div>`).join("");
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas QR ${esc(S.lote.folio)}</title><style>
+    @page{size:104mm 79mm;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif}
+    .et{width:104mm;height:79mm;padding:5mm;display:flex;align-items:center;gap:5mm;page-break-after:always;break-after:page;overflow:hidden}
+    .et:last-child{page-break-after:auto;break-after:auto}
+    .et img{width:56mm;height:56mm;flex:none}.tx{display:flex;flex-direction:column;gap:2mm;min-width:0;flex:1}
+    .tx b{font-size:22pt;line-height:1.05;word-break:break-all}.tx span{font-size:12pt;font-weight:700}.tx small{font-size:9pt;color:#333}
+    </style></head><body>${items}<script>window.onload=function(){setTimeout(function(){window.print()},400)}<\/script></body></html>`);
+  w.document.close();
+}
+$("btnEtiquetasQR").onclick = () => {
+  const n = (S.visibles || []).length;
+  if(n > 60 && !confirm("Se van a imprimir " + n + " etiquetas (según el filtro actual). ¿Continuar?")) return;
+  imprimirEtiquetas((S.visibles || []).filter(e => e.recordId));
+};
 /* ====== Seguimiento de amarillos: marcar corregido con fotos "después" ====== */
 async function abrirCorreccion(key){
   const e = todos().find(x => (x.clientId || x.recordId) === key); if(!e || !e.recordId) return;
@@ -1026,7 +1077,7 @@ async function abrirCorreccion(key){
       <h2 style="margin:0 0 4px;color:var(--azul)">Corrección · N/S ${esc(e.serie)}</h2>
       <div class="sub">${esc(detalle(e))}${C.corregido ? ` · <b style="color:var(--verde)">Corregido</b>${g[FE.corrPor] ? " por " + esc(g[FE.corrPor]) : ""}${fechaTxt ? " · " + esc(fechaTxt) : ""}` : ""}</div>
       <div class="corr-fotos" style="margin-top:12px">
-        <div><label class="l" style="margin-top:0">Antes (${C.antes.length})</label>${C.antes.slice(0, 4).map(a => `<img src="${esc(urlMini(a))}" alt="" style="margin-bottom:6px">`).join("") || '<p class="sub">Sin foto del defecto</p>'}</div>
+        <div><label class="l" style="margin-top:0">Antes (${C.antes.length})</label>${C.antes.slice(0, 4).map(a => `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(urlFoto(a))}" alt="" style="margin-bottom:6px"></a>`).join("") || '<p class="sub">Sin foto del defecto</p>'}</div>
         <div><label class="l" style="margin-top:0">Después *</label>
           <div class="thumbs" style="margin-top:0">${vivas().map(a => `<div class="thumb ex"><img src="${esc(urlMini(a))}" alt=""><b data-qx="${esc(a.id)}">×</b></div>`).join("")}${C.nuevas.map(id => `<div class="thumb">${thumbHtml(id)}<b data-qn="${id}">×</b></div>`).join("")}</div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px"><button class="btn sm" id="coFoto">+ Tomar foto</button><button class="btn sm" id="coGal">Galería</button></div></div>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Evidencia del equipo | Centro de Servicio SI</title>
+<style>
+:root{--azul:#0b3d6e;--borde:#d9dee5;--fondo:#f4f6f9;--verde:#1b7f3b;--verde-bg:#e6f4ea;--ama:#8a6d00;--ama-bg:#fff4cc;--rojo:#b3261e;--rojo-bg:#fdecea;--txt:#1d2733;--gris:#5f6b7a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--txt);font-family:Arial,Helvetica,sans-serif;line-height:1.4}
+header{background:var(--azul);color:#fff;padding:14px 16px;font-weight:700;letter-spacing:.3px}
+main{max-width:640px;margin:0 auto;padding:16px}
+.card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:16px;margin-bottom:14px}
+h1{margin:0 0 2px;font-size:1.35rem;color:var(--azul)}
+.sub{color:var(--gris);font-size:.9rem}
+.pill{display:inline-block;margin-top:10px;padding:5px 12px;border-radius:999px;font-size:.85rem;font-weight:700}
+.pill.v{background:var(--verde-bg);color:var(--verde)}.pill.a{background:var(--ama-bg);color:var(--ama)}.pill.r{background:var(--rojo-bg);color:var(--rojo)}
+h2{margin:0 0 10px;font-size:1rem;color:var(--azul)}
+.fotos a{display:block;margin-bottom:10px}
+.fotos img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;background:#eef1f5;border:1px solid var(--borde);border-radius:8px}
+.vacio{color:var(--gris);font-size:.9rem;margin:0}
+.nota{color:var(--gris);font-size:.8rem;text-align:center;margin:6px 0 20px}
+</style>
+</head>
+<body>
+<header>CENTRO DE SERVICIO SI</header>
+<main id="app"><div class="card"><p class="vacio">Cargando…</p></div></main>
+<script>
+const T_LOTES = "tbly6Jmx238oOh8RP", T_EQ = "tblVh5uHd4yitMxJd";
+const FL = { folio:"fldIFndeRlKpgZ9Lm", cliente:"fldIGhsunY5DRSUjD" };
+const FE = { serie:"fldRgnJ0Xfe4Kqg0X", lote:"fldjXbOQ2cDmmCzUU", semaforo:"fldtmjf5VGOdqv12l", defectos:"fldNxghr4B9QNzbOc", otro:"fldZ6hG6tcdjgg4OQ",
+  fDefecto:"fldQM0MSxVrXkZ6Gs", fDespues:"fldJgrOehBTxjr7WS", corregido:"fldo9HEeEPDTDMO1H", fechaCorr:"fldKMzcQzHWbJb0cM" };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+
+/* Solo en la copia local (file://): usa dev_config.js. En producción todo pasa por la función proxy y aquí no hay token. */
+let DEV = null;
+function cargarDevConfig(){ return new Promise(res => { const sc = document.createElement("script"); sc.src = "dev_config.js"; sc.onload = () => { DEV = window.SI_DEV || null; res(); }; sc.onerror = () => res(); document.head.appendChild(sc); }); }
+async function leer(table, params){
+  const url = DEV ? `https://api.airtable.com/v0/${DEV.base}/${table}?${params}` : `/.netlify/functions/airtable?table=${table}&${params}`;
+  const r = await fetch(url, DEV ? { headers:{ Authorization:"Bearer " + DEV.token } } : undefined);
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+const urlFoto = a => (a.thumbnails && a.thumbnails.large && a.thumbnails.large.url) || a.url;
+const q = s => String(s).replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+const fotos = (arr, vacio) => (arr && arr.length) ? `<div class="fotos">${arr.map(a => `<a href="${esc(a.url)}" target="_blank" rel="noopener"><img src="${esc(urlFoto(a))}" alt=""></a>`).join("")}</div>` : `<p class="vacio">${vacio}</p>`;
+
+(async function(){
+  const p = new URLSearchParams(location.search), lote = p.get("lote"), serie = p.get("serie");
+  if(!lote || !serie){ $("app").innerHTML = '<div class="card"><p class="vacio">Enlace incompleto.</p></div>'; return; }
+  try{
+    if(location.protocol === "file:") await cargarDevConfig();
+    const j = await leer(T_EQ, `returnFieldsByFieldId=true&maxRecords=1&filterByFormula=${encodeURIComponent(`AND({lote}='${q(lote)}',{serie}='${q(serie)}')`)}`);
+    const r = (j.records || [])[0];
+    if(!r){ $("app").innerHTML = '<div class="card"><p class="vacio">No se encontró este equipo.</p></div>'; return; }
+    const f = r.fields || {};
+    let cliente = "";
+    try{ const l = await leer(T_LOTES, `returnFieldsByFieldId=true&maxRecords=1&filterByFormula=${encodeURIComponent(`{folio}='${q(lote)}'`)}`); cliente = (((l.records || [])[0] || {}).fields || {})[FL.cliente] || ""; }catch(e){}
+    const sem = f[FE.semaforo] || "", corr = !!f[FE.corregido];
+    const defs = (f[FE.defectos] || []).map(x => x === "Otro" ? "Otro" + (f[FE.otro] ? ": " + f[FE.otro] : "") : x).join(", ");
+    const est = sem === "Verde" ? ["v", "Sin observaciones"] : sem === "Amarillo" ? (corr ? ["v", "Observación corregida"] : ["a", "Con observaciones"]) : sem === "Rojo" ? ["r", "Con observaciones graves"] : ["a", "En revisión"];
+    const antes = f[FE.fDefecto] || [], despues = f[FE.fDespues] || [];
+    const fCorr = f[FE.fechaCorr] ? new Date(f[FE.fechaCorr]).toLocaleDateString("es-MX", { dateStyle:"long" }) : "";
+    $("app").innerHTML = `
+      <div class="card"><h1>N/S ${esc(serie)}</h1><div class="sub">${esc(cliente)}${cliente ? " · " : ""}Lote ${esc(lote)}</div>
+        <span class="pill ${est[0]}">${est[1]}</span>${defs && sem !== "Verde" ? `<div class="sub" style="margin-top:10px"><b>Observación:</b> ${esc(defs)}</div>` : ""}</div>
+      ${sem === "Verde" ? "" : `<div class="card"><h2>Antes</h2>${fotos(antes, "Sin foto registrada.")}</div>`}
+      ${sem === "Amarillo" ? `<div class="card"><h2>Después${fCorr ? " · " + esc(fCorr) : ""}</h2>${fotos(despues, "Corrección pendiente.")}</div>` : ""}
+      <p class="nota">Toca una foto para verla en tamaño completo.</p>`;
+  }catch(e){ $("app").innerHTML = '<div class="card"><p class="vacio">No se pudo cargar la información. Intenta de nuevo en un momento.</p></div>'; }
+})();
+</script>
+</body>
+</html>
