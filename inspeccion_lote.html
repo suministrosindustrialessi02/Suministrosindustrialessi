@@ -251,7 +251,7 @@ textarea{min-height:70px;resize:vertical}
       <button class="btn pri" id="btnSeguirCap">Seguir capturando</button>
       <button class="btn" id="btnReporte">Generar reporte (PDF)</button>
       <button class="btn" id="btnReporteCorr">Reporte de correcciones</button>
-      <button class="btn" id="btnEtiquetasQR">Etiquetas QR</button>
+      <button class="btn" id="btnEtiquetasQR">Imprimir todas las etiquetas QR</button>
       <button class="btn" id="btnEditarLote">Editar datos del lote</button>
       <button class="btn" id="btnCerrarLote">Cerrar lote</button>
       <button class="btn del" id="btnBorrarLote">Borrar lote</button>
@@ -1047,9 +1047,10 @@ function imprimirEtiquetas(lista){
   w.document.close();
 }
 $("btnEtiquetasQR").onclick = () => {
-  const n = (S.visibles || []).length;
-  if(n > 60 && !confirm("Se van a imprimir " + n + " etiquetas (según el filtro actual). ¿Continuar?")) return;
-  imprimirEtiquetas((S.visibles || []).filter(e => e.recordId));
+  const lista = todos().filter(e => e.recordId).sort((x, y) => numSerie(x.serie, y.serie));
+  if(!lista.length){ toast("Aún no hay equipos guardados en este lote.", true); return; }
+  if(!confirm("Se van a imprimir las etiquetas de TODOS los equipos del lote (" + lista.length + "), una por hoja. ¿Continuar?")) return;
+  imprimirEtiquetas(lista);
 };
 /* ====== Seguimiento de amarillos: marcar corregido con fotos "después" ====== */
 async function abrirCorreccion(key){
