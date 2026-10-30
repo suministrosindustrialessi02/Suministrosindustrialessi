@@ -6,25 +6,31 @@
 <meta name="robots" content="noindex">
 <title>Evidencia del equipo | Centro de Servicio SI</title>
 <style>
-:root{--azul:#0b3d6e;--borde:#d9dee5;--fondo:#f4f6f9;--verde:#1b7f3b;--verde-bg:#e6f4ea;--ama:#8a6d00;--ama-bg:#fff4cc;--rojo:#b3261e;--rojo-bg:#fdecea;--txt:#1d2733;--gris:#5f6b7a}
+:root{--navy:#0c1e35;--azul:#12325a;--azul-claro:#1d5496;--azul-bg:#e8f0fb;--fondo:#eef1f6;--borde:#dde3ec;--verde:#1b7f3b;--verde-bg:#e6f4ea;--ama:#8a6d00;--ama-bg:#fff4cc;--rojo:#991b1b;--rojo-bg:#fde8e8;--txt:#1d2733;--gris:#485568}
 *{box-sizing:border-box}
 body{margin:0;background:var(--fondo);color:var(--txt);font-family:Arial,Helvetica,sans-serif;line-height:1.4}
-header{background:var(--azul);color:#fff;padding:14px 16px;font-weight:700;letter-spacing:.3px}
+header{background:#fff;border-bottom:4px solid var(--azul-claro);padding:10px 16px;text-align:center}
+header img{height:54px;width:auto;display:block;margin:0 auto}
+.band{background:var(--azul);color:#fff;text-align:center;font-size:.75rem;letter-spacing:.6px;text-transform:uppercase;padding:7px 12px}
 main{max-width:640px;margin:0 auto;padding:16px}
 .card{background:#fff;border:1px solid var(--borde);border-radius:12px;padding:16px;margin-bottom:14px}
-h1{margin:0 0 2px;font-size:1.35rem;color:var(--azul)}
+h1{margin:0 0 2px;font-size:1.5rem;font-weight:800;color:var(--azul)}
 .sub{color:var(--gris);font-size:.9rem}
 .pill{display:inline-block;margin-top:10px;padding:5px 12px;border-radius:999px;font-size:.85rem;font-weight:700}
 .pill.v{background:var(--verde-bg);color:var(--verde)}.pill.a{background:var(--ama-bg);color:var(--ama)}.pill.r{background:var(--rojo-bg);color:var(--rojo)}
-h2{margin:0 0 10px;font-size:1rem;color:var(--azul)}
+h2{margin:0 0 10px;font-size:.8rem;color:var(--azul-claro);text-transform:uppercase;letter-spacing:.5px}
+.obs{margin-top:12px;background:var(--fondo);border-left:3px solid var(--azul-claro);border-radius:0 8px 8px 0;padding:10px 12px;font-size:.9rem}
 .fotos a{display:block;margin-bottom:10px}
-.fotos img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;background:#eef1f5;border:1px solid var(--borde);border-radius:8px}
+.fotos img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;background:#eef1f6;border:1px solid var(--borde);border-radius:8px}
 .vacio{color:var(--gris);font-size:.9rem;margin:0}
-.nota{color:var(--gris);font-size:.8rem;text-align:center;margin:6px 0 20px}
+.nota{color:var(--gris);font-size:.8rem;text-align:center;margin:6px 0 14px}
+footer{background:var(--navy);color:#c9d6e8;text-align:center;font-size:.75rem;padding:16px;line-height:1.6}
+footer b{color:#fff;letter-spacing:.5px}
 </style>
 </head>
 <body>
-<header>CENTRO DE SERVICIO SI</header>
+<header><img src="logo_SI.jpg" alt="Suministros Industriales"></header>
+<div class="band">Evidencia de inspección y servicio</div>
 <main id="app"><div class="card"><p class="vacio">Cargando…</p></div></main>
 <script>
 const T_LOTES = "tbly6Jmx238oOh8RP", T_EQ = "tblVh5uHd4yitMxJd";
@@ -65,12 +71,13 @@ const fotos = (arr, vacio) => (arr && arr.length) ? `<div class="fotos">${arr.ma
     const fCorr = f[FE.fechaCorr] ? new Date(f[FE.fechaCorr]).toLocaleDateString("es-MX", { dateStyle:"long" }) : "";
     $("app").innerHTML = `
       <div class="card"><h1>N/S ${esc(serie)}</h1><div class="sub">${esc(cliente)}${cliente ? " · " : ""}Lote ${esc(lote)}</div>
-        <span class="pill ${est[0]}">${est[1]}</span>${defs && sem !== "Verde" ? `<div class="sub" style="margin-top:10px"><b>Observación:</b> ${esc(defs)}</div>` : ""}</div>
+        <span class="pill ${est[0]}">${est[1]}</span>${defs && sem !== "Verde" ? `<div class="obs"><b>Observación:</b> ${esc(defs)}</div>` : ""}</div>
       ${sem === "Verde" ? "" : `<div class="card"><h2>Antes</h2>${fotos(antes, "Sin foto registrada.")}</div>`}
       ${sem === "Amarillo" ? `<div class="card"><h2>Después${fCorr ? " · " + esc(fCorr) : ""}</h2>${fotos(despues, "Corrección pendiente.")}</div>` : ""}
       <p class="nota">Toca una foto para verla en tamaño completo.</p>`;
   }catch(e){ $("app").innerHTML = '<div class="card"><p class="vacio">No se pudo cargar la información. Intenta de nuevo en un momento.</p></div>'; }
 })();
 </script>
+<footer><b>SUMINISTROS INDUSTRIALES</b><br>Diagnóstico · Proveeduría · Implementación</footer>
 </body>
 </html>
