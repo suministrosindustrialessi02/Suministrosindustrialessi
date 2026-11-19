@@ -116,12 +116,121 @@ input[type="file"].hidden-input{ display:none; }
 .rem-historial-info small{ display:block; color:#6b7280; font-weight:400; }
 .rem-historial-ver{ padding:4px 10px; background:#eef3fa; border:1px solid #cfe0f5; border-radius:6px; cursor:pointer; font-size:0.75rem; color:var(--azul-med); font-weight:600; white-space:nowrap; }
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="iconos/iconos-si.css">
+<style id="estiloRediseno">
+/* ================================================================
+   REDISEÑO 2026-11 — solo la PÁGINA de reportes. Los PDF se generan en
+   otra ventana con printCSS() y no usan nada de este bloque.
+   ================================================================ */
+:root{
+  --rd-fondo:#f4f6fa; --rd-borde:#e3e8ef; --rd-borde-2:#cfd7e3;
+  --rd-texto:#1a2433; --rd-texto-2:#5b6778; --rd-texto-3:#8a95a5;
+  --rd-hover:#eef1f5; --rd-azul:#12325a; --rd-azul-2:#1d5496; --rd-azul-bg:#e8f0fb;
+  --rd-sombra:0 1px 2px rgba(16,24,40,.05);
+}
+body{ font-family:'Inter',"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif; background:var(--rd-fondo); color:var(--rd-texto); }
+
+/* Barra superior */
+.hdr{ position:sticky; top:0; z-index:50; background:#fff; color:var(--rd-texto); border-bottom:1px solid var(--rd-borde); padding:10px 24px; display:flex; align-items:center; gap:14px; min-height:62px; }
+.hdr .rd-logo{ height:34px; width:auto; display:block; }
+.hdr .rd-sep{ width:1px; height:28px; background:var(--rd-borde); }
+.hdr h1{ font-size:15px; font-weight:600; letter-spacing:0; color:var(--rd-texto); }
+.hdr p{ font-size:12px; opacity:1; color:var(--rd-texto-3); margin-top:1px; }
+
+/* Cargando / error */
+.spinner{ border-color:var(--rd-borde); border-top-color:var(--rd-azul-2); }
+.load-txt{ color:var(--rd-texto-2); font-size:14px; }
+.err-msg{ color:var(--rd-texto-2); }
+.btn-retry{ background:var(--rd-azul); border-radius:8px; font-weight:500; }
+
+/* Panel */
+#mainPanel{ max-width:1080px; padding:24px 24px 48px; }
+
+/* Ficha del equipo */
+.motor-card{ border-radius:12px; border:1px solid var(--rd-borde); border-left:1px solid var(--rd-borde); box-shadow:var(--rd-sombra); padding:18px 20px; display:grid; grid-template-columns:auto 1fr; column-gap:16px; align-items:center; }
+.motor-card > *{ grid-column:2; }
+.rd-motor-ico{ grid-column:1 !important; grid-row:1 / span 3; width:52px; height:52px; border-radius:12px; background:var(--rd-azul-bg); color:var(--rd-azul-2); display:grid; place-items:center; font-size:26px; }
+.motor-card .serie{ font-size:20px; font-weight:600; color:var(--rd-texto); letter-spacing:-.01em; }
+.motor-card .cliente{ font-size:14px; color:var(--rd-texto-2); margin-top:1px; }
+.motor-meta{ gap:8px; margin-top:10px; }
+.meta-item{ font-size:12.5px; color:var(--rd-texto-2); background:var(--rd-hover); border-radius:99px; padding:3px 11px; }
+.meta-item strong{ color:var(--rd-texto-3); font-weight:500; }
+
+/* Títulos de sección */
+.rep-title{ font-size:12px; letter-spacing:.06em; color:var(--rd-texto-2); font-weight:600; margin:22px 0 12px; }
+
+/* Tarjetas de reporte */
+.rep-grid{ grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
+.rep-btn{ height:100%; width:100%; border:1px solid var(--rd-borde); border-radius:12px; padding:16px; box-shadow:var(--rd-sombra); gap:4px; font-family:inherit; display:grid; grid-template-columns:auto 1fr; column-gap:12px; align-items:start; }
+.rep-btn > *{ grid-column:2; }
+.rep-btn:hover{ border-color:#b8d0ee; box-shadow:0 4px 14px rgba(16,24,40,.08); transform:none; }
+.rep-btn-icon{ grid-column:1 !important; grid-row:1 / span 3; width:40px; height:40px; border-radius:10px; background:var(--rd-azul-bg); color:var(--rd-azul-2) !important; display:grid; place-items:center; font-size:21px !important; line-height:1; }
+.rep-btn-icon.rd-rojo{ background:#fdecea; color:#b42318 !important; }
+.rep-btn-icon.rd-verde{ background:#e6f4ec; color:#0e7a3c !important; }
+.rep-btn-name{ font-size:14px; font-weight:600; color:var(--rd-texto); padding-right:28px; }
+.rep-btn-desc{ font-size:12.5px; color:var(--rd-texto-2); line-height:1.45; }
+.rep-btn-status{ margin-top:6px; font-size:12px; }
+.rep-btn-status .status-ok, .rep-btn-status .status-pend, .rep-btn-status .status-gen{ display:inline-block; padding:2px 10px; border-radius:99px; font-weight:500; }
+.status-ok{ color:#0e7a3c; background:#e6f4ec; }
+.status-pend{ color:#a15c00; background:#fdf3e1; }
+.status-gen{ color:var(--rd-azul-2); background:var(--rd-azul-bg); }
+.rep-card-wrap{ height:100%; }
+.rep-edit-btn{ top:12px; right:12px; width:30px; height:30px; border-radius:8px; border-color:var(--rd-borde); background:#fff; color:var(--rd-texto-2); font-size:15px; display:grid; place-items:center; }
+.rep-edit-btn:hover{ background:var(--rd-hover); border-color:var(--rd-borde-2); }
+.rep-edit-btn.hidden{ display:none; }
+
+/* Acciones destacadas: Datos generales, Reporte Consolidado, Respaldo a Drive (a lo ancho) */
+#mainPanel > .rep-card-wrap{ max-width:none !important; margin:0 0 12px !important; height:auto; }
+#mainPanel > .rep-card-wrap > .rep-btn{ text-align:left !important; align-items:center !important; padding:14px 16px; }
+#btn-descargar-todo{ background:var(--rd-azul) !important; border-color:var(--rd-azul) !important; }
+#btn-descargar-todo:hover{ background:#0c1e35 !important; }
+#btn-descargar-todo .rep-btn-icon, #btn-respaldar-drive .rep-btn-icon{ background:rgba(255,255,255,.14); color:#fff !important; }
+#clienteDiagBox .rep-btn, #clienteCotizacionBox .rep-btn{ text-align:left; }
+
+/* Ventanas de edición / remisión */
+.modal-box{ border-radius:14px; box-shadow:0 20px 50px rgba(16,24,40,.25); }
+.modal-hdr{ background:#fff; color:var(--rd-texto); border-bottom:1px solid var(--rd-borde); padding:14px 18px; }
+.modal-hdr h3{ font-size:16px; font-weight:600; }
+.modal-x{ color:var(--rd-texto-2); width:32px; height:32px; border-radius:8px; }
+.modal-x:hover{ background:var(--rd-hover); }
+.modal-ftr{ border-top-color:var(--rd-borde); }
+.ed-field label{ color:var(--rd-texto-2); font-weight:600; font-size:12.5px; }
+.ed-field textarea, .ed-field input, .ed-field select{ border-color:var(--rd-borde-2); border-radius:8px; font-size:14px; padding:9px 11px; }
+.btn-cancelar-ed{ background:#fff; border:1px solid var(--rd-borde-2); border-radius:8px; font-weight:500; padding:9px 16px; }
+.btn-guardar-ed{ background:var(--rd-azul); border-radius:8px; font-weight:500; padding:9px 18px; }
+.btn-guardar-ed:hover{ background:#0c1e35; }
+.btn-add-ed{ border-radius:8px; font-weight:500; }
+.rem-historial{ border-radius:10px; background:#f8fafc; border-color:var(--rd-borde); }
+
+/* Tablet y celular */
+@media (max-width: 900px){
+  .rep-grid{ grid-template-columns:repeat(2, minmax(0,1fr)); }
+  #mainPanel{ padding:18px 16px 40px; }
+}
+@media (max-width: 560px){
+  .rep-grid{ grid-template-columns:1fr; gap:10px; }
+  .hdr{ padding:10px 14px; }
+  .hdr .rd-logo{ height:28px; }
+  .motor-card{ padding:14px; }
+  .rd-motor-ico{ width:44px; height:44px; font-size:22px; }
+  .motor-card .serie{ font-size:17px; word-break:break-word; }
+  .modal-overlay{ padding:10px; align-items:flex-end; }
+  .modal-box{ max-height:92vh; border-radius:16px 16px 12px 12px; }
+  .ed-mat-row{ grid-template-columns:1fr 1fr; }
+}
+</style>
 </head>
 <body>
 
 <div class="hdr">
-  <h1>Suministros Industriales SI</h1>
-  <p>Generador de Reportes</p>
+  <img class="rd-logo" src="logo_SI.jpg" alt="Suministros Industriales SI">
+  <span class="rd-sep"></span>
+  <div>
+    <h1>Reportes del equipo</h1>
+    <p>Centro de Servicio · Suministros Industriales SI</p>
+  </div>
 </div>
 
 <div id="loadingWrap">
@@ -137,6 +246,7 @@ input[type="file"].hidden-input{ display:none; }
 
 <div id="mainPanel">
   <div class="motor-card">
+    <div class="rd-motor-ico"><i class="ti ti-engine"></i></div>
     <div class="serie" id="mc-serie">—</div>
     <div class="cliente" id="mc-cliente">—</div>
     <div class="motor-meta">
@@ -149,7 +259,7 @@ input[type="file"].hidden-input{ display:none; }
   <div id="clienteDiagBox" style="display:none; text-align:center; padding:30px 12px;">
     <div style="font-size:0.95rem; color:#0c1e35; margin-bottom:16px;">Este es el diagnóstico de tu equipo.</div>
     <button class="rep-btn" style="max-width:320px; margin:0 auto;" onclick="generarDiagnosticoGeneral()">
-      <span class="rep-btn-icon">🩺</span>
+      <span class="rep-btn-icon"><i class="ti ti-stethoscope"></i></span>
       <span class="rep-btn-name">Ver diagnóstico completo</span>
       <span class="rep-btn-desc">Se abrirá en una pestaña nueva, lista para imprimir o guardar como PDF</span>
     </button>
@@ -158,7 +268,7 @@ input[type="file"].hidden-input{ display:none; }
   <div id="clienteCotizacionBox" style="display:none; text-align:center; padding:30px 12px;">
     <div style="font-size:0.95rem; color:#0c1e35; margin-bottom:16px;">Esta es la cotización de tu servicio.</div>
     <button class="rep-btn" style="max-width:320px; margin:0 auto;" onclick="generarCotizacionGeneral()">
-      <span class="rep-btn-icon">💰</span>
+      <span class="rep-btn-icon"><i class="ti ti-coin"></i></span>
       <span class="rep-btn-name">Ver cotización completa</span>
       <span class="rep-btn-desc">Se abrirá en una pestaña nueva, lista para imprimir o guardar como PDF</span>
     </button>
@@ -169,7 +279,7 @@ input[type="file"].hidden-input{ display:none; }
        no pertenecen a uno solo. editor-only: mismo criterio de rol que el resto de los ✏️. -->
   <div class="rep-card-wrap editor-only hidden" style="max-width:460px;margin:0 auto 18px;">
     <button type="button" class="rep-btn" style="width:100%" onclick="abrirEditor('infoGeneral')">
-      <span class="rep-btn-icon">🏷️</span>
+      <span class="rep-btn-icon"><i class="ti ti-tag"></i></span>
       <span class="rep-btn-name">Datos generales del equipo</span>
       <span class="rep-btn-desc">N° de serie, usuario, marca, HP, frame, volts, etc. — se corrigen en todos los reportes a la vez</span>
     </button>
@@ -179,7 +289,7 @@ input[type="file"].hidden-input{ display:none; }
   <!-- Reporte Consolidado: solo Admin y Dirección lo ven — Técnico y Cliente no. -->
   <div class="rep-card-wrap admin-only hidden" id="reporteConsolidadoWrap" style="max-width:460px;margin:0 auto 18px;">
     <button type="button" id="btn-descargar-todo" class="rep-btn" style="width:100%;background:#0c1e35;border-color:#0c1e35;align-items:center;text-align:center" onclick="descargarTodosLosReportes()">
-      <span class="rep-btn-icon">📦</span>
+      <span class="rep-btn-icon"><i class="ti ti-files"></i></span>
       <span class="rep-btn-name" style="color:#fff">Reporte Consolidado (PDF único)</span>
       <span class="rep-btn-desc" style="color:#c9d4e3">Combina en un solo PDF los que ya tengan datos — omite automáticamente los que aún no aplican</span>
     </button>
@@ -187,34 +297,34 @@ input[type="file"].hidden-input{ display:none; }
   <div class="rep-grid" id="repGridGeneral" style="display:none">
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-diagnostico-gen" onclick="generarDiagnosticoGeneral()">
-        <span class="rep-btn-icon">🩺</span>
+        <span class="rep-btn-icon"><i class="ti ti-stethoscope"></i></span>
         <span class="rep-btn-name">Diagnóstico</span>
         <span class="rep-btn-desc">Diagnóstico y servicios propuestos — para autorización del cliente</span>
         <span class="rep-btn-status" id="st-diagnostico-gen">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-servicio-gen" onclick="generarServicioGeneral()">
-        <span class="rep-btn-icon">📄</span>
+        <span class="rep-btn-icon"><i class="ti ti-file-text"></i></span>
         <span class="rep-btn-name">Reporte de Servicio</span>
         <span class="rep-btn-desc">Diagnóstico, bitácora y evidencia del servicio</span>
         <span class="rep-btn-status" id="st-servicio-gen">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-materiales-gen" onclick="generarListaMaterialesGeneral()">
-        <span class="rep-btn-icon">🧾</span>
+        <span class="rep-btn-icon"><i class="ti ti-list-details"></i></span>
         <span class="rep-btn-name">Lista de Materiales</span>
         <span class="rep-btn-desc">Materiales / refacciones para cotización</span>
         <span class="rep-btn-status" id="st-materiales-gen">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('materiales')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('materiales')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap admin-only hidden">
       <button class="rep-btn" id="btn-cotizacion-gen" onclick="generarCotizacionGeneral()">
-        <span class="rep-btn-icon">💰</span>
+        <span class="rep-btn-icon"><i class="ti ti-coin"></i></span>
         <span class="rep-btn-name">Cotización</span>
         <span class="rep-btn-desc">Documento con precios — se arma desde el dashboard</span>
         <span class="rep-btn-status" id="st-cotizacion-gen">—</span>
@@ -238,16 +348,16 @@ input[type="file"].hidden-input{ display:none; }
   <div class="rep-grid" id="repGridSulzer">
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-diagnostico-sulzer" onclick="generarDiagnosticoGeneral()">
-        <span class="rep-btn-icon">🩺</span>
+        <span class="rep-btn-icon"><i class="ti ti-stethoscope"></i></span>
         <span class="rep-btn-name">Diagnóstico</span>
         <span class="rep-btn-desc">Daños encontrados y estado de recepción — diagnóstico previo autorizado</span>
         <span class="rep-btn-status" id="st-diagnostico-sulzer">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('diagnostico')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-materiales-sulzer" onclick="generarListaMaterialesGeneral()">
-        <span class="rep-btn-icon">🧾</span>
+        <span class="rep-btn-icon"><i class="ti ti-list-details"></i></span>
         <span class="rep-btn-name">Lista de Materiales</span>
         <span class="rep-btn-desc">Materiales / refacciones estimadas en el diagnóstico previo</span>
         <span class="rep-btn-status" id="st-materiales-sulzer">—</span>
@@ -255,82 +365,82 @@ input[type="file"].hidden-input{ display:none; }
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-recepcion" onclick="generarReportePrevio()">
-        <span class="rep-btn-icon">📥</span>
+        <span class="rep-btn-icon"><i class="ti ti-package-import"></i></span>
         <span class="rep-btn-name">Reporte Previo de Recepción</span>
         <span class="rep-btn-desc">Condición de embalaje, estado físico y evidencia — disponible antes del Checklist</span>
         <span class="rep-btn-status" id="st-recepcion">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('recepcion')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('recepcion')"><i class="ti ti-pencil"></i></button>
     </div>
     <button class="rep-btn" id="btn-checklist" onclick="generarChecklist(false)">
-      <span class="rep-btn-icon">📋</span>
+      <span class="rep-btn-icon"><i class="ti ti-clipboard-check"></i></span>
       <span class="rep-btn-name">Checklist Sulzer SI-ABB</span>
       <span class="rep-btn-desc">Inspección de motores — formato oficial ABB</span>
       <span class="rep-btn-status" id="st-checklist">—</span>
     </button>
     <button class="rep-btn" id="btn-checklist-cliente" onclick="generarChecklist(true)">
-      <span class="rep-btn-icon">📋</span>
+      <span class="rep-btn-icon"><i class="ti ti-clipboard-heart"></i></span>
       <span class="rep-btn-name">Checklist Sulzer ABB-SULZER</span>
       <span class="rep-btn-desc">Versión final para el cliente — todos los puntos OK, sin mencionar correcciones</span>
       <span class="rep-btn-status" id="st-checklist-cliente">—</span>
     </button>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-pintura" onclick="generarPintura()">
-        <span class="rep-btn-icon">🎨</span>
+        <span class="rep-btn-icon"><i class="ti ti-paint"></i></span>
         <span class="rep-btn-name">Inspección de Pintura</span>
         <span class="rep-btn-desc">Mediciones de espesor de recubrimiento</span>
         <span class="rep-btn-status" id="st-pintura">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('pintura','pintura')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('pintura','pintura')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-adherencia" onclick="generarAdherencia()">
-        <span class="rep-btn-icon">🔬</span>
+        <span class="rep-btn-icon"><i class="ti ti-microscope"></i></span>
         <span class="rep-btn-name">Prueba de Adherencia</span>
         <span class="rep-btn-desc">Prueba corte-X con escala 0A–5A</span>
         <span class="rep-btn-status" id="st-adherencia">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('pintura','adherencia')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('pintura','adherencia')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-servicio" onclick="generarServicio()">
-        <span class="rep-btn-icon">📄</span>
+        <span class="rep-btn-icon"><i class="ti ti-file-text"></i></span>
         <span class="rep-btn-name">Reporte de Servicio</span>
         <span class="rep-btn-desc">Resumen completo del servicio prestado</span>
         <span class="rep-btn-status" id="st-servicio">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio_sulzer')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('servicio_sulzer')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-noconform" onclick="generarNoConformidades()">
-        <span class="rep-btn-icon" style="font-size:1.2rem;color:#c62828">&#9888;</span>
+        <span class="rep-btn-icon rd-rojo"><i class="ti ti-alert-triangle"></i></span>
         <span class="rep-btn-name">No Conformidades</span>
         <span class="rep-btn-desc">Puntos NO OK con evidencia y acciones correctivas</span>
         <span class="rep-btn-status" id="st-noconform">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('noconformidades')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('noconformidades')"><i class="ti ti-pencil"></i></button>
     </div>
     <div class="rep-card-wrap">
       <button class="rep-btn" id="btn-correcciones" onclick="generarCorrecciones()">
-        <span class="rep-btn-icon" style="font-size:1.2rem;color:#0e7a3c">&#10003;</span>
+        <span class="rep-btn-icon rd-verde"><i class="ti ti-circle-check"></i></span>
         <span class="rep-btn-name">Reporte de Correcciones</span>
         <span class="rep-btn-desc">Antes y después de cada punto corregido</span>
         <span class="rep-btn-status" id="st-correcciones">—</span>
       </button>
-      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('noconformidades','correcciones')">✏️</button>
+      <button type="button" class="rep-edit-btn editor-only hidden" title="Editar datos" onclick="event.stopPropagation(); abrirEditor('noconformidades','correcciones')"><i class="ti ti-pencil"></i></button>
     </div>
   </div>
 
   <div class="rep-title" style="margin-top:18px;">Entrega del equipo</div>
   <div class="rep-grid" id="repGridComun">
     <button class="rep-btn" id="btn-remision" onclick="abrirRemision()">
-      <span class="rep-btn-icon">📦</span>
+      <span class="rep-btn-icon"><i class="ti ti-truck-delivery"></i></span>
       <span class="rep-btn-name">Remisión de Entrega</span>
       <span class="rep-btn-desc">Genera el documento de remisión de entrega</span>
       <span class="rep-btn-status" id="st-remision">—</span>
     </button>
     <button class="rep-btn" id="btn-evidencia-entrega" onclick="verEvidenciaEntrega()">
-      <span class="rep-btn-icon">🖼️</span>
+      <span class="rep-btn-icon"><i class="ti ti-photo"></i></span>
       <span class="rep-btn-name">Evidencia de Entrega</span>
       <span class="rep-btn-desc">Fotos del equipo y de la remisión firmada</span>
       <span class="rep-btn-status" id="st-evidencia-entrega">—</span>

@@ -640,6 +640,7 @@
       <div class="card-desc" id="esperaTexto">
         Se generó el diagnóstico y se envió para autorización. El servicio no puede continuar hasta que administración confirme la autorización del cliente.
       </div>
+      <a id="btnAbrirOT" class="btn-line hidden" style="margin-top:16px;display:block;text-decoration:none;" target="_blank">📋 Abrir Orden de Trabajo</a>
       <button type="button" class="btn-line" style="margin-top:16px;" onclick="verificarAutorizacionAhora()">🔄 Verificar autorización</button>
     </div>
   </div>
@@ -946,7 +947,13 @@ function mostrarEsperaAutorizacion(estado){
   const icono = document.getElementById("esperaIcono");
   const titulo = document.getElementById("esperaTitulo");
   const texto = document.getElementById("esperaTexto");
-  if(estado === "No autorizado"){
+  const btnOT = document.getElementById("btnAbrirOT");
+  if(btnOT){ btnOT.classList.toggle("hidden", estado !== "Sin OT"); if(ordenRecordId) btnOT.href = "orden_trabajo.html?id=" + encodeURIComponent(ordenRecordId); }
+  if(estado === "Sin OT"){
+    icono.textContent = "📋";
+    titulo.textContent = "Falta la Orden de Trabajo firmada";
+    texto.textContent = "El cliente ya autorizó, pero este equipo no puede intervenirse hasta que exista una Orden de Trabajo firmada por el encargado del centro de servicio y por el técnico. Ábrela, revísala y fírmala; después toca \"Verificar autorización\".";
+  } else if(estado === "No autorizado"){
     icono.textContent = "🚫";
     titulo.textContent = "Servicio no autorizado";
     texto.textContent = "El cliente no autorizó continuar con el servicio. Contacta a administración para conocer el siguiente paso.";
@@ -1032,6 +1039,28 @@ async function generarDiagnostico(){
   btn.textContent = "🖨 Generar diagnóstico y enviar a autorización →";
 }
 
+/* Candado de Orden de Trabajo: una orden autorizada no se interviene sin OT firmada
+   (encargado + técnico). Solo aplica a diagnósticos generados desde OT_DESDE, para no
+   bloquear equipos que ya venían en proceso antes de esta función. Ver orden_trabajo.html */
+const TABLA_OT = "tblh03YT3xBUM7ThC";
+const OT_DESDE = "2026-11-20";
+async function otBloquea(){
+  if(!ordenRecordId) return false;
+  try{
+    const f = encodeURIComponent(`AND({ordenId}="${ordenRecordId}",{estado}!="Obsoleta")`);
+    const r = await fetch(`/.netlify/functions/airtable?table=${TABLA_OT}&filterByFormula=${f}&returnFieldsByFieldId=true`);
+    if(!r.ok) return false;                       // si no se puede verificar, no se bloquea el trabajo
+    const recs = (await r.json()).records || [];
+    const firmada = recs.some(x => { const e = x.fields.fldbc3qocQthwGaJm; const n = (e && e.name) || e; return n === "Firmada" || n === "Cerrada"; });
+    if(firmada) return false;
+    if(recs.length) return true;                  // hay OT pero sin firmar
+    const o = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`);
+    const od = await o.json();
+    let dg = {}; try{ dg = JSON.parse((od.fields||{})[OF.diagnosticoTexto] || "{}"); }catch(e){}
+    return !!(dg.fecha && dg.fecha.slice(0,10) >= OT_DESDE);
+  }catch(e){ return false; }
+}
+
 async function verificarAutorizacionAhora(){
   if(!ordenRecordId){ alert("No se encontró la orden."); return; }
   try{
@@ -1042,6 +1071,7 @@ async function verificarAutorizacionAhora(){
     const estadoRaw = data.fields ? data.fields[OF.estado] : null;
     const estado = (estadoRaw && estadoRaw.name) || estadoRaw || "";
     if(estado === "En proceso"){
+      if(await otBloquea()){ mostrarEsperaAutorizacion("Sin OT"); return; }
       alert("✓ El cliente autorizó el servicio. Continuando con la bitácora.");
       mostrarPantalla(4);
     } else if(estado === "No autorizado"){
@@ -3198,6 +3228,13 @@ mostrarPantalla(0);
       }
       document.getElementById("folio").value = folioUrl;
       mostrarEsperaAutorizacion(estadoOrden);
+      _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
+      return;
+    }
+
+    if(estadoOrden === "En proceso" && await otBloquea()){
+      document.getElementById("folio").value = folioUrl;
+      mostrarEsperaAutorizacion("Sin OT");
       _autoSaveIntervalGeneral = setInterval(guardarBorradorGeneral, 15000);
       return;
     }

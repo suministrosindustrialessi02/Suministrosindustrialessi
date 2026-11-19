@@ -197,25 +197,206 @@ td{ padding:11px 14px; vertical-align:middle; }
 .spinner-wrap{ text-align:center; padding:60px 20px; color:var(--gris-texto); }
 .hidden{ display:none !important; }
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="iconos/iconos-si.css">
+<style id="estiloRediseno">
+/* ================================================================
+   REDISEÑO 2026-11 — capa de presentación encima del estilo original.
+   Mismo menú lateral y estilo que el dashboard. Solo apariencia.
+   ================================================================ */
+:root{
+  --rd-fondo:#f4f6fa; --rd-borde:#e3e8ef; --rd-borde-2:#cfd7e3;
+  --rd-texto:#1a2433; --rd-texto-2:#5b6778; --rd-texto-3:#8a95a5;
+  --rd-hover:#eef1f5; --rd-side:236px; --rd-sombra:0 1px 2px rgba(16,24,40,.05);
+}
+body{ font-family:'Inter',"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif; background:var(--rd-fondo); color:var(--rd-texto); }
+
+/* ---- Menú lateral + barra superior (igual que el dashboard) ---- */
+.app-shell{ display:grid; grid-template-columns:var(--rd-side) minmax(0,1fr); min-height:100vh; }
+.app-side{ background:var(--azul); color:#c9d6ea; position:sticky; top:0; height:100vh; overflow-y:auto; display:flex; flex-direction:column; padding:16px 12px; z-index:300; }
+.side-marca .header-logo{ background:#fff; padding:8px 12px; border-radius:10px; display:inline-flex; }
+.side-marca .header-logo img{ height:30px; width:auto; display:block; }
+.side-sub{ font-size:11px; color:#9fb3d1; letter-spacing:.07em; text-transform:uppercase; padding:10px 6px 12px; font-weight:600; }
+.side-nav{ display:flex; flex-direction:column; gap:2px; }
+.side-nav .nav-tit{ font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:#7f97bb; padding:14px 10px 6px; font-weight:600; }
+.side-link{ padding:9px 10px; border-radius:8px; font-size:13.5px; font-weight:500; color:#c9d6ea; display:flex; align-items:center; gap:10px; border:0; background:transparent; width:100%; text-align:left; cursor:pointer; text-decoration:none; font-family:inherit; line-height:1.3; }
+.side-link i{ font-size:18px; flex:none; }
+.side-link:hover{ background:rgba(255,255,255,.07); color:#fff; }
+.side-link.active{ background:var(--azul-claro); color:#fff; }
+.side-pie{ margin-top:auto; padding-top:12px; border-top:1px solid rgba(255,255,255,.1); }
+
+.app-main{ min-width:0; display:flex; flex-direction:column; }
+.app-top{ position:sticky; top:0; z-index:200; background:rgba(255,255,255,.95); border-bottom:1px solid var(--rd-borde); display:flex; align-items:center; gap:12px; padding:10px 28px; min-height:62px; flex-wrap:wrap; }
+.app-top-tit{ display:flex; flex-direction:column; min-width:0; }
+.app-top-tit #avisoOT{ align-self:flex-start; margin-bottom:4px; border-radius:99px !important; padding:3px 12px !important; font-size:12px !important; font-weight:600 !important; }
+.app-top .saludo-usuario{ color:var(--rd-texto); font-size:16px; font-weight:600; }
+.app-top .app-top-sub{ color:var(--rd-texto-3); font-size:12px; }
+.app-top-acc{ margin-left:auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.app-top .btn-header{ height:36px; padding:0 14px; border-radius:8px; border:1px solid var(--rd-borde-2); background:#fff; color:var(--rd-texto); font-size:13px; font-weight:500; gap:6px; }
+.app-top .btn-header:hover{ background:var(--rd-hover); border-color:var(--rd-borde-2); }
+.app-top .btn-header i{ font-size:17px; }
+.app-top .btn-nuevo{ background:var(--azul); border-color:var(--azul); color:#fff; }
+.app-top .btn-nuevo:hover{ background:var(--navy); }
+.menu-nuevo{ position:relative; }
+.menu-nuevo-drop{ display:none; position:absolute; right:0; top:calc(100% + 6px); width:260px; background:#fff; border:1px solid var(--rd-borde); border-radius:10px; box-shadow:0 10px 28px rgba(16,24,40,.14); padding:6px; z-index:250; }
+.menu-nuevo.abierto .menu-nuevo-drop{ display:block; }
+.menu-nuevo-drop a{ display:flex; gap:10px; align-items:flex-start; padding:9px 10px; border-radius:8px; text-decoration:none; color:var(--rd-texto); }
+.menu-nuevo-drop a:hover{ background:var(--rd-hover); }
+.menu-nuevo-drop i{ font-size:19px; color:var(--azul-medio); margin-top:1px; }
+.menu-nuevo-drop b{ display:block; font-size:13px; font-weight:600; }
+.menu-nuevo-drop small{ display:block; font-size:11.5px; color:var(--rd-texto-3); }
+.app-hamburguesa{ display:none; width:38px; height:38px; border:1px solid var(--rd-borde-2); border-radius:8px; background:#fff; align-items:center; justify-content:center; font-size:20px; color:var(--rd-texto); cursor:pointer; flex:none; }
+.app-overlay{ display:none; }
+
+/* ---- Contenido del Plan Diario ---- */
+main{ max-width:1180px; margin:0; width:100%; padding:22px 28px 48px; }
+
+.date-nav{ border-radius:12px; box-shadow:var(--rd-sombra); border-color:var(--rd-borde); padding:12px 16px; justify-content:space-between; }
+.date-nav button{ width:36px; height:36px; border-radius:8px; border-color:var(--rd-borde-2); background:#fff; color:var(--rd-texto); font-weight:500; }
+.date-nav button:hover{ background:var(--rd-hover); }
+.date-nav .fecha-actual{ font-weight:600; color:var(--rd-texto); font-size:16px; flex:1; }
+.date-nav .btn-hoy{ border-radius:8px; text-transform:none; letter-spacing:0; font-weight:600; font-size:13px; background:var(--azul-bg); color:var(--azul-claro); border-color:#b8d0ee; }
+
+.titulo-plan{ background:transparent; border:0; padding:0; text-align:left; margin:4px 0 14px; }
+.titulo-plan h2{ font-size:20px; font-weight:600; color:var(--rd-texto); letter-spacing:0; }
+.titulo-plan p{ font-size:13px; color:var(--rd-texto-2); }
+
+.progreso-plan{ border-radius:12px; box-shadow:var(--rd-sombra); border-color:var(--rd-borde); padding:16px 18px; }
+.progreso-plan-label{ font-weight:600; color:var(--rd-texto); font-size:13px; }
+.progreso-plan-pct{ font-weight:600; font-size:20px; color:var(--rd-texto); }
+.progreso-plan-track{ height:8px; border-radius:99px; background:var(--rd-hover); }
+.progreso-plan-fill{ border-radius:99px; background:var(--azul-medio); }
+.progreso-plan-fill.full{ background:var(--verde); }
+.progreso-plan-sub{ color:var(--rd-texto-3); font-size:12px; }
+
+.toolbar{ align-items:center; }
+.btn-add{ border-radius:8px; font-weight:500; font-size:13px; padding:0 16px; height:38px; display:inline-flex; align-items:center; gap:6px; border-color:var(--azul); }
+.btn-ocultos{ border-radius:8px; font-weight:500; font-size:13px; height:38px; padding:0 14px; background:#fff; border-color:var(--rd-borde-2); color:var(--rd-texto-2); }
+.btn-ocultos:hover{ background:var(--rd-hover); }
+.toggle-ver-todo{ font-size:13px; color:var(--rd-texto-2); background:#fff; border:1px solid var(--rd-borde-2); border-radius:8px; padding:8px 12px; }
+
+.tabla-wrap{ border-radius:12px; box-shadow:var(--rd-sombra); border-color:var(--rd-borde); }
+thead th{ background:#f8fafc; color:var(--rd-texto-3); font-weight:500; font-size:11.5px; letter-spacing:.04em; border-bottom:1px solid var(--rd-borde); }
+tbody tr{ border-bottom:1px solid var(--rd-borde); }
+tbody tr:hover{ background:#f8fafd; }
+td{ padding:12px 14px; }
+.td-actividad{ font-weight:500; color:var(--rd-texto); }
+.td-proceso{ color:var(--rd-texto-2); font-size:12.5px; }
+.chip-prioridad{ border-radius:99px; font-weight:600; font-size:12px; padding:3px 10px; }
+.orden-tag{ border-radius:5px; font-weight:600; }
+.orden-badge{ border-radius:99px; font-weight:500; font-size:12px; padding:2px 10px; }
+.orden-continuar{ font-weight:500; }
+.btn-fila{ width:32px; height:32px; border-radius:7px; }
+.btn-fila:hover{ background:var(--rd-hover); }
+.chk-completado{ width:20px; height:20px; }
+
+.modal{ border-radius:14px; }
+.modal-header h3{ font-size:16px; font-weight:600; color:var(--rd-texto); }
+.campo label{ font-weight:600; letter-spacing:.03em; color:var(--rd-texto-2); }
+.campo input[type=text], .campo input[type=number], .campo input[type=date], .campo select, .campo textarea{ border-color:var(--rd-borde-2); border-radius:8px; font-size:14px; padding:10px 12px; }
+.btn-guardar, .btn-cancelar, .btn-eliminar{ border-radius:8px; font-weight:500; height:40px; }
+.btn-mostrar{ border-radius:8px; font-weight:500; }
+
+/* ---- Celular y tablet ---- */
+@media (max-width: 900px){
+  .app-shell{ grid-template-columns:minmax(0,1fr); }
+  .app-side{ position:fixed; left:0; top:0; bottom:0; width:264px; transform:translateX(-100%); transition:transform .2s ease; }
+  .app-shell.menu-abierto .app-side{ transform:none; }
+  .app-shell.menu-abierto .app-overlay{ display:block; position:fixed; inset:0; background:rgba(12,30,53,.45); z-index:290; }
+  .app-hamburguesa{ display:inline-flex; }
+  .app-top{ padding:10px 14px; gap:10px; }
+  .app-top .rd-lbl{ display:none; }
+  .app-top .app-top-sub{ display:none; }
+  .app-top .btn-header{ padding:0 11px; }
+  main{ padding:16px 14px 40px; }
+}
+@media (max-width: 640px){
+  .date-nav{ gap:8px; padding:10px; }
+  .date-nav .fecha-actual{ min-width:0; font-size:14px; }
+  .toolbar, .toolbar-tecnico{ justify-content:stretch; flex-wrap:wrap; }
+  .toolbar > button{ flex:1 1 auto; justify-content:center; }
+  .fila-2{ flex-direction:column; gap:0; }
+}
+@media (max-width: 900px){
+  /* Tabla -> tarjetas en celular y tablet vertical (solo presentación; mismas celdas y botones) */
+  .tabla-wrap{ background:transparent; border:0; box-shadow:none; overflow:visible; }
+  .tabla-wrap table{ min-width:0; display:block; }
+  .tabla-wrap thead{ display:none; }
+  .tabla-wrap tbody{ display:block; }
+  .tabla-wrap tbody tr{ display:grid; grid-template-columns:auto minmax(0,1fr) auto auto; grid-template-areas:"prio act chk acc" "asig asig asig asig" "cli cli ent ent" "proc proc proc proc"; gap:6px 10px; align-items:center; background:#fff; border:1px solid var(--rd-borde); border-radius:12px; padding:12px 14px; margin-bottom:10px; }
+  .tabla-wrap tbody tr.mio{ background:var(--verde-bg); border-color:var(--verde-borde); }
+  .tabla-wrap tbody tr.orden-row{ background:#f4f8fd; }
+  .tabla-wrap tbody tr.orden-row.mio{ background:var(--verde-bg); }
+  .tabla-wrap tbody td{ padding:0; display:block; max-width:none; border:0; text-align:left !important; }
+  .tabla-wrap tbody td:nth-child(1){ grid-area:prio; }
+  .tabla-wrap tbody td:nth-child(2){ grid-area:asig; font-size:12.5px; color:var(--rd-texto-2); }
+  .tabla-wrap tbody td:nth-child(3){ grid-area:cli; font-size:12.5px; color:var(--rd-texto-2); }
+  .tabla-wrap tbody td:nth-child(4){ grid-area:act; font-size:14px; }
+  .tabla-wrap tbody td:nth-child(5){ grid-area:ent; font-size:12.5px; color:var(--rd-texto-2); text-align:right !important; }
+  .tabla-wrap tbody td:nth-child(6){ grid-area:proc; padding-top:6px; border-top:1px solid var(--rd-borde); }
+  .tabla-wrap tbody td:nth-child(7){ grid-area:chk; }
+  .tabla-wrap tbody td:nth-child(8){ grid-area:acc; }
+  .tabla-wrap tbody td:nth-child(2)::before{ content:"Asignado: "; color:var(--rd-texto-3); }
+  .tabla-wrap tbody td:nth-child(3)::before{ content:"Cliente: "; color:var(--rd-texto-3); }
+  .tabla-wrap tbody td:nth-child(5)::before{ content:"Entrega: "; color:var(--rd-texto-3); }
+  .tabla-wrap tbody tr.empty-row{ display:block; }
+  .tabla-wrap tbody tr.empty-row td{ text-align:center !important; padding:24px; }
+  .tabla-wrap tbody tr.empty-row td::before{ content:none; }
+  .chk-completado{ width:24px; height:24px; }
+}
+@media (min-width: 641px) and (max-width: 900px){
+  .tabla-wrap tbody{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .tabla-wrap tbody tr{ margin:0; }
+  .tabla-wrap tbody tr.empty-row{ grid-column:1 / -1; }
+  .modal-overlay{ padding:10px; align-items:flex-end; }
+  .modal{ max-height:92vh; border-radius:16px 16px 12px 12px; }
+}
+</style>
 </head>
 <body>
 
-<header>
-  <div class="header-brand">
-    <img src="logo_SI.jpg" alt="SI">
-    <div>
-      <h1>Centro de Servicio</h1>
-      <p>Plan Diario</p>
+<!-- ===== REDISEÑO: menú lateral + barra superior (mismos IDs y funciones que antes) ===== -->
+<div class="app-shell" id="appShell">
+<aside class="app-side">
+  <div class="side-marca"><div class="header-logo"><img src="logo_SI.jpg" alt="Suministros Industriales SI"></div></div>
+  <div class="side-sub">Centro de Servicio</div>
+  <nav class="side-nav">
+    <a class="side-link rd-solo-admin" href="dashboard.html#general"><i class="ti ti-layout-dashboard"></i><span>Inicio</span></a>
+    <a class="side-link" href="dashboard.html#ordenes"><i class="ti ti-clipboard-list"></i><span>Órdenes</span></a>
+    <a class="side-link" href="dashboard.html#planeacion"><i class="ti ti-calendar-event"></i><span>Planeación</span></a>
+    <a class="side-link active" href="plan_diario.html"><i class="ti ti-checklist"></i><span>Plan diario</span></a>
+
+    <div class="nav-tit rd-solo-admin">Control interno</div>
+    <a class="side-link rd-solo-admin" href="dashboard.html#validacion"><i class="ti ti-package"></i><span>Validación materiales</span></a>
+    <a class="side-link rd-solo-admin" href="dashboard.html#desempeno"><i class="ti ti-chart-line"></i><span>Desempeño</span></a>
+    <a class="side-link rd-solo-admin" href="dashboard.html#costos"><i class="ti ti-calculator"></i><span>Control de costos</span></a>
+  </nav>
+  <div class="side-pie">
+    <button type="button" class="side-link" onclick="cerrarSesion()"><i class="ti ti-logout"></i><span>Cerrar sesión</span></button>
+  </div>
+</aside>
+<div class="app-overlay" onclick="rdCerrarMenuLateral()"></div>
+<div class="app-main">
+<div class="app-top">
+  <button type="button" class="app-hamburguesa" onclick="rdAbrirMenuLateral()" aria-label="Abrir menú"><i class="ti ti-menu-2"></i></button>
+  <div class="app-top-tit">
+    <span class="saludo-usuario" id="saludoUsuario"></span>
+    <span class="app-top-sub">Plan diario del Centro de Servicio</span>
+  </div>
+  <div class="app-top-acc">
+    <button class="btn-header" onclick="cargarPlan()"><i class="ti ti-refresh"></i><span class="rd-lbl">Actualizar</span></button>
+    <div class="menu-nuevo" id="rdMenuNuevo">
+      <button type="button" class="btn-header btn-nuevo" onclick="rdToggleMenuNuevo(event)"><i class="ti ti-plus"></i><span>Nuevo</span><i class="ti ti-chevron-down" style="font-size:14px"></i></button>
+      <div class="menu-nuevo-drop">
+        <a href="formulario_maestro.html"><i class="ti ti-engine"></i><div><b>Servicio Sulzer</b><small>Checklist completo de motor</small></div></a>
+        <a href="formulario_general.html"><i class="ti ti-tool"></i><div><b>Servicio General</b><small>Otros equipos y clientes</small></div></a>
+        <a href="inspeccion_lote.html"><i class="ti ti-stack-2"></i><div><b>Inspección por lote</b><small>Semáforo de varios motores</small></div></a>
+      </div>
     </div>
   </div>
-  <div class="header-right">
-    <span class="saludo-usuario" id="saludoUsuario"></span>
-    <button class="btn-header" onclick="cargarPlan()">↻ Actualizar</button>
-    <a class="btn-header" href="inspeccion_lote.html" style="color:#fff;text-decoration:none;display:inline-flex;align-items:center;">Inspección por lote</a>
-    <a class="btn-header" href="dashboard.html" style="color:#fff;text-decoration:none;display:inline-flex;align-items:center;">Ir al Dashboard →</a>
-    <button class="btn-header" onclick="cerrarSesion()">Cerrar sesión</button>
-  </div>
-</header>
+</div>
+
 
 <main>
   <div class="date-nav">
@@ -271,6 +452,8 @@ td{ padding:11px 14px; vertical-align:middle; }
     </table>
   </div>
 </main>
+</div><!-- /app-main -->
+</div><!-- /app-shell -->
 
 <!-- MODAL AGREGAR/EDITAR TAREA (solo Admin) -->
 <div class="modal-overlay hidden" id="modalOverlay">
@@ -867,6 +1050,29 @@ function primerNombre(nombreCompleto){
   return (nombreCompleto || "").trim().split(/\s+/)[0] || "";
 }
 
+
+/* Aviso por perfil: cuántas Órdenes de Trabajo esperan TU firma (ver orden_trabajo.html).
+   Encargado/Dirección: borradores sin firma del encargado. Técnico: OT ya firmadas por el encargado que le tocan a él/ella. */
+async function avisoOTPendientes(){
+  try{
+    const limpio = s => (s||"").trim().toLowerCase().replace(/\s+/g," ");
+    const me = limpio(_sesion.nombre);
+    const esEnc = /^luis osvaldo/i.test((_sesion.nombre||"").trim()) || _sesion.rol === "Direccion";
+    const r = await fetch(`/.netlify/functions/airtable?table=tblh03YT3xBUM7ThC&filterByFormula=${encodeURIComponent('{estado}="Borrador"')}&returnFieldsByFieldId=true`);
+    if(!r.ok) return;
+    let n = 0;
+    for(const rec of ((await r.json()).records || [])){
+      let fi = {}; try{ fi = JSON.parse(rec.fields.fldJLNWXahwhjzIrP || "{}"); }catch(e){}
+      const tec = limpio(rec.fields.fldaf1wB2bkl6svTB);
+      if(!fi.encargado && esEnc) n++;
+      else if(fi.encargado && !fi.tecnico && tec === me) n++;
+    }
+    const el = document.getElementById("saludoUsuario");
+    if(!n || !el || document.getElementById("avisoOT")) return;
+    el.insertAdjacentHTML("beforebegin", `<a id="avisoOT" href="orden_trabajo.html" style="background:#f59e0b;color:#fff;font-weight:700;font-size:0.8rem;padding:6px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;">✍ ${n} OT por firmar</a>`);
+  }catch(e){}
+}
+
 function mostrarSaludo(){
   const el = document.getElementById("saludoUsuario");
   if(!el || !_sesion) return;
@@ -877,9 +1083,27 @@ function mostrarSaludo(){
 /* ============ INIT ============ */
 if(_sesionValida){
   mostrarSaludo();
+  avisoOTPendientes();
   cargarPlan(); // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
 }
 </script>
 
+<script>
+/* REDISEÑO 2026-11 — solo menús y visibilidad del menú por rol (igual que el dashboard). */
+function rdAbrirMenuLateral(){ document.getElementById("appShell").classList.add("menu-abierto"); }
+function rdCerrarMenuLateral(){ document.getElementById("appShell").classList.remove("menu-abierto"); }
+function rdToggleMenuNuevo(e){ e.stopPropagation(); document.getElementById("rdMenuNuevo").classList.toggle("abierto"); }
+document.addEventListener("click", function(e){
+  var m = document.getElementById("rdMenuNuevo");
+  if(m && !m.contains(e.target)) m.classList.remove("abierto");
+});
+/* El Técnico no ve en el dashboard Inicio ni Control interno: se ocultan aquí también. */
+(function(){
+  var s = (typeof _sesion !== "undefined") ? _sesion : null;
+  if(s && s.rol === "Tecnico"){
+    document.querySelectorAll(".rd-solo-admin").forEach(function(el){ el.style.display = "none"; });
+  }
+})();
+</script>
 </body>
 </html>
