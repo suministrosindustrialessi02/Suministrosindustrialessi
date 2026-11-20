@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
 <script>
+/* Meta de tiempo en el C.S: dias maximos antes de considerar una orden vencida */
+var DIAS_META_CS = 15;
+
 /* QR mal generado antes: apuntaba al dashboard con ?tipo=orden&id=... — se manda a la ficha publica */
 (function(){ var q = new URLSearchParams(location.search); if(q.get("tipo") === "orden" && q.get("id")){ location.replace("equipo.html" + location.search); } })();
 </script>
@@ -1541,6 +1544,7 @@ footer{ background:transparent; border-top:1px solid var(--rd-borde); color:var(
     <div class="topbar-item"        id="tab-validacion"   onclick="cambiarTab('validacion')"><i class="ti ti-package"></i><span>Validación materiales</span> <span class="badge" id="badgeDireccionPend" style="margin-left:4px">0</span></div>
     <div class="topbar-item"        id="tab-desempeno"    onclick="cambiarTab('desempeno')"><i class="ti ti-chart-line"></i><span>Desempeño</span></div>
     <div class="topbar-item"        id="tab-costos"       onclick="cambiarTab('costos')"><i class="ti ti-calculator"></i><span>Control de costos</span></div>
+    <div class="topbar-item"        id="tab-archivados"   onclick="cambiarTab('archivados')"><i class="ti ti-stack-2"></i><span>Archivados</span></div>
 
     <div class="nav-tit">Indicadores</div>
     <button type="button" class="side-link" id="btnKpiSemanales" onclick="kpiSemModalAbrir()"><i class="ti ti-calendar-stats"></i><span>KPIs semanales</span></button>
@@ -1637,7 +1641,7 @@ footer{ background:transparent; border-top:1px solid var(--rd-borde); color:var(
     <!-- NUEVOS INDICADORES -->
     <div class="section-label" style="margin-top:6px">Nuevos indicadores</div>
     <div class="kpi-grid kpi-grid-new">
-      <div class="kpi-card" style="--kpi-color:#991b1b" data-tooltip="Ordenes activas con mas de 4 dias en el C.S sin entregarse. Requieren atencion inmediata.">
+      <div class="kpi-card" style="--kpi-color:#991b1b" data-tooltip="Ordenes activas con mas de 15 dias en el C.S sin entregarse. Requieren atencion inmediata.">
         <div class="kpi-head"><div class="kpi-ico"><svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><div class="kpi-tag">Vencidas</div></div><div class="kpi-number" id="kpiVencidas">&#x2014;</div>
         <div class="kpi-label">Activas &gt;4 d&#xED;as</div>
         <div class="kpi-sub" id="kpiVencidasSub"></div>
@@ -2053,6 +2057,16 @@ footer{ background:transparent; border-top:1px solid var(--rd-borde); color:var(
     </div>
 
     <!-- ===== CONTROL DE COSTOS (Admin + Dirección, uso interno) ===== -->
+    <div id="secArchivados" style="display:none">
+      <div class="section-label">Equipos archivados (depuración) <span style="background:var(--rojo-bg);color:var(--rojo);border:1px solid var(--rojo-borde);font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle">Solo Admin / Dirección</span></div>
+      <div class="card">
+        <div class="card-title"><span class="card-title-dot"></span>Equipos ocultos del dashboard <span id="archConteo" style="font-weight:600;color:var(--gris-texto);margin-left:6px"></span></div>
+        <p style="font-size:0.82rem;color:var(--gris-texto);margin:0 0 12px">Estos equipos no aparecen en Órdenes ni cuentan en los KPIs. No se borró nada (fotos, reportes y checklist siguen guardados). Al reactivar uno, vuelve a aparecer y a contar.</p>
+        <input id="archBuscar" type="search" placeholder="Buscar por serie, folio, cliente o estado…" oninput="renderArchivados()" style="width:100%;max-width:420px;padding:8px 10px;border:1px solid #cbd5e1;border-radius:8px;font-size:0.85rem;margin-bottom:12px">
+        <div id="archBody" style="overflow:auto"></div>
+      </div>
+    </div>
+
     <div id="secCostos" style="display:none">
       <div class="section-label">Control de costos internos <span style="background:var(--rojo-bg);color:var(--rojo);border:1px solid var(--rojo-borde);font-size:0.62rem;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.3px;margin-left:6px;vertical-align:middle">SOLO INTERNO</span></div>
       <div id="costosControlResumen" class="cot-totales" style="margin-bottom:16px"></div>
@@ -2718,7 +2732,10 @@ async function fetchAll(){
     offset = d.offset || null;
   } while(offset);
   // Ocultar equipos ya respaldados (siguen en Airtable)
-  return all.filter(r => !(r.fields && r.fields["fldDvyOQxdyBxDmwG"]));
+  // Ocultar también los archivados por depuración (fldh9H0rP0uqLypTo); se reactivan desmarcando en Airtable
+  // Guardar los archivados (no respaldados) para la pestaña "Archivados", donde se pueden reactivar
+  window._archivadosRaw = all.filter(r => r.fields && r.fields["fldh9H0rP0uqLypTo"] && !r.fields["fldDvyOQxdyBxDmwG"]);
+  return all.filter(r => !(r.fields && (r.fields["fldDvyOQxdyBxDmwG"] || r.fields["fldh9H0rP0uqLypTo"])));
 }
 
 async function fetchTecnicos(){
@@ -2945,7 +2962,9 @@ function parsear(rec){
     createdAt: rec.createdTime,
     dias:      (f[F.dias] !== undefined && f[F.dias] !== null && Number(f[F.dias]) > 0)
                ? Number(f[F.dias])
-               : Math.floor((Date.now() - new Date(rec.createdTime)) / (1000 * 60 * 60 * 24)),
+               // Si el campo viene en 0: una orden ENTREGADA se mide hasta su entrega real, no hasta hoy
+               : Math.floor((((((f[F.estado] && f[F.estado].name) || f[F.estado]) === "Entregado" && f[F.fechaEntregaReal])
+                     ? new Date(f[F.fechaEntregaReal]) : Date.now()) - new Date(rec.createdTime)) / (1000 * 60 * 60 * 24)),
   };
 }
 
@@ -3322,11 +3341,61 @@ function byPrioridadYDias(a, b){
 }
 
 /* ============================================================
+   ARCHIVADOS (depuración): ver y reactivar — solo Admin / Dirección
+   No borra nada: reactivar = desmarcar el campo "Archivado (depuración)"
+   ============================================================ */
+const F_ARCHIVADO = "fldh9H0rP0uqLypTo";
+function archPuede(){ return !!(_sesion && (_sesion.rol === "Admin" || _sesion.rol === "Direccion")); }
+function renderArchivados(){
+  const wrap = document.getElementById("archBody");
+  if(!wrap) return;
+  if(!archPuede()){ wrap.innerHTML = '<div style="padding:14px;color:var(--gris-texto)">Sin permiso para ver esta sección.</div>'; return; }
+  const q = ((document.getElementById("archBuscar") || {}).value || "").trim().toLowerCase();
+  const todos = (window._archivadosRaw || []).map(r => {
+    const f = r.fields || {}, e = f["fldRtvzailqq6WbQu"];
+    const c = (r.createdTime || "").slice(0, 10).split("-");
+    return { id:r.id, serie:f["fldj245KNDJ2B5jxG"] || "", folio:f["fldpMUMLpNCGGQcIo"] || "",
+             cliente:String(f["fldUkOvdOHTXMDWX7"] || "").trim(), estado:(e && e.name) || e || "",
+             creado:c.length === 3 ? c[2] + "/" + c[1] + "/" + c[0] : "" };
+  });
+  const lista = todos.filter(x => !q || (x.serie + " " + x.folio + " " + x.cliente + " " + x.estado).toLowerCase().includes(q))
+                     .sort((a, b) => a.estado.localeCompare(b.estado) || a.folio.localeCompare(b.folio));
+  const cnt = document.getElementById("archConteo");
+  if(cnt) cnt.textContent = "(" + (q ? lista.length + " de " : "") + todos.length + ")";
+  if(!lista.length){
+    wrap.innerHTML = '<div style="padding:14px;color:var(--gris-texto)">' + (todos.length ? "Ningún equipo coincide con la búsqueda." : "No hay equipos archivados.") + '</div>';
+    return;
+  }
+  wrap.innerHTML = '<table class="cot-tbl"><thead><tr><th>Serie</th><th>Folio</th><th>Cliente</th><th>Estado</th><th>Registrado</th><th></th></tr></thead><tbody>' +
+    lista.map(x => '<tr><td>' + esc(x.serie || "—") + '</td><td style="white-space:nowrap">' + esc(x.folio || "—") + '</td><td>' + esc(x.cliente || "—") + '</td><td>' + esc(x.estado) + '</td><td>' + esc(x.creado) + '</td>' +
+      '<td><button type="button" class="btn-corr" style="background:#1b7a34" onclick="reactivarArchivado(\'' + x.id + '\', this)" data-nombre="' + esc(x.folio || x.serie || "") + '">Reactivar</button></td></tr>').join("") +
+    '</tbody></table>';
+}
+async function reactivarArchivado(id, btn){
+  if(!archPuede()) return;
+  const nombre = (btn && btn.getAttribute("data-nombre")) || "este equipo";
+  if(!confirm("¿Reactivar " + nombre + "?\n\nVolverá a aparecer en Órdenes y a contar en los KPIs.")) return;
+  if(btn){ btn.disabled = true; btn.textContent = "Reactivando…"; }
+  try{
+    const resp = await fetch("/.netlify/functions/airtable?table=" + TABLE_ID + "&recordId=" + id, {
+      method: "PATCH", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields: { [F_ARCHIVADO]: false } })
+    });
+    if(!resp.ok) throw new Error("Error HTTP " + resp.status);
+    await cargarSoloOrdenes();
+    renderArchivados();
+  } catch(e){
+    alert("No se pudo reactivar: " + e.message);
+    if(btn){ btn.disabled = false; btn.textContent = "Reactivar"; }
+  }
+}
+
+/* ============================================================
    PESTAÑAS
    ============================================================ */
 function cambiarTab(tab){
   // Tabs
-  ["general","ordenes","planeacion","validacion","desempeno","costos"].forEach(t => {
+  ["general","ordenes","planeacion","validacion","desempeno","costos","archivados"].forEach(t => {
     document.getElementById("tab-"+t).classList.toggle("active", t === tab);
   });
   // Secciones
@@ -3336,6 +3405,8 @@ function cambiarTab(tab){
   document.getElementById("secValidacion").style.display = tab === "validacion" ? "" : "none";
   document.getElementById("secCostos").style.display     = tab === "costos"     ? "" : "none";
   document.getElementById("secDesempeno").style.display  = tab === "desempeno"  ? "" : "none";
+  document.getElementById("secArchivados").style.display = tab === "archivados" ? "" : "none";
+  if(tab === "archivados") renderArchivados();
   if(tab === "desempeno"){
     if(!document.getElementById("desDesde").value) desRapido("esta"); else renderDesempenoTab();
   }
@@ -3366,7 +3437,7 @@ function datosFila(o, esAdmin){
   let diasTxt = "—", diasCls = "";
   if(o.dias !== null){
     diasTxt = o.dias;
-    diasCls = o.dias > 30 ? "dias-alto" : o.dias > 4 ? "dias-medio" : "dias-bajo";
+    diasCls = o.dias > 30 ? "dias-alto" : o.dias > DIAS_META_CS ? "dias-medio" : "dias-bajo";
   }
   const identificador = o.serie || o.folio || "—";
   const servicioBadge = esGeneral
@@ -6898,11 +6969,11 @@ function kpiSemHtml(desdeS, hastaS){
   var N = function(k){ return allOrdenes.filter(function(o){ return normEstado(o.estado)===k; }); };
   var activas = allOrdenes.filter(function(o){ return ["terminado","entregado","porllegar","noautorizado"].indexOf(normEstado(o.estado))<0; });
   var terminadas = N("terminado"), entregadasTot = N("entregado"), recibidas = N("recibido");
-  var vencidas = activas.filter(function(o){ return o.dias!==null && o.dias>4; }).sort(function(a,b){ return b.dias-a.dias; });
+  var vencidas = activas.filter(function(o){ return o.dias!==null && o.dias>DIAS_META_CS; }).sort(function(a,b){ return b.dias-a.dias; });
   var promDias = avg(activas.filter(function(o){return o.dias!==null;}).map(function(o){return o.dias;}));
   var finalizadas = terminadas.concat(entregadasTot);
-  var docsInc = terminadas.filter(function(o){ return !o.checklist || !o.pintura || !o.evidencia; });
-  var docsOk = finalizadas.filter(function(o){ return o.checklist && o.pintura && o.evidencia; });
+  var docsInc = terminadas.filter(function(o){ return !docsCompletos(o); });
+  var docsOk = finalizadas.filter(docsCompletos);
   var leadTime = avg(entregadasTot.filter(function(o){return o.dias!==null;}).map(function(o){return o.dias;}));
   var estados = [["En diagnóstico",N("endiagnostico").length],["En proceso",N("proceso").length],["Recibido",recibidas.length],["En corrección",N("encorreccion").length],["Terminado (sin entregar)",terminadas.length],["Entregado",entregadasTot.length]];
   var maxEst = Math.max.apply(null, estados.map(function(e){return e[1];}).concat([1]));
@@ -6915,7 +6986,7 @@ function kpiSemHtml(desdeS, hastaS){
     var df = Math.round((fechaSoloDia(o.fechaEntregaReal)-fechaSoloDia(o.fechaEntregaProgramada))/86400000);
     if(df>0){ tard++; difT.push(df); } else aT++;
   });
-  var totEnt = aT+tard+sinF, retProm = avg(difT);
+  var totEnt = aT+tard, retProm = avg(difT);
   var totCorr = 0, ordCorr = 0;
   allOrdenes.forEach(function(o){ if(o.vecesCorregido>0){ totCorr += o.vecesCorregido; ordCorr++; } });
   var genT = allOrdenes.filter(function(o){ return o.tipoServicio==="General" && (o.reporteGeneralCompletado || ["terminado","entregado"].indexOf(normEstado(o.estado))>=0); });
@@ -6941,7 +7012,7 @@ function kpiSemHtml(desdeS, hastaS){
     + (entregadas.length ? ' ('+entATiempo+' a tiempo, '+entTarde+' tarde, '+entSinFecha+' sin fecha programada)' : '')
     + '. '+(planT ? 'El Plan Diario se cumplió al <b>'+pctTxt(planC,planT)+'</b> ('+planC+' de '+planT+' tareas)' : 'No hubo tareas registradas en el Plan Diario')
     + ' y '+(correcciones.length ? 'hubo <b>'+correcciones.length+' corrección'+(correcciones.length!==1?'es':'')+'</b> nueva'+(correcciones.length!==1?'s':'') : 'no hubo correcciones nuevas')+'. '
-    + 'Al día de hoy hay <b>'+activas.length+'</b> órdenes activas en el taller, <b>'+vencidas.length+'</b> con más de 4 días, y <b>'+docsInc.length+' de '+terminadas.length+'</b> terminadas sin documentación completa.';
+    + 'Al día de hoy hay <b>'+activas.length+'</b> órdenes activas en el taller, <b>'+vencidas.length+'</b> con más de 15 días, y <b>'+docsInc.length+' de '+terminadas.length+'</b> terminadas sin documentación completa.';
 
   var logo = document.getElementById("brandLogo").src;
   var colorPlan = function(p){ return p>=80 ? "#0e7a3c" : p>=50 ? "#f59e0b" : "#991b1b"; };
@@ -6949,7 +7020,7 @@ function kpiSemHtml(desdeS, hastaS){
 
   var observ = [];
   if(entSinFecha) observ.push("Hubo "+entSinFecha+" entrega"+(entSinFecha!==1?"s":"")+" sin fecha programada, por lo que no se puede medir si fueron a tiempo. Registrar la fecha desde el pre-registro lo haría medible.");
-  if(vencidas.length) observ.push("De "+activas.length+" órdenes activas, "+vencidas.length+" llevan más de 4 días en el taller; la más antigua es "+idOrden(vencidas[0])+" ("+vencidas[0].dias+" días).");
+  if(vencidas.length) observ.push("De "+activas.length+" órdenes activas, "+vencidas.length+" llevan más de 15 días en el taller; la más antigua es "+idOrden(vencidas[0])+" ("+vencidas[0].dias+" días).");
   if(docsInc.length) observ.push("Pendiente administrativo: "+docsInc.length+" de "+terminadas.length+" terminadas no tienen checklist, pintura o evidencia completos.");
 
   return '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><title>KPIs '+desdeS+' a '+hastaS+'</title><style>'
@@ -6984,12 +7055,12 @@ function kpiSemHtml(desdeS, hastaS){
    + card(pctTxt(finalizadas.length,allOrdenes.length),"Tasa de finalización",finalizadas.length+" de "+allOrdenes.length+" servicios","#0e7a3c")+card(allOrdenes.length,"Total de servicios","histórico")+'</div>'
    + '<div class="sub">Distribución por estado</div>'+barras(estados.map(function(e){return [e[0],e[1]];}), maxEst, "#2563a8")
    + '<h2>Alertas y puntos de atención</h2>'
-   + '<div class="grid">'+card(vencidas.length,"Activas &gt; 4 días","de "+activas.length+" en el taller","#991b1b")+card(recibidas.length,"Sin iniciar","esperando intervención","#c2410c")
+   + '<div class="grid">'+card(vencidas.length,"Activas &gt; 15 días","de "+activas.length+" en el taller","#991b1b")+card(recibidas.length,"Sin iniciar","esperando intervención","#c2410c")
    + card(docsInc.length,"Sin documentar","de "+terminadas.length+" terminadas","#991b1b")+card(pctTxt(docsOk.length,finalizadas.length),"Docs. completos","terminadas + entregadas","#991b1b")+'</div>'
-   + '<div class="sub">Las 5 órdenes con más días en el taller</div>'+tabla(["Folio / serie","Cliente","Días en C.S"], vencidas.slice(0,5).map(function(o){ return [idOrden(o), o.cliente||"—", o.dias]; }), "Sin órdenes con más de 4 días.")
+   + '<div class="sub">Las 5 órdenes con más días en el taller</div>'+tabla(["Folio / serie","Cliente","Días en C.S"], vencidas.slice(0,5).map(function(o){ return [idOrden(o), o.cliente||"—", o.dias]; }), "Sin órdenes con más de 15 días.")
    + '<h2>Calidad y cumplimiento (acumulado)</h2>'
    + tabla(["Indicador","Valor","Lectura"], [
-       ["Cumplimiento de entrega", totEnt ? pctTxt(aT,totEnt)+" a tiempo" : "—", aT+" a tiempo, "+tard+" tarde y "+sinF+" sin fecha programada"+(retProm!==null?". Retraso promedio de las tardías: +"+retProm.toFixed(1)+" días":"")],
+       ["Cumplimiento de entrega", totEnt ? pctTxt(aT,totEnt)+" a tiempo" : "—", aT+" a tiempo, "+tard+" tarde y "+sinF+" sin fecha programada (no cuentan en el porcentaje)"+(retProm!==null?". Retraso promedio de las tardías: +"+retProm.toFixed(1)+" días":"")],
        ["Tiempo promedio de entrega", leadTime!==null ? Math.round(leadTime)+" días" : "—", "contra "+(promDias!==null?Math.round(promDias):"—")+" días promedio de las órdenes activas"],
        ["Retrabajos (correcciones)", totCorr+" en "+ordCorr+" órdenes", "desde que se registran (julio 2026)"],
        ["Precisión de lista de materiales", genT.length ? pctTxt(matOk.length,genT.length) : "—", genT.length+" reportes General terminados"]
@@ -7054,12 +7125,12 @@ function kpiDesempenoHtml(desdeS, hastaS){
     return {
       entregados: ent.length,
       activos: act.length,
-      venc: act.filter(function(o){ return o.dias>4; }).length,
+      venc: act.filter(function(o){ return o.dias>DIAS_META_CS; }).length,
       diasAct: avg(act.map(function(o){ return o.dias; })),
       diasEnt: avg(ent.map(function(o){ return o.dias; })),
       retP: retP,
       conRet: pct(fin.filter(function(o){ return o.vecesCorregido>0; }).length, fin.length),
-      docs: pct(fin.filter(function(o){ return o.checklist && o.pintura && o.evidencia; }).length, fin.length),
+      docs: pct(fin.filter(docsCompletos).length, fin.length),
       finN: fin.length,
       plan: pct(tC, tT), planT: tT, planC: tC
     };
@@ -7084,9 +7155,9 @@ function kpiDesempenoHtml(desdeS, hastaS){
   var areas = [];
   var activasTot = allOrdenes.filter(activasF).length;
   if(sinR.activos) areas.push("<b>"+sinR.activos+" de "+activasTot+" equipos activos no tienen técnico asignado.</b> Sin asignación no se puede medir el desempeño individual ni dar seguimiento; conviene asignar técnico a cada equipo desde el registro.");
-  if(grupo.diasAct !== null && grupo.diasAct > 4) areas.push("El tiempo promedio de los equipos activos en el C.S es de <b>"+f1(grupo.diasAct)+" días</b> (referencia: 4 días). "+grupo.venc+" de "+grupo.activos+" equipos activos la superan.");
+  if(grupo.diasAct !== null && grupo.diasAct > DIAS_META_CS) areas.push("El tiempo promedio de los equipos activos en el C.S es de <b>"+f1(grupo.diasAct)+" días</b> (meta: 15 días). "+grupo.venc+" de "+grupo.activos+" equipos activos la superan.");
   var maxV = filas.filter(function(r){ return r.venc>0; }).sort(function(a,b){ return b.venc-a.venc; })[0];
-  if(maxV) areas.push("<b>"+esc(maxV.nombre)+"</b> concentra más equipos activos con más de 4 días ("+maxV.venc+" de "+maxV.activos+"); revisar carga y obstáculos (material, aprobaciones).");
+  if(maxV) areas.push("<b>"+esc(maxV.nombre)+"</b> concentra más equipos activos con más de 15 días ("+maxV.venc+" de "+maxV.activos+"); revisar carga y obstáculos (material, aprobaciones).");
   filas.forEach(function(r){
     if(r.plan !== null && r.planT >= 5 && r.plan < 80) areas.push("<b>"+esc(r.nombre)+"</b>: cumplimiento del Plan Diario de "+r.plan+"% ("+r.planC+" de "+r.planT+" tareas) en el periodo.");
     if(r.retP > 0) areas.push("<b>"+esc(r.nombre)+"</b>: "+r.retP+" retrabajo"+(r.retP>1?"s":"")+" en el periodo — revisar causa y reforzar el proceso.");
@@ -7137,9 +7208,9 @@ function kpiDesempenoHtml(desdeS, hastaS){
    + '<div class="hd"><img src="'+logo+'"><div><h1>Desempeño del Centro de Servicio — por técnico y grupal</h1><p>Periodo: '+rangoTxt+' · Situación de equipos activos al '+largo(hoy)+'<br>Uso interno · Dirección y Administración</p></div></div>'
    + '<h2>Resumen grupal</h2><div class="grid">'
    + cardH(grupo.entregados,"Equipos entregados","en el periodo")+cardH(grupo.activos,"Equipos activos","hoy en el C.S")
-   + cardH(f1(grupo.diasAct),"Días prom. en C.S","equipos activos (ref. 4)")+cardH(grupo.venc,"Activos &gt; 4 días","de "+grupo.activos)
+   + cardH(f1(grupo.diasAct),"Días prom. en C.S","equipos activos (meta 15)")+cardH(grupo.venc,"Activos &gt; 15 días","de "+grupo.activos)
    + cardH(grupo.retP,"Retrabajos","en el periodo")+cardH(grupo.plan===null?"—":grupo.plan+"%","Plan Diario",grupo.planC+" de "+grupo.planT+" tareas")+'</div>'
-   + '<h2>Desempeño individual</h2><table><tr><th>Técnico</th><th>Entregados<br>(periodo)</th><th>Activos<br>hoy</th><th>Activos<br>&gt; 4 días</th><th>Días prom.<br>activos</th><th>Días prom.<br>entregados</th><th>Retrabajos<br>(periodo)</th><th>% con<br>retrabajo*</th><th>Docs.<br>completos*</th><th>Plan Diario<br>(cumplimiento)</th></tr>'
+   + '<h2>Desempeño individual</h2><table><tr><th>Técnico</th><th>Entregados<br>(periodo)</th><th>Activos<br>hoy</th><th>Activos<br>&gt; 15 días</th><th>Días prom.<br>activos</th><th>Días prom.<br>entregados</th><th>Retrabajos<br>(periodo)</th><th>% con<br>retrabajo*</th><th>Docs.<br>completos*</th><th>Plan Diario<br>(cumplimiento)</th></tr>'
    + filas.map(function(r){ return filaHtml(r); }).join("") + filaHtml(sinR) + filaHtml(grupo, true) + '</table>'
    + '<div class="leg">Verde = en meta · Amarillo = atención · Rojo = área de mejora. *Acumulado de los equipos terminados/entregados del técnico (no solo del periodo). Un equipo con varios técnicos cuenta para cada uno.</div>'
    + '<h2>Áreas de oportunidad</h2><ul>'+areas.map(function(t){ return '<li>'+t+'</li>'; }).join("")+'</ul>'
@@ -7148,7 +7219,7 @@ function kpiDesempenoHtml(desdeS, hastaS){
    + sem.map(function(s){ return '<tr><td style="text-align:left">'+s.r+'</td>'+td(s.ing)+td(s.ent)+td(s.ret)+td(s.plan)+'</tr>'; }).join("") + '</table>'
    + '<h2>Cómo leer este reporte</h2><ul>'
    + '<li><b>Productividad:</b> equipos entregados en el periodo (por fecha de entrega registrada) y cumplimiento del Plan Diario.</li>'
-   + '<li><b>Tiempo en el C.S:</b> días promedio de los equipos activos hoy y de los entregados; "Activos &gt; 4 días" cuenta los que superan la referencia.</li>'
+   + '<li><b>Tiempo en el C.S:</b> días promedio de los equipos activos hoy y de los entregados; "Activos &gt; 15 días" cuenta los que superan la referencia.</li>'
    + '<li><b>Calidad:</b> retrabajos (equipos que regresaron a corrección), porcentaje de equipos con retrabajo y documentación completa (checklist, pintura y evidencia).</li>'
    + '<li><b>Limitación actual:</b> la atribución depende de que cada equipo tenga técnico asignado y de que el Plan Diario registre al técnico. Los equipos sin técnico aparecen en "Sin técnico asignado" y no cuentan para ninguna persona. Aún no se registra la fecha en que un equipo queda "Terminado", por eso la productividad se mide con las entregas.</li></ul>'
    + '</body></html>';
@@ -7198,7 +7269,7 @@ function imprimirKPIs(){
   var DIRECCION_KPI = {
     kpiPromDias:  "down", // Tiempo promedio en C.S — buscamos que baje
     kpiFin:       "up",   // Tasa de finalización — buscamos que suba
-    kpiVencidas:  "down", // Activas >4 días
+    kpiVencidas:  "down", // Activas >15 días
     kpiBacklog:   "down", // Sin iniciar
     kpiLeadTime:  "down", // Prom. días — Entregadas
     kpiDocsInc:   "down", // Terminadas sin documentar
@@ -7469,6 +7540,11 @@ function imprimirPlaneacionSemanal(){
 /* Folio/serie de una orden para mostrar en KPIs y listas */
 function idOrden(o){ return o.serie || o.folio || "—"; }
 
+/* Documentación completa: Sulzer = checklist + pintura + evidencia; General = reporte general completado */
+function docsCompletos(o){
+  return o.tipoServicio === "General" ? !!o.reporteGeneralCompletado : !!(o.checklist && o.pintura && o.evidencia);
+}
+
 /* Junta identificadores de un grupo de ordenes ("MOT-005 (12d), COND-003 (6d) +2 más") */
 function listaConDetalle(lista, maxItems, extra){
   if(!lista.length) return "";
@@ -7486,7 +7562,7 @@ function renderNuevosKPIs(ordenes){
   var terminadas = ordenes.filter(function(o){ return normEstado(o.estado) === "terminado"; });
   var recibidas  = ordenes.filter(function(o){ return normEstado(o.estado) === "recibido"; });
 
-  var vencidas = activas.filter(function(o){ return o.dias !== null && o.dias > 4; });
+  var vencidas = activas.filter(function(o){ return o.dias !== null && o.dias > DIAS_META_CS; });
   document.getElementById("kpiVencidas").textContent   = vencidas.length;
   var vencidasOrdenadas = vencidas.slice().sort(function(a,b){ return (b.dias||0)-(a.dias||0); });
   document.getElementById("kpiVencidasSub").textContent = vencidas.length > 0
@@ -7511,7 +7587,7 @@ function renderNuevosKPIs(ordenes){
     ? "vs " + (promAct !== null ? promAct : "—") + " días prom. activas"
     : "Sin órdenes entregadas";
 
-  var docsInc = terminadas.filter(function(o){ return !o.checklist || !o.pintura || !o.evidencia; });
+  var docsInc = terminadas.filter(function(o){ return !docsCompletos(o); });
   document.getElementById("kpiDocsInc").textContent   = docsInc.length;
   document.getElementById("kpiDocsIncSub").textContent = docsInc.length > 0
     ? listaConDetalle(docsInc, 3) + " · de " + terminadas.length + " terminadas"
@@ -7520,15 +7596,16 @@ function renderNuevosKPIs(ordenes){
   // ── KPI A: Entregadas este mes (por fecha de creación del registro) ──
   var now = new Date();
   var entMes = entregadas.filter(function(o){
-    if(!o.createdAt) return false;
-    var d = new Date(o.createdAt);
+    var base = o.fechaEntregaReal || o.createdAt;
+    if(!base) return false;
+    var d = new Date(base);
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
   document.getElementById("kpiEntregadasMes").textContent = entMes.length;
 
   // ── KPI B: Tasa de documentación completa (terminadas + entregadas) ──
   var finalizadas = terminadas.concat(entregadas);
-  var docsOk = finalizadas.filter(function(o){ return o.checklist && o.pintura && o.evidencia; });
+  var docsOk = finalizadas.filter(docsCompletos);
   var docsPct = finalizadas.length ? Math.round((docsOk.length / finalizadas.length) * 100) : 0;
   document.getElementById("kpiDocsPct").textContent = docsPct + "%";
 
@@ -7616,19 +7693,19 @@ function renderCalEntrega(ordenes){
     entregasConDiff.push({ folio: idOrden(o), dias: diffDias, real: real });
   });
   var sinFecha = ordenes.filter(function(o){ return o.fechaEntregaReal && !o.fechaEntregaProgramada; }).length;
-  var total = aTiempo + tarde + sinFecha;
+  // El % solo considera entregas con fecha programada; las "sin fecha" no se pueden evaluar
+  var total = aTiempo + tarde;
   var pct = total ? Math.round((aTiempo/total)*100) : null;
 
   var datos = [
     { label:"A tiempo", val:aTiempo, color:"#0e7a3c" },
     { label:"Tarde", val:tarde, color:"#991b1b" },
-    { label:"Sin fecha programada", val:sinFecha, color:"#9ca3af" },
   ];
   document.getElementById("donutEntrega").innerHTML = donutSvgHtml(datos, total ? pct+"%" : "", "#0e7a3c");
-  document.getElementById("legendEntrega").innerHTML = total
+  document.getElementById("legendEntrega").innerHTML = (total || sinFecha)
     ? datos.filter(function(d){ return d.val>0; }).map(function(d){
         return '<div class="li"><div class="dot" style="background:'+d.color+'"></div><span class="lbl">'+d.label+'</span><span class="val">'+d.val+'</span></div>';
-      }).join("")
+      }).join("") + (sinFecha ? '<div class="li" style="opacity:.7"><div class="dot" style="background:#9ca3af"></div><span class="lbl">Sin fecha programada (no cuenta en el %)</span><span class="val">'+sinFecha+'</span></div>' : "")
     : '<div class="cal-empty">Aún sin entregas registradas con el campo nuevo.</div>';
 
   var statEl = document.getElementById("statDesviacion");
@@ -7889,7 +7966,7 @@ function renderParticipacion(){
   document.getElementById("partTablas").innerHTML = html;
 }
 
-/* Barras horizontales con umbral de 4 dias */
+/* Barras horizontales con umbral de 15 dias */
 function renderChartVencidas(vencidas){
   var el = document.getElementById("chartVencidas");
   if(!el) return;
@@ -7898,8 +7975,8 @@ function renderChartVencidas(vencidas){
     return;
   }
   var sorted  = vencidas.slice().sort(function(a,b){return (b.dias||0)-(a.dias||0);}).slice(0,8);
-  var maxDias = Math.max.apply(null, sorted.map(function(o){return o.dias||0;}).concat([20]));
-  var umbral  = 4;
+  var maxDias = Math.max.apply(null, sorted.map(function(o){return o.dias||0;}).concat([30]));
+  var umbral  = DIAS_META_CS;
   var html = '<div style="margin-top:4px">';
   sorted.forEach(function(o){
     var pct  = Math.round(((o.dias||0)/maxDias)*100);
@@ -7918,11 +7995,11 @@ function renderChartVencidas(vencidas){
       + '</div>'
       + '<div style="position:relative;background:#f1f5f9;border-radius:99px;height:10px">'
       + '<div style="height:100%;border-radius:99px;width:'+pct+'%;background:'+grad+';transition:width 0.6s;box-shadow:0 2px 6px '+col+'55"></div>'
-      + '<div style="position:absolute;top:-4px;bottom:-4px;left:'+uPct+'%;width:2px;background:#64748b;border-radius:1px;opacity:0.6" title="Umbral 4 días"></div>'
+      + '<div style="position:absolute;top:-4px;bottom:-4px;left:'+uPct+'%;width:2px;background:#64748b;border-radius:1px;opacity:0.6" title="Meta 15 días"></div>'
       + '</div></div>';
   });
   if(vencidas.length > sorted.length) html += '<div style="font-size:0.72rem;color:var(--gris-texto);text-align:right;margin-top:4px">+'+(vencidas.length-sorted.length)+' órdenes más</div>';
-  html += '<div style="display:flex;align-items:center;gap:5px;margin-top:8px;font-size:0.72rem;color:var(--gris-texto)"><div style="width:2px;height:12px;background:#64748b;border-radius:1px;opacity:0.6"></div>Línea = umbral 4 días</div></div>';
+  html += '<div style="display:flex;align-items:center;gap:5px;margin-top:8px;font-size:0.72rem;color:var(--gris-texto)"><div style="width:2px;height:12px;background:#64748b;border-radius:1px;opacity:0.6"></div>Línea = meta 15 días</div></div>';
   el.innerHTML = html;
 }
 
@@ -8180,6 +8257,8 @@ function aplicarRestriccionesRol(){
     if(tabCostos) tabCostos.style.display = "none";
     const tabDesempeno = document.getElementById("tab-desempeno");
     if(tabDesempeno) tabDesempeno.style.display = "none";
+    const tabArchivados = document.getElementById("tab-archivados");
+    if(tabArchivados) tabArchivados.style.display = "none";
     const btnPre = document.getElementById("btnPreRegistro");
     if(btnPre) btnPre.style.display = "none";
     const btnImprimirKPIs = document.getElementById("btnImprimirKPIs");
@@ -8497,8 +8576,8 @@ window.addEventListener("DOMContentLoaded", function(){
     barra("kpiBacklog",  num("kpiBacklog"),  activas, "{p}% de las activas", "ambar");
     var prom = num("kpiPromDias");
     if(prom !== null){
-      var ok = prom <= 4;
-      barra("kpiPromDias", Math.min(prom, 8), 8, ok ? "Dentro del límite de 4 días" : "Arriba del límite de 4 días", ok ? "verde" : "rojo");
+      var ok = prom <= DIAS_META_CS;
+      barra("kpiPromDias", Math.min(prom, DIAS_META_CS*2), DIAS_META_CS*2, ok ? "Dentro de la meta de 15 días" : "Arriba de la meta de 15 días", ok ? "verde" : "rojo");
       var v = document.getElementById("kpiPromDias").closest(".kpi-card").querySelector(".rd-bar");
       if(v && !v.querySelector(".rd-meta")){ var m = document.createElement("span"); m.className = "rd-meta"; v.appendChild(m); }
     }
