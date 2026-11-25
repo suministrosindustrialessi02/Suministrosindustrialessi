@@ -214,6 +214,18 @@ body{ background:var(--rd-fondo); }
   </div>
 </div>
 
+<div class="modal" id="modalReasig">
+  <div class="caja">
+    <h3 style="margin:0 0 4px;color:#1f3864">Reasignar técnico</h3>
+    <p style="font-size:.82rem;color:#444;margin:0 0 8px">Solo cambia quién realiza el trabajo; el contenido de la orden no se modifica.</p>
+    <select id="selReasig" style="width:100%;padding:10px;font-size:1rem"></select>
+    <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end">
+      <button class="btn gris" onclick="cerrarReasignar()">Cancelar</button>
+      <button class="btn verde" onclick="confirmarReasignar()">Reasignar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ============================================================
    SESIÓN
@@ -262,8 +274,16 @@ const revParam = new URLSearchParams(location.search).get("rev");
 let orden = null, diag = {}, ots = [], ot = null, C = null, F = {}, EJ = {}, tecnicos = [], hashDiagActual = "", cambiosSinGuardar = false;
 
 const meNombre = (_sesion.nombre||"").trim();
+/* Roles de la OT:
+   - Dirección y Administración: generan, editan, emiten, marcan "No aplica" y crean nuevas revisiones.
+   - Encargado (Luis; Dirección en suplencia): solo firma o devuelve (y puede reasignar técnico).
+   - Técnico asignado: solo firma o devuelve (y ejecuta el checklist). */
 const esEncargado = ENCARGADO.coincide(meNombre) || _sesion.rol === "Direccion";
-const puedeEditar = esEncargado || _sesion.rol === "Admin";
+const puedeEditar = _sesion.rol === "Admin" || _sesion.rol === "Direccion";
+const puedeReasignar = puedeEditar || ENCARGADO.coincide(meNombre);
+/* El sello de firma cubre el contenido de la OT, NO los datos de gestión (técnico, emisión, devolución, historial) */
+function hashContenido(c){ const r = Object.assign({}, c); ["tecnico","emitida","devuelta","historial","noAplica"].forEach(k => delete r[k]); return sha(JSON.stringify(r)); }
+const soyTecnicoAsignado = () => norm(meNombre) === norm(tecnicoAsignado());
 
 function volver(){ if(history.length > 1) history.back(); else location.href = (_sesion.rol==="Tecnico" ? "plan_diario.html" : "dashboard.html"); }
 
@@ -282,6 +302,8 @@ async function cargar(){
     tecnicos = (us.records||[]).filter(r => r.fields.fldhRUxF61z3p5voa && ["Tecnico","Admin"].includes(sv(r.fields.fldrYhMpiJDQnfyTQ))).map(r => (r.fields.fldmBBHrmw8YfCztf||"").trim()).filter(Boolean);
     const elegida = revParam ? ots.find(r => String(r.fields[T.rev]) === revParam) : ots[0];
     await seleccionar(elegida || null);
+    /* La OT se genera sola al abrir la orden (Dirección / Administración) */
+    if(!elegida && puedeEditar && orden[O.diag] && !window._autoGen){ window._autoGen = true; await generarPrimera(); }
   }catch(e){
     document.getElementById("doc").innerHTML = `<div class="aviso roj">No se pudo cargar: ${esc(e.message)}</div>`;
   }
@@ -297,16 +319,20 @@ async function cargarLista(){
       let c = {}, fi = {}; try{ c = JSON.parse(rec.fields[T.contenido]||"{}"); }catch(e){} try{ fi = JSON.parse(rec.fields[T.firmas]||"{}"); }catch(e){}
       const st = sv(rec.fields[T.estado]); const tec = rec.fields[T.tecnico] || c.tecnico || "";
       const mio = norm(tec) === norm(meNombre);
+      const emitida = !!c.emitida, devuelta = !!c.devuelta;
       let grupo = "otras", etiqueta = st;
-      if(st === "Borrador" && !fi.encargado && esEncargado){ grupo = "firma"; etiqueta = "Por firmar (encargado)"; }
-      else if(st === "Borrador" && fi.encargado && !fi.tecnico && mio){ grupo = "firma"; etiqueta = "Por firmar (técnico)"; }
+      if(c.noAplica){ grupo = null; }
+      else if(st === "Borrador" && emitida && !fi.encargado && esEncargado && ENCARGADO.coincide(meNombre)){ grupo = "firma"; etiqueta = "Por firmar (encargado)"; }
+      else if(st === "Borrador" && emitida && fi.encargado && !fi.tecnico && mio){ grupo = "firma"; etiqueta = "Por firmar (técnico)"; }
+      else if(st === "Borrador" && devuelta && !emitida && puedeEditar){ grupo = "dev"; etiqueta = "Devuelta por " + (c.devuelta.por||"") + ": corregir y volver a emitir"; }
+      else if(st === "Borrador" && !emitida && puedeEditar){ grupo = "prep"; etiqueta = "Borrador por emitir"; }
       else if(st === "Firmada" && (mio || esEncargado || _sesion.rol === "Admin")){ grupo = "ejec"; etiqueta = "En ejecución"; }
-      else if(!puedeEditar && !mio) grupo = null;
-      return { id: rec.fields[T.ordenId], folio: rec.fields[T.folioOT], cliente: (c.equipo||{}).cliente||"", equipo: [(c.equipo||{}).tipoEquipo,(c.equipo||{}).marca].filter(Boolean).join(" "), tec, grupo, etiqueta,
-        hechas: (c.tareas||[]).length ? "" : "" };
+      else if(st === "Borrador" && emitida){ etiqueta = fi.encargado ? "Esperando firma del técnico" : "Esperando firma del encargado"; if(!puedeEditar && !mio && !esEncargado) grupo = null; }
+      else grupo = null;
+      return { id: rec.fields[T.ordenId], folio: rec.fields[T.folioOT], cliente: (c.equipo||{}).cliente||"", equipo: [(c.equipo||{}).tipoEquipo,(c.equipo||{}).marca].filter(Boolean).join(" "), tec, grupo, etiqueta };
     }).filter(x => x.grupo);
     const sec = (g, titulo) => { const l = filas.filter(x => x.grupo === g); return l.length ? `<div class="lista-t">${titulo}</div>` + l.map(x => `<a class="tarjeta" href="?id=${encodeURIComponent(x.id)}"><b>${esc(x.folio)}</b> · ${esc(x.etiqueta)}<br><small>${esc(x.cliente)} · ${esc(x.equipo)} · Técnico: ${esc(x.tec||"sin asignar")}</small></a>`).join("") : ""; };
-    const html = sec("firma","Requieren tu firma") + sec("ejec","En ejecución") + sec("otras","Otras órdenes de trabajo");
+    const html = sec("firma","Requieren tu firma") + sec("dev","Devueltas: requieren corrección") + sec("prep","Borradores por emitir") + sec("ejec","En ejecución") + sec("otras","En espera de firmas");
     el.innerHTML = html || `<div class="aviso ver">No tienes órdenes de trabajo pendientes.</div>`;
   }catch(e){ el.innerHTML = `<div class="aviso roj">No se pudo cargar: ${esc(e.message)}</div>`; }
 }
@@ -357,13 +383,14 @@ function generarContenido(){
   };
 }
 
-async function crearOT(revision){
-  if(!orden[O.diag]){ alert("Esta orden todavía no tiene diagnóstico. Primero el técnico debe generarlo."); return; }
+async function crearOT(revision, noAplica){
+  if(!orden[O.diag] && !noAplica){ alert("Esta orden todavía no tiene diagnóstico. Primero el técnico debe generarlo."); return; }
   const cont = generarContenido();
+  if(noAplica){ cont.tareas = []; cont.materiales = []; cont.hallazgos = []; cont.noAplica = noAplica; }
   const folio = cont.equipo.folio || ordenId;
   const f = {
-    [T.folioOT]: `OT-${folio}${revision>1?" R"+revision:""}`, [T.ordenId]: ordenId, [T.folioEq]: folio, [T.rev]: revision, [T.estado]: "Borrador",
-    [T.contenido]: JSON.stringify(cont), [T.hashC]: await sha(JSON.stringify(cont)), [T.hashD]: hashDiagActual, [T.firmas]: "{}", [T.ejec]: "{}",
+    [T.folioOT]: `OT-${folio}${revision>1?" R"+revision:""}`, [T.ordenId]: ordenId, [T.folioEq]: folio, [T.rev]: revision, [T.estado]: noAplica ? "Cerrada" : "Borrador",
+    [T.contenido]: JSON.stringify(cont), [T.hashC]: await hashContenido(cont), [T.hashD]: hashDiagActual, [T.firmas]: "{}", [T.ejec]: "{}",
     [T.tecnico]: cont.tecnico, [T.creadoPor]: meNombre, [T.fecha]: new Date().toISOString()
   };
   const rec = await apiPost(T_OT, f);
@@ -380,13 +407,15 @@ async function generarPrimera(){
 
 async function nuevaRevision(){
   if(!ot) return;
-  const msg = estadoOT()==="Borrador" && !F.encargado
+  const msg = (C && C.noAplica) ? "Se generará una OT nueva desde el diagnóstico (esta orden pasará de «No aplica» a «Sí requiere OT»)."
+    : estadoOT()==="Borrador" && !F.encargado
     ? "Se creará una revisión nueva desde el diagnóstico actual y esta se marcará como obsoleta."
     : "Esta OT ya está firmada. Se creará una revisión nueva desde el diagnóstico actual, esta quedará OBSOLETA y habrá que firmar de nuevo.";
   if(!confirm(msg + "\n\n¿Continuar?")) return;
   try{
     const rev = (ot.fields[T.rev]||1) + 1;
     const nuevo = await crearOT(rev);
+    if(!nuevo) return;
     await apiPatch(T_OT, ot.id, { [T.estado]: "Obsoleta" });
     ot.fields[T.estado] = "Obsoleta";
     ots.unshift(nuevo); await seleccionar(nuevo);
@@ -400,7 +429,7 @@ async function guardarBorrador(silencioso){
   if(!editable()) return true;
   C.tecnico = (document.getElementById("selTecnico")||{}).value ?? C.tecnico;
   try{
-    const h = await sha(JSON.stringify(C));
+    const h = await hashContenido(C);
     await apiPatch(T_OT, ot.id, { [T.contenido]: JSON.stringify(C), [T.hashC]: h, [T.tecnico]: C.tecnico || "" });
     ot.fields[T.contenido] = JSON.stringify(C); ot.fields[T.hashC] = h; ot.fields[T.tecnico] = C.tecnico || "";
     cambiosSinGuardar = false;
@@ -410,10 +439,87 @@ async function guardarBorrador(silencioso){
   }catch(e){ alert(e.message); return false; }
 }
 
+/* Dirección / Administración envían la OT a firma del encargado */
+async function emitirOT(){
+  if(!editable()) return;
+  if(!(C.tareas||[]).some(t => (t.texto||"").trim())){ alert("Agrega al menos una actividad antes de emitir."); return; }
+  const sel = document.getElementById("selTecnico"); if(sel) C.tecnico = sel.value;
+  if(!C.tecnico){ alert("Selecciona el técnico que realizará el trabajo."); return; }
+  if(!confirm("Se emitirá la OT para firma del encargado (" + ENCARGADO.nombre + ") y después del técnico " + C.tecnico + ".\n\nDespués de que el encargado la firme ya no se podrá editar.\n\n¿Emitir?")) return;
+  C.emitida = { por: meNombre, fecha: new Date().toISOString() }; delete C.devuelta;
+  if(!await guardarBorrador(true)){ delete C.emitida; return; }
+  await pintar();
+  alert("OT emitida. Ya aparece como pendiente de firma del encargado.");
+}
+
+/* Encargado (antes de firmar) o técnico asignado (después del encargado) devuelven la OT a Dirección / Administración */
+async function devolverOT(){
+  if(!ot) return;
+  const aviso = F.encargado ? "\n\nLa firma del encargado se anulará y habrá que firmar de nuevo cuando la vuelvan a emitir." : "";
+  const com = prompt("¿Qué no está bien? Escribe el motivo de la devolución (obligatorio)." + aviso);
+  if(com === null) return;
+  if(!com.trim()){ alert("Escribe el motivo de la devolución."); return; }
+  C.devuelta = { por: meNombre, fecha: new Date().toISOString(), comentario: com.trim() }; delete C.emitida;
+  try{
+    await apiPatch(T_OT, ot.id, { [T.contenido]: JSON.stringify(C), [T.firmas]: "{}" });
+    ot.fields[T.contenido] = JSON.stringify(C); ot.fields[T.firmas] = "{}"; F = {};
+    await pintar();
+    alert("OT devuelta a Dirección / Administración con tu comentario.");
+  }catch(e){ alert(e.message); }
+}
+
+/* Reasignar técnico: Dirección, Administración o encargado. No toca el contenido firmado. */
+function abrirReasignar(){
+  const sel = document.getElementById("selReasig");
+  const opc = [...new Set([...(tecnicoAsignado()?[tecnicoAsignado()]:[]), ...tecnicos])];
+  sel.innerHTML = `<option value="">— Selecciona —</option>` + opc.map(n => `<option value="${esc(n)}" ${norm(n)===norm(tecnicoAsignado())?"selected":""}>${esc(n)}</option>`).join("");
+  document.getElementById("modalReasig").classList.add("abierto");
+}
+function cerrarReasignar(){ document.getElementById("modalReasig").classList.remove("abierto"); }
+async function confirmarReasignar(){
+  const nuevo = document.getElementById("selReasig").value;
+  const de = tecnicoAsignado();
+  if(!nuevo || norm(nuevo) === norm(de)){ cerrarReasignar(); return; }
+  const eraFirmada = estadoOT() === "Firmada";
+  if((F.tecnico || eraFirmada) && !confirm("El técnico anterior ya había firmado. Su firma se anulará y " + nuevo + " tendrá que recibir y firmar la OT.\n\n¿Reasignar?")) return;
+  C.historial = C.historial || []; C.historial.push({ de, a: nuevo, por: meNombre, fecha: new Date().toISOString() });
+  C.tecnico = nuevo;
+  const campos = { [T.contenido]: JSON.stringify(C), [T.tecnico]: nuevo };
+  if(F.tecnico){ delete F.tecnico; campos[T.firmas] = JSON.stringify(F); }
+  if(eraFirmada) campos[T.estado] = "Borrador";
+  try{
+    await apiPatch(T_OT, ot.id, campos);
+    ot.fields[T.contenido] = campos[T.contenido]; ot.fields[T.tecnico] = nuevo; if(campos[T.firmas]) ot.fields[T.firmas] = campos[T.firmas]; if(eraFirmada) ot.fields[T.estado] = "Borrador";
+    cerrarReasignar(); await pintar();
+  }catch(e){ alert(e.message); }
+}
+
+/* La OT es opcional: hay servicios donde no aplica. Queda registrado (quién, cuándo, motivo) y no bloquea al técnico. */
+async function marcarNoAplica(){
+  if(!puedeEditar) return;
+  const motivo = prompt("Esta orden NO requiere Orden de Trabajo.\nEscribe el motivo (ej. servicio sin intervención, trabajo menor, garantía...):");
+  if(motivo === null) return;
+  if(!motivo.trim()){ alert("Escribe un motivo breve."); return; }
+  const na = { por: meNombre, fecha: new Date().toISOString(), motivo: motivo.trim() };
+  try{
+    if(ot){
+      if(!confirm("Se descartará el borrador y cualquier firma de esta OT.\n\n¿Marcar como NO APLICA?")) return;
+      C.noAplica = na; delete C.emitida; delete C.devuelta;
+      await apiPatch(T_OT, ot.id, { [T.contenido]: JSON.stringify(C), [T.firmas]: "{}", [T.estado]: "Cerrada" });
+      ot.fields[T.contenido] = JSON.stringify(C); ot.fields[T.firmas] = "{}"; ot.fields[T.estado] = "Cerrada"; F = {};
+    } else {
+      const rec = await crearOT(1, na); if(!rec) return;
+      ots.unshift(rec); await seleccionar(rec); return;
+    }
+    await pintar();
+  }catch(e){ alert(e.message); }
+}
+
 let firmaRol = null;
 function pedirFirma(rol){
   if(rol === "encargado"){
     if(!esEncargado){ alert("Solo el encargado del centro de servicio ("+ENCARGADO.nombre+") puede firmar aquí."); return; }
+    if(!C.emitida){ alert("Esta OT todavía no ha sido emitida por Dirección o Administración."); return; }
     if(!(C.tareas||[]).some(t => (t.texto||"").trim())){ alert("Agrega al menos una actividad antes de firmar."); return; }
     if(!tecnicoAsignado()){ alert("Selecciona el técnico que realizará el trabajo."); return; }
   } else {
@@ -423,8 +529,8 @@ function pedirFirma(rol){
   firmaRol = rol;
   document.getElementById("firmaTitulo").textContent = rol === "encargado" ? "Firma del encargado" : "Firma del técnico";
   document.getElementById("firmaTexto").textContent = rol === "encargado"
-    ? "Al firmar confirmas que revisaste las actividades y materiales de esta orden. Después de firmar ya no se puede editar (solo con una nueva revisión)."
-    : "Al firmar confirmas que leíste esta orden y que solo harás lo indicado en ella.";
+    ? "Al firmar confirmas que revisaste las actividades y materiales de esta orden. Después de firmar ya no se puede editar (solo con una nueva revisión). Si algo no está bien, devuélvela en lugar de firmar."
+    : "Al firmar confirmas que recibiste y leíste esta orden. Es una base de apoyo: si algo no está bien, puedes devolverla en lugar de firmar.";
   document.getElementById("modalFirma").classList.add("abierto");
   iniciarPad();
 }
@@ -449,13 +555,13 @@ async function confirmarFirma(){
     const ahora = new Date().toISOString();
     if(firmaRol === "encargado"){
       if(!await guardarBorrador(true)) { btn.disabled = false; return; }
-      const hash = await sha(JSON.stringify(C));
+      const hash = await hashContenido(C);
       F.encargado = { nombre: ENCARGADO.nombre, firmante: meNombre, usuario: _sesion.usuario||"", fecha: ahora, trazo, hash };
       if(norm(tecnicoAsignado()) === norm(meNombre) || (ENCARGADO.coincide(tecnicoAsignado()) && ENCARGADO.coincide(meNombre))){
         F.tecnico = { nombre: tecnicoAsignado(), firmante: meNombre, usuario: _sesion.usuario||"", fecha: ahora, trazo, hash, mismaPersona:true };
       }
     } else {
-      const hash = await sha(JSON.stringify(C));
+      const hash = await hashContenido(C);
       F.tecnico = { nombre: tecnicoAsignado(), firmante: meNombre, usuario: _sesion.usuario||"", fecha: ahora, trazo, hash };
     }
     const completa = !!(F.encargado && F.tecnico);
@@ -491,14 +597,14 @@ async function cerrarOT(){
    ============================================================ */
 async function pintar(){
   pintarAvisos(); pintarEditor(); pintarDoc(); pintarBotones();
-  document.getElementById("tituloBarra").textContent = ot ? `${ot.fields[T.folioOT]} · ${estadoOT()}` : "Orden de Trabajo";
+  document.getElementById("tituloBarra").textContent = ot ? `${ot.fields[T.folioOT]} · ${(estadoOT()==="Borrador" && C && C.emitida) ? (F.encargado ? "Por firmar (técnico)" : "Por firmar (encargado)") : (C && C.noAplica ? "No aplica" : estadoOT())}` : "Orden de Trabajo";
 }
 
 function pintarAvisos(){
   const a = [];
   if(!ot){
     a.push(orden[O.diag]
-      ? `<div class="aviso azu"><b>Esta orden todavía no tiene Orden de Trabajo.</b> Se genera automáticamente con las actividades, materiales y hallazgos del diagnóstico; después el encargado la revisa y la firma.</div>`
+      ? `<div class="aviso azu"><b>Esta orden todavía no tiene Orden de Trabajo.</b> Dirección o Administración la generan con las actividades, materiales y hallazgos del diagnóstico; después el encargado la firma y el técnico asignado la recibe y firma.</div>`
       : `<div class="aviso amar">Esta orden aún no tiene diagnóstico. La OT se genera a partir del diagnóstico del técnico.</div>`);
   } else {
     const st = estadoOT();
@@ -507,10 +613,14 @@ function pintarAvisos(){
       a.push(`<div class="aviso roj"><b>⚠ El diagnóstico cambió después de generar esta OT.</b> Genera una nueva revisión para que el documento coincida con el diagnóstico vigente.</div>`);
     if(F.encargado && ot.fields[T.hashC] && F.encargado.hash && F.encargado.hash !== ot.fields[T.hashC])
       a.push(`<div class="aviso roj"><b>⚠ El contenido no coincide con lo que se firmó.</b> No uses este documento; genera una nueva revisión.</div>`);
-    if(st === "Borrador" && !F.encargado) a.push(`<div class="aviso amar">Borrador sin firmar. El técnico no debe intervenir el equipo hasta que esté firmada.</div>`);
+    if(C && C.noAplica) a.push(`<div class="aviso ver"><b>Esta orden NO requiere Orden de Trabajo.</b> Motivo: ${esc(C.noAplica.motivo||"—")} (registrado por ${esc(C.noAplica.por||"")} el ${esc(fmtF(C.noAplica.fecha))}). El técnico puede trabajar sin OT.</div>`);
+    if(st === "Borrador" && C && C.devuelta && !C.emitida) a.push(`<div class="aviso roj"><b>↩ Devuelta por ${esc(C.devuelta.por||"")}</b> (${esc(fmtF(C.devuelta.fecha))}): ${esc(C.devuelta.comentario||"")}${puedeEditar ? "<br>Corrige lo necesario y vuelve a emitirla." : ""}</div>`);
+    if(st === "Borrador" && C && !C.emitida && !C.devuelta && !C.noAplica) a.push(`<div class="aviso amar">Borrador en preparación por Dirección / Administración. Aún no se ha emitido a firma.</div>`);
+    if(st === "Borrador" && C && C.emitida && !F.encargado) a.push(`<div class="aviso amar">Emitida por ${esc(C.emitida.por||"")}. Espera la firma del encargado. El técnico no debe intervenir el equipo hasta que esté firmada por ambos.</div>`);
+    if(C && C.historial && C.historial.length){ const h = C.historial[C.historial.length-1]; a.push(`<div class="aviso azu">Último cambio de técnico: ${esc(h.de||"—")} → <b>${esc(h.a||"—")}</b> (${esc(h.por||"")}, ${esc(fmtF(h.fecha))}).</div>`); }
     if(st === "Borrador" && F.encargado && !F.tecnico) a.push(`<div class="aviso amar">Firmada por el encargado. Falta la firma del técnico <b>${esc(tecnicoAsignado())}</b>.</div>`);
     if(st === "Firmada") a.push(`<div class="aviso ver">✔ Orden firmada y vigente. Contenido firmado: para cambiar la orden se crea una nueva revisión.</div>`);
-    if(st === "Cerrada") a.push(`<div class="aviso ver">✔ OT cerrada${EJ._cierre?" el "+esc(fmtF(EJ._cierre.fecha))+" por "+esc(EJ._cierre.por):""}.</div>`);
+    if(st === "Cerrada" && !(C && C.noAplica)) a.push(`<div class="aviso ver">✔ OT cerrada${EJ._cierre?" el "+esc(fmtF(EJ._cierre.fecha))+" por "+esc(EJ._cierre.por):""}.</div>`);
     const vm = sv(orden[O.valMat]);
     if(vm === "Pendiente") a.push(`<div class="aviso amar">La lista de materiales aún no ha sido validada por Dirección.</div>`);
     if(vm === "Rechazado") a.push(`<div class="aviso roj">Dirección rechazó la lista de materiales. Revisa el diagnóstico.</div>`);
@@ -523,16 +633,20 @@ function pintarAvisos(){
 
 function pintarBotones(){
   const b = [];
-  if(!ot){ if(puedeEditar && orden[O.diag]) b.push(`<button class="btn verde" onclick="generarPrimera()"><i class="ti ti-settings"></i>Generar OT desde diagnóstico</button>`); }
+  if(!ot){ if(puedeEditar){ if(orden[O.diag]) b.push(`<button class="btn verde" onclick="generarPrimera()"><i class="ti ti-settings"></i>Generar OT desde diagnóstico</button>`); b.push(`<button class="btn gris" onclick="marcarNoAplica()">No aplica OT</button>`); } }
   else {
     const st = estadoOT();
     if(editable()){
       b.push(`<button class="btn gris" onclick="guardarBorrador()"><i class="ti ti-device-floppy"></i>Guardar borrador</button>`);
     }
-    if(st === "Borrador" && !F.encargado && esEncargado) b.push(`<button class="btn verde" onclick="pedirFirma('encargado')"><i class="ti ti-signature"></i>Firmar (encargado)</button>`);
-    if(st === "Borrador" && F.encargado && !F.tecnico && norm(meNombre) === norm(tecnicoAsignado())) b.push(`<button class="btn verde" onclick="pedirFirma('tecnico')"><i class="ti ti-signature"></i>Firmar (técnico)</button>`);
+    const noAp = !!(C && C.noAplica);
+    if(editable() && !C.emitida && !noAp) b.push(`<button class="btn verde" onclick="emitirOT()">Emitir a firma</button>`);
+    if(st === "Borrador" && !noAp && C.emitida && !F.encargado && esEncargado) { b.push(`<button class="btn verde" onclick="pedirFirma('encargado')"><i class="ti ti-signature"></i>Firmar (encargado)</button>`); b.push(`<button class="btn rojo" onclick="devolverOT()">Devolver</button>`); }
+    if(st === "Borrador" && !noAp && F.encargado && !F.tecnico && soyTecnicoAsignado()) { b.push(`<button class="btn verde" onclick="pedirFirma('tecnico')"><i class="ti ti-signature"></i>Firmar (técnico)</button>`); b.push(`<button class="btn rojo" onclick="devolverOT()">Devolver</button>`); }
+    if(puedeReasignar && !noAp && (st === "Borrador" || st === "Firmada")) b.push(`<button class="btn gris" onclick="abrirReasignar()">Reasignar técnico</button>`);
+    if(puedeEditar && !noAp && st === "Borrador") b.push(`<button class="btn gris" onclick="marcarNoAplica()">No aplica OT</button>`);
     if(st === "Firmada" && (norm(meNombre) === norm(tecnicoAsignado()) || esEncargado || _sesion.rol==="Admin")) b.push(`<button class="btn verde" onclick="cerrarOT()"><i class="ti ti-check"></i>Cerrar OT</button>`);
-    if(puedeEditar && st !== "Obsoleta" && st !== "Cerrada") b.push(`<button class="btn gris" onclick="nuevaRevision()"><i class="ti ti-refresh"></i>Nueva revisión</button>`);
+    if(puedeEditar && st !== "Obsoleta" && (st !== "Cerrada" || noAp)) b.push(noAp ? `<button class="btn gris" onclick="nuevaRevision()">Sí requiere OT (generar)</button>` : `<button class="btn gris" onclick="nuevaRevision()"><i class="ti ti-refresh"></i>Nueva revisión</button>`);
     b.push(`<button class="btn" onclick="window.print()"><i class="ti ti-file-type-pdf"></i>Guardar PDF</button>`);
   }
   document.getElementById("botones").innerHTML = b.join(" ");
@@ -559,7 +673,7 @@ function pintarEditor(){
   const opcTec = [...new Set([...(C.tecnico?[C.tecnico]:[]), ...tecnicos])];
   el.innerHTML = `
     <div class="editor">
-      <h3>Revisión del borrador (solo el encargado / administración)</h3>
+      <h3>Edición del borrador (solo Dirección / Administración)</h3>
       <label>Objetivo (el aviso de que la orden es solo una guía se agrega automáticamente)</label>
       <textarea oninput="C.objetivo=this.value;pintarDoc()">${esc(C.objetivo)}</textarea>
       <label>Técnico que realizará el trabajo</label>
@@ -630,9 +744,15 @@ function pintarDoc(){
       <tr><td class="l">EQUIPO</td><td class="v">${esc(q.tipoEquipo)}</td><td class="l">MARCA</td><td class="v">${esc(q.marca)}</td><td class="l">FRAME</td><td class="v">${esc(q.frame)}</td></tr>
       <tr><td class="l">SPEC</td><td class="v">${esc(q.spec)}</td><td class="l">N/S</td><td class="v">${esc(q.serie)}</td><td class="l">VOLTS</td><td class="v">${esc(q.volts)}</td></tr>
     </table>`;
+  if(C.noAplica){
+    el.innerHTML = `<div class="hoja"><table class="wrap"><thead><tr><td>${header}</td></tr></thead><tbody><tr><td>
+      <div class="sec"><div class="t">ORDEN DE TRABAJO: NO APLICA</div><div class="b">Para este servicio no se requiere Orden de Trabajo.<br><b>Motivo:</b> ${esc(C.noAplica.motivo||"—")}<br><b>Registrado por:</b> ${esc(C.noAplica.por||"")} · ${esc(fmtF(C.noAplica.fecha))}</div></div>
+    </td></tr></tbody></table></div>`;
+    return;
+  }
   el.innerHTML = `<div class="hoja"><table class="wrap"><thead><tr><td>${header}</td></tr></thead><tbody><tr><td>
     ${marca}
-    <div class="sec"><div class="t">I. Objetivo y alcance</div><div class="b">${esc(C.objetivo)}</div><div class="b" style="border-top:1px solid #ccc;background:#f4f7fc"><b>Importante:</b> esta orden es solo una guía de apoyo, no un límite. Si durante la intervención se detecta algo adicional que haya que hacer, el técnico aplica su criterio, lo realiza y lo deja registrado en el reporte de servicio; si implica un costo o cambio importante, se avisa al encargado.</div></div>
+    <div class="sec"><div class="t">I. Objetivo y alcance</div><div class="b">${esc(C.objetivo)}</div><div class="b" style="border-top:1px solid #ccc;background:#f4f7fc"><b>Importante:</b> esta orden es solo una guía de apoyo, no un límite. Si durante la intervención se detecta algo adicional que haya que hacer, el técnico, con base en su conocimiento técnico, lo realiza y lo deja registrado en el reporte de servicio; si implica un costo o cambio importante, se avisa al encargado.</div></div>
     <div class="sec"><div class="t">II. Personal asignado</div>
       <table class="g"><tr><th>Función</th><th>Nombre</th><th>Puesto</th></tr>
       <tr><td class="c"><b>OPERACIÓN (ejecuta)</b></td><td class="c"><b>${esc(nomVis(tecnicoAsignado())||"— sin asignar —")}</b></td><td class="c">Técnico</td></tr>

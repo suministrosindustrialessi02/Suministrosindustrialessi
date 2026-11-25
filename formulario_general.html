@@ -952,7 +952,7 @@ function mostrarEsperaAutorizacion(estado){
   if(estado === "Sin OT"){
     icono.textContent = "📋";
     titulo.textContent = "Falta la Orden de Trabajo firmada";
-    texto.textContent = "El cliente ya autorizó, pero este equipo no puede intervenirse hasta que exista una Orden de Trabajo firmada por el encargado del centro de servicio y por el técnico. Ábrela, revísala y fírmala; después toca \"Verificar autorización\".";
+    texto.textContent = "El cliente ya autorizó, pero este equipo no puede intervenirse hasta que exista una Orden de Trabajo firmada por el encargado del centro de servicio y por el técnico asignado (Dirección o Administración la generan y la emiten; si este servicio no la requiere, ellos mismos la marcan como \"No aplica\"). Ábrela, revísala y fírmala; si algo no está bien, devuélvela con un comentario. Después toca \"Verificar autorización\".";
   } else if(estado === "No autorizado"){
     icono.textContent = "🚫";
     titulo.textContent = "Servicio no autorizado";

@@ -1057,19 +1057,23 @@ async function avisoOTPendientes(){
   try{
     const limpio = s => (s||"").trim().toLowerCase().replace(/\s+/g," ");
     const me = limpio(_sesion.nombre);
-    const esEnc = /^luis osvaldo/i.test((_sesion.nombre||"").trim()) || _sesion.rol === "Direccion";
+    const esEnc = /^luis osvaldo/i.test((_sesion.nombre||"").trim());
     const r = await fetch(`/.netlify/functions/airtable?table=tblh03YT3xBUM7ThC&filterByFormula=${encodeURIComponent('{estado}="Borrador"')}&returnFieldsByFieldId=true`);
     if(!r.ok) return;
-    let n = 0;
+    let n = 0, dev = 0;
+    const esDir = _sesion.rol === "Admin" || _sesion.rol === "Direccion";
     for(const rec of ((await r.json()).records || [])){
-      let fi = {}; try{ fi = JSON.parse(rec.fields.fldJLNWXahwhjzIrP || "{}"); }catch(e){}
+      let fi = {}, c = {}; try{ fi = JSON.parse(rec.fields.fldJLNWXahwhjzIrP || "{}"); }catch(e){} try{ c = JSON.parse(rec.fields.fldawLC9f9PNPORKp || "{}"); }catch(e){}
       const tec = limpio(rec.fields.fldaf1wB2bkl6svTB);
-      if(!fi.encargado && esEnc) n++;
-      else if(fi.encargado && !fi.tecnico && tec === me) n++;
+      if(c.noAplica) continue;
+      if(c.emitida && !fi.encargado && esEnc) n++;
+      else if(c.emitida && fi.encargado && !fi.tecnico && tec === me) n++;
+      else if(esDir && c.devuelta && !c.emitida) dev++;
     }
     const el = document.getElementById("saludoUsuario");
-    if(!n || !el || document.getElementById("avisoOT")) return;
-    el.insertAdjacentHTML("beforebegin", `<a id="avisoOT" href="orden_trabajo.html" style="background:#f59e0b;color:#fff;font-weight:700;font-size:0.8rem;padding:6px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;">✍ ${n} OT por firmar</a>`);
+    if(!el || document.getElementById("avisoOT")) return;
+    if(n) el.insertAdjacentHTML("beforebegin", `<a id="avisoOT" href="orden_trabajo.html" style="background:#f59e0b;color:#fff;font-weight:700;font-size:0.8rem;padding:6px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;">✍ ${n} OT por firmar</a>`);
+    if(dev) el.insertAdjacentHTML("beforebegin", `<a id="avisoOTdev" href="orden_trabajo.html" style="background:#c0392b;color:#fff;font-weight:700;font-size:0.8rem;padding:6px 12px;border-radius:6px;text-decoration:none;white-space:nowrap;">↩ ${dev} OT devuelta${dev>1?"s":""}</a>`);
   }catch(e){}
 }
 
