@@ -146,7 +146,7 @@ textarea{min-height:70px;resize:vertical}
     <select id="nlClonar"><option value="">— Empezar en blanco —</option></select></div>
     <div id="nlEditAviso" class="sub hidden" style="background:#fff4cc;border-radius:8px;padding:8px 10px"></div>
     <div class="grid2">
-      <div><label class="l" for="nlFolio">Folio del reporte *</label><input type="text" id="nlFolio" placeholder="ABB969" autocapitalize="characters"></div>
+      <div><label class="l" for="nlFolio">Folio del lote * <span style="font-weight:400;color:#667">(automático; puedes cambiarlo)</span></label><input type="text" id="nlFolio" placeholder="LOT-001" autocapitalize="characters"></div>
       <div><label class="l" for="nlFecha">Fecha</label><input type="date" id="nlFecha"></div>
       <div><label class="l" for="nlCliente">Cliente *</label><input type="text" id="nlCliente" placeholder="ABB"></div>
       <div><label class="l" for="nlUsuario">Usuario (quien recibe el reporte)</label><input type="text" id="nlUsuario" placeholder="ING NOMBRE APELLIDO"></div>
@@ -443,7 +443,7 @@ function pintarFormNuevo(l){
   $("nlClonarBox").classList.toggle("hidden", !!l); $("btnCancelLote").classList.toggle("hidden", !l);
   $("btnCrearLote").textContent = l ? "Guardar cambios del lote" : "Crear lote y empezar a capturar";
   const cfg = (l && l.cfg) || {}, p = cfg.placa || {}, r = cfg.req || {};
-  $("nlFolio").value = l ? l.folio : ""; $("nlFecha").value = l ? (l.fecha || hoyISO()) : hoyISO();
+  $("nlFolio").value = l ? l.folio : (S.folioAuto = siguienteFolioLote()); $("nlFecha").value = l ? (l.fecha || hoyISO()) : hoyISO();
   $("nlCliente").value = l ? l.cliente : ""; $("nlUsuario").value = l ? l.usuario : ""; $("nlTotal").value = l && l.total ? l.total : "";
   $("nlPrefijo").value = cfg.prefijo || ""; $("nlEquipo").value = cfg.equipo || "MOTOR"; $("nlSerieMin").value = l ? l.serieMin : ""; $("nlSerieMax").value = l ? l.serieMax : "";
   $("nlServicio").value = l ? (l.servicio || "") : SERVICIO_DEF;
@@ -453,7 +453,13 @@ function pintarFormNuevo(l){
   if(l){ const n = contar(todos()).n; av.innerHTML = "<b>Editando el lote " + esc(l.folio) + ".</b> Los cambios se aplican a todo el lote y al reporte." + (n ? " Si cambias el folio, también se actualizan sus " + n + " equipo(s)." : ""); return; }
   $("nlClonar").innerHTML = '<option value="">— Empezar en blanco —</option>' + S.lotes.map(x => `<option value="${x.id}">${esc(x.folio)} · ${esc(x.cliente)}</option>`).join("");
 }
-$("btnNuevoLote").onclick = () => { pintarFormNuevo(); vista("nuevo"); };
+/* Folio automático de lote: LOT-001, LOT-002... (siguiente número libre entre los lotes existentes; editable) */
+function siguienteFolioLote(){
+  let max = 0;
+  (S.lotes || []).forEach(l => { const m = /^LOT-?(\d+)$/i.exec(String(l.folio || "").trim()); if(m) max = Math.max(max, Number(m[1])); });
+  return "LOT-" + String(max + 1).padStart(3, "0");
+}
+$("btnNuevoLote").onclick = async () => { try{ await cargarLotes(); }catch(e){} pintarFormNuevo(); vista("nuevo"); };
 $("btnEditarLote").onclick = () => { if(!S.lote) return; pintarFormNuevo(S.lote); vista("nuevo"); $("tituloTop").textContent = "Editar lote " + S.lote.folio; };
 $("btnCancelLote").onclick = () => { S.editLote = null; abrirPanel(); };
 $("nlClonar").onchange = () => {
@@ -464,9 +470,10 @@ $("nlClonar").onchange = () => {
   const r = l.cfg.req || {}; $("nlReqPlaca").checked = true; $("nlReqCaja").checked = true; $("nlReqPatas").checked = true; $("nlReqAmarillo").checked = !!r.amarillo;
 };
 $("btnCrearLote").onclick = async () => {
-  const folio = $("nlFolio").value.trim().toUpperCase(), cliente = $("nlCliente").value.trim(), total = Number($("nlTotal").value) || 0;
+  let folio = $("nlFolio").value.trim().toUpperCase(); const cliente = $("nlCliente").value.trim(), total = Number($("nlTotal").value) || 0;
   const err = $("nlErr"); err.textContent = ""; const L = S.editLote;
-  if(!folio){ err.textContent = "Escribe el folio del reporte (ej. ABB969)."; return; }
+  if(!L && S.folioAuto && folio === S.folioAuto){ try{ await cargarLotes(); }catch(e){} const sig = siguienteFolioLote(); if(sig !== folio){ folio = sig; $("nlFolio").value = sig; } }
+  if(!folio){ err.textContent = "Escribe el folio del lote."; return; }
   if(S.lotes.some(l => l.folio.toUpperCase() === folio && (!L || l.id !== L.id))){ err.textContent = "Ya existe un lote con ese folio."; return; }
   if(!cliente){ err.textContent = "Escribe el cliente."; return; }
   const viejo = L ? L.folio : "", cambiaFolio = !!L && folio !== viejo;
