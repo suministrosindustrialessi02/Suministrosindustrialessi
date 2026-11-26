@@ -979,6 +979,15 @@ async function generarDiagnostico(){
     const d = await r.json();
     const eRaw = d.fields ? d.fields[OF.estado] : null;
     const eActual = (eRaw && eRaw.name) || eRaw || "";
+    // Red de seguridad contra "motor capturado encima de la orden de otro" (MOT-108, 2026-11-25:
+    // el diagnóstico del motor gris se guardó en la orden del dorado). Si la serie escrita en el
+    // formulario no coincide con la de la orden a la que está ligado, se pide confirmar.
+    const serieOrden = String((d.fields && d.fields[OF.serie]) || "").trim().toUpperCase();
+    const serieForm = String(document.getElementById("numSerie").value || "").trim().toUpperCase();
+    if(serieOrden && serieForm && serieOrden !== serieForm &&
+       !confirm(`⚠️ La serie que capturaste (${serieForm}) NO es la de la orden ${document.getElementById("folio").value} (${serieOrden}).\n\nSi es otro motor, cancela y regístralo como equipo nuevo — si continúas, este diagnóstico y sus fotos se guardarán en la orden de ${serieOrden}.\n\n¿Continuar de todos modos?`)){
+      return;
+    }
     if(eActual === "En proceso" &&
               !confirm("Este equipo YA fue autorizado por el cliente.\n\nSi generas el diagnóstico otra vez, la orden regresará a \"En diagnóstico\" y tendrá que autorizarse de nuevo.\n\n¿Generar de todos modos?")){
       return;
@@ -1098,6 +1107,31 @@ async function avanzar(desde){
   mostrarPantalla(desde + 1);
 }
 
+/* Cambio de equipo EN LA MISMA PESTAÑA (2026-11-25, MOT-107 → MOT-108): el formulario no se
+   recargaba y arrastraba fotos, textos y mediciones del equipo anterior; además
+   _bfRecordIdGeneral seguía apuntando al borrador del equipo viejo, así que el autoguardado
+   mezclaba datos/fotos entre los dos. Al ligar el formulario a una orden DISTINTA se limpia
+   todo lo de las pantallas 1-6 (la Pantalla 0 se respeta: es lo que el técnico acaba de capturar). */
+function cambiarOrdenActiva(nuevoId){
+  const previo = ordenRecordId;
+  if(previo && nuevoId && previo !== nuevoId){
+    for(let i = 1; i <= 6; i++){
+      document.querySelectorAll(`#screen${i} input, #screen${i} textarea, #screen${i} select`).forEach(el => {
+        if(el.type === "file" || el.type === "button") return;
+        if(el.type === "checkbox" || el.type === "radio") return; // los defaults los repone restaurarBorradorGeneral
+        el.value = "";
+      });
+      document.querySelectorAll(`#screen${i} .chip.on`).forEach(c => c.classList.remove("on"));
+    }
+    estadoIni = ""; estadoFin = "";
+    _bfRecordIdGeneral = null;
+    _ultimoSyncGeneral = "";
+    ordenRecordId = nuevoId; // antes de repintar, para que el guardado final ya sea de la orden nueva
+    restaurarBorradorGeneral({ ordenRecordId: nuevoId, pantallaActual: 0 });
+  }
+  ordenRecordId = nuevoId;
+}
+
 async function confirmarDatosGenerales(){
   const cliente = document.getElementById("cliente").value.trim();
   const folio = document.getElementById("folio").value.trim();
@@ -1136,7 +1170,7 @@ async function confirmarDatosGenerales(){
     const existente = (data.records || [])[0];
 
     if(existente){
-      ordenRecordId = existente.id;
+      cambiarOrdenActiva(existente.id);
       // Si el equipo estaba "Por llegar" (pre-registrado), ahora llegó → pasa a "Recibido".
       const estadoRaw = existente.fields[OF.estado];
       const estadoActual = (estadoRaw && estadoRaw.name) || estadoRaw || "";
@@ -1175,7 +1209,7 @@ async function confirmarDatosGenerales(){
     const createData = await createResp.json();
     if(!createResp.ok) throw new Error(createData?.error?.message || "Error al crear la orden");
 
-    ordenRecordId = createData.records[0].id;
+    cambiarOrdenActiva(createData.records[0].id);
     registrarParticipacion(ordenRecordId, folio, "General", "Recepción");
     statusEl.classList.add("success");
     statusEl.textContent = `Orden ${folio} creada — estado Recibido.`;
@@ -1245,7 +1279,7 @@ async function buscarEquipoRegistrado(){
       return;
     }
 
-    ordenRecordId = rec.id;
+    cambiarOrdenActiva(rec.id);
 
     // Orden ya autorizada (En proceso / En corrección) o con diagnóstico guardado: antes
     // esta búsqueda solo pre-llenaba la Pantalla 0 y mandaba al técnico a recorrer el
