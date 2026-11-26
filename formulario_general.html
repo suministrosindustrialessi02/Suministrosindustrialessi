@@ -1124,10 +1124,17 @@ function cambiarOrdenActiva(nuevoId){
       document.querySelectorAll(`#screen${i} .chip.on`).forEach(c => c.classList.remove("on"));
     }
     estadoIni = ""; estadoFin = "";
+    _colaFotosBorradorGeneral = []; // fotos pendientes del equipo anterior: no se suben a la orden nueva
+    _syncRepetirGeneral = null;
     _bfRecordIdGeneral = null;
     _ultimoSyncGeneral = "";
     ordenRecordId = nuevoId; // antes de repintar, para que el guardado final ya sea de la orden nueva
-    restaurarBorradorGeneral({ ordenRecordId: nuevoId, pantallaActual: 0 });
+    // _sinGuardar: el campo folio todavía trae el del equipo ANTERIOR; guardar aquí creaba un
+    // borrador "folio viejo + orden nueva" que cruzaba fotos/datos (MOT-078 ↔ MOT-118).
+    const tipoActual = document.getElementById("tipoEquipo").value;
+    restaurarBorradorGeneral({ ordenRecordId: nuevoId, pantallaActual: 0, tipoEquipo: tipoActual,
+      aplicaElectrico: (tipoActual === "Motor" || tipoActual === "Motoreductor" || tipoActual === "Motobomba"),
+      _sinGuardar: true });
   }
   ordenRecordId = nuevoId;
 }
@@ -1157,6 +1164,9 @@ async function confirmarDatosGenerales(){
     [OF.frame]:   document.getElementById("frame").value.trim(),
     [OF.usuario]: document.getElementById("usuario").value.trim(),
   };
+  // El cliente que captura el técnico manda sobre el del pre-registro (DARWIN / MOT-118:
+  // se capturó FAGOR pero la orden se quedó con ABB porque nunca se escribía de vuelta).
+  if(cliente) datosEquipo[OF.cliente] = cliente.toUpperCase();
   const potenciaNum = parseFloat(document.getElementById("potencia").value);
   if(!isNaN(potenciaNum)) datosEquipo[OF.hp] = potenciaNum;
   const voltsNum = parseFloat(document.getElementById("volts").value);
@@ -1485,7 +1495,7 @@ function manejarFotos(inputEl, arr, gridId, prefix){
     procesarFotoNueva(file).then(dataUrl => {
       const foto = { dataUrl, filename: `${prefix}_${base + i + 1}.jpg`, descripcion: "" };
       arr.push(foto);
-      _colaFotosBorradorGeneral.push({ prefix, foto }); // FASE 4: se sube a BORRADORES en cuanto haya registro
+      _colaFotosBorradorGeneral.push({ prefix, foto, orden: ordenRecordId }); // FASE 4 (orden: anti-cruce entre equipos): se sube a BORRADORES en cuanto haya registro
       pendientes--;
       if(pendientes === 0) renderizarGrid(arr, gridId, prefix);
       actualizarIndicadorFotosPendientes();
@@ -1923,7 +1933,11 @@ function restaurarBorradorGeneral(datos){
   setVal("tierraL1_ini", datos.tierraIni?.l1); setVal("tierraL2_ini", datos.tierraIni?.l2); setVal("tierraL3_ini", datos.tierraIni?.l3);
   setVal("tierraL1_fin", datos.tierraFin?.l1); setVal("tierraL2_fin", datos.tierraFin?.l2); setVal("tierraL3_fin", datos.tierraFin?.l3);
 
-  document.getElementById("aplicaElectricoInicial").checked = datos.aplicaElectrico !== false;
+  // Si el borrador no trae el dato, se decide por tipo de equipo (antes: siempre "Aplica",
+  // y así se reactivaban las pruebas eléctricas que el técnico había desactivado).
+  document.getElementById("aplicaElectricoInicial").checked = (typeof datos.aplicaElectrico === "boolean")
+    ? datos.aplicaElectrico
+    : (datos.tipoEquipo === "Motor" || datos.tipoEquipo === "Motoreductor" || datos.tipoEquipo === "Motobomba");
   toggleElectrico("Inicial");
   if(datos.estadoIni) restaurarChipEstado("ini", datos.estadoIni);
   if(datos.estadoFin) restaurarChipEstado("fin", datos.estadoFin);
@@ -1957,7 +1971,7 @@ function restaurarBorradorGeneral(datos){
     // si no, guardarBorradorGeneral() se quedaría apagado en silencio el resto de la sesión.
     _restaurandoBorradorGeneral = false;
   }
-  guardarBorradorGeneral(); // un solo guardado real al final, no uno por cada categoría repintada
+  if(!datos._sinGuardar) guardarBorradorGeneral(); // un solo guardado real al final, no uno por cada categoría repintada
 }
 
 function restaurarResistencia(data, sufijo){
@@ -2604,8 +2618,16 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
   _syncEnVueloGeneral = true;
 
   try{
-    if(!_bfRecordIdGeneral){
-      _bfRecordIdGeneral = await resolverBorradorGeneral(datos.ordenRecordId, folio);
+    // Anti-cruce: este snapshot es de UNA orden. Si el técnico ya cambió de equipo, no se
+    // escribe nada (antes un sync en vuelo dejaba _bfRecordIdGeneral apuntando al borrador
+    // del equipo anterior y las fotos nuevas se subían ahí).
+    const ordenDelSnapshot = datos.ordenRecordId || null;
+    if(ordenDelSnapshot !== (ordenRecordId || null)) return;
+    let bfId = _bfRecordIdGeneral;
+    if(!bfId){
+      bfId = await resolverBorradorGeneral(ordenDelSnapshot, folio);
+      if(ordenDelSnapshot !== (ordenRecordId || null)) return;
+      _bfRecordIdGeneral = bfId;
     }
 
     if(_bfRecordIdGeneral){
@@ -2621,7 +2643,7 @@ async function sincronizarProgresoBorradorGeneralAT(datos){
         body: JSON.stringify({ records:[{ fields: campos }] })
       });
       const cd = await crea.json();
-      if(cd.records?.[0]) _bfRecordIdGeneral = cd.records[0].id;
+      if(cd.records?.[0] && ordenDelSnapshot === (ordenRecordId || null)) _bfRecordIdGeneral = cd.records[0].id;
     }
     _ultimoSyncGeneral = firma;
   } catch(e){ /* fallo silencioso — no interrumpir al técnico */ }
@@ -2719,11 +2741,15 @@ function ordenarBorradoresPorFrescura(records){
 async function procesarColaFotosBorradorGeneral(){
   if(_procesandoColaFotosGeneral || !_bfRecordIdGeneral) return;
   _procesandoColaFotosGeneral = true;
+  const bfAlInicio = _bfRecordIdGeneral;
   try{
     while(_colaFotosBorradorGeneral.length > 0){
+      if(_bfRecordIdGeneral !== bfAlInicio) break; // cambió de equipo a media cola
       const item = _colaFotosBorradorGeneral[0];
       const fieldId = BF_FOTOS_GENERAL[item.prefix];
-      if(!fieldId || item.foto._subidoBorrador){
+      // Foto tomada para OTRA orden (se cambió de equipo antes de que subiera): se descarta,
+      // nunca se sube al borrador del equipo actual.
+      if(!fieldId || item.foto._subidoBorrador || (item.orden && item.orden !== ordenRecordId)){
         _colaFotosBorradorGeneral.shift();
         continue;
       }
@@ -3064,6 +3090,22 @@ async function enviarReporteGeneral(){
 
   try{
     const folio = document.getElementById("folio").value.trim();
+    // Candado anti-cruce (MOT-078 ↔ MOT-118): el reporte solo se guarda si la orden ligada
+    // es de verdad la del folio en pantalla. Si no, se detiene antes de subir una sola foto.
+    try{
+      const rv = await fetch(`/.netlify/functions/airtable?table=${TABLA_ORDENES}&recordId=${ordenRecordId}&returnFieldsByFieldId=true`);
+      if(rv.ok){
+        const dv = await rv.json();
+        const folioOrden = String((dv.fields && dv.fields[OF.folio]) || "").trim().toUpperCase();
+        if(folioOrden && folioOrden !== folio.toUpperCase()){
+          alert(`⚠️ Este reporte es del folio ${folio}, pero el formulario está ligado a la orden ${folioOrden}.\n\nNo se guardó nada para no mezclar fotos entre equipos. Cierra esta pestaña y entra de nuevo con "Continuar" desde el equipo correcto.`);
+          btn.disabled = false;
+          statusEl.classList.add("error");
+          statusEl.textContent = "Reporte detenido: el folio no coincide con la orden.";
+          return;
+        }
+      }
+    }catch(e){}
     const gv = id => document.getElementById(id).value;
     const pruebasElectricas = {
       numLineas: document.getElementById("numLineas").value,
@@ -3296,6 +3338,14 @@ mostrarPantalla(0);
     let datos = null;
     try{ datos = await buscarEnDBGeneral(folioUrl); } catch(e){}
     if(datos && datos.reporteEnviado) datos = null;
+    // Anti-cruce: el borrador local solo vale si es de ESTE folio y de ESTA orden. Un borrador
+    // guardado con el folio de un equipo y la orden de otro traía fotos del equipo equivocado.
+    if(datos && ((datos.folio && String(datos.folio).trim() !== folioUrl) ||
+                 (ordenRec && datos.ordenRecordId && datos.ordenRecordId !== ordenRec.id))){
+      console.warn("Borrador local descartado: no corresponde a", folioUrl);
+      datos = null;
+    }
+    if(datos && ordenRec) datos.ordenRecordId = ordenRec.id;
 
     if(datos){
       // Hay borrador local en este dispositivo. Antes se restauraba tal cual y ahí
