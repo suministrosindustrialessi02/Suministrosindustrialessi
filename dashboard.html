@@ -4440,18 +4440,6 @@ async function verDetalleGeneral(id, identificador){
       `;
     }
 
-    // Orden de Trabajo (OT): se genera desde el diagnóstico y se firma antes de intervenir el equipo.
-    if(of["fldqrQ3SL3P4N06RJ"]){
-      const stOT = await estadoOTOrden(id);
-      const etiqueta = stOT
-        ? `<span style="font-weight:bold;color:${stOT==="Firmada"||stOT==="Cerrada"||stOT==="No aplica"?"#1b7a34":"#7a5b00"}">${esc(stOT)}</span>`
-        : `<span style="font-weight:bold;color:#991b1b">sin generar</span>`;
-      document.getElementById("detalleGeneralAcciones").insertAdjacentHTML("beforeend", `
-        <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;">
-          <a class="btn-line" style="margin:0;flex:1;min-width:140px;text-align:center;text-decoration:none;" href="orden_trabajo.html?id=${encodeURIComponent(id)}" target="_blank">📋 Orden de Trabajo</a>
-          <div style="font-size:0.82rem;color:var(--gris-texto);flex:1;min-width:140px;">OT: ${etiqueta}</div>
-        </div>`);
-    }
   } catch(e){
     document.getElementById("detalleGeneralBody").innerHTML = `
       <div style="text-align:center;padding:40px;color:#991b1b">
@@ -4660,11 +4648,6 @@ async function estadoOTOrden(ordenId){
 
 async function autorizarDiagnostico(id, autorizado){
   if(!_sesion || (_sesion.rol !== "Admin" && _sesion.rol !== "Direccion")) return;
-  if(autorizado){
-    const stOT = await estadoOTOrden(id);
-    if(stOT !== "Firmada" && stOT !== "Cerrada" && stOT !== "No aplica" &&
-       !confirm("Esta orden todavía NO tiene una Orden de Trabajo firmada.\n\nEl técnico no podrá intervenir el equipo hasta que se firme (botón \"Orden de Trabajo\" del detalle).\n\n¿Autorizar de todos modos?")) return;
-  }
   const nuevoEstado = autorizado ? "En proceso" : "No autorizado";
   const msg = autorizado
     ? "¿Confirmas que el cliente autorizó continuar con el servicio?"
@@ -8206,7 +8189,6 @@ function renderChartSemanal(ordenes){
 window.addEventListener("DOMContentLoaded", () => {
   if(!_sesionValida) return; // sin sesión válida, no se debe pedir ningún dato aunque la redirección ya esté programada
   mostrarSaludo();
-  avisoOTPendientes();
   aplicarRestriccionesRol();
   cambiarVistaOrdenes(vistaOrdenes);
   cargarDatos();

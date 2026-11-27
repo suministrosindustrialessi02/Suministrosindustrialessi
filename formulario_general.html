@@ -1054,6 +1054,7 @@ async function generarDiagnostico(){
 const TABLA_OT = "tblh03YT3xBUM7ThC";
 const OT_DESDE = "2026-11-20";
 async function otBloquea(){
+  return false; // Orden de Trabajo desactivada (2026-11-27, a pedido de Andrea): el técnico ya no espera OT firmada
   if(!ordenRecordId) return false;
   try{
     const f = encodeURIComponent(`AND({ordenId}="${ordenRecordId}",{estado}!="Obsoleta")`);
